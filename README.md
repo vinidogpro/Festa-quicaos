@@ -1,27 +1,41 @@
 # Festas Dashboard
 
-Plataforma de gestao de eventos em Next.js para organizar multiplas festas ao longo do ano.
+Plataforma de gestao de festas com Next.js + Supabase, suporte a multiplos eventos, autenticacao, permissoes e colaboracao operacional.
 
-## Stack
+## O que esta implementado
 
-- Next.js 14 + React 18
-- Tailwind CSS
-- Recharts
-- Base preparada para futura integracao com Supabase
+- login real com e-mail e senha via Supabase
+- protecao de rotas privadas com middleware
+- papeis `admin`, `organizer` e `seller`
+- eventos reais no banco
+- dashboard por festa alimentado por dados do Supabase
+- criacao de festa por admin
+- cadastro e edicao de vendas
+- cadastro de despesas
+- cadastro e atualizacao de tarefas
+- cadastro de comunicados
+- ranking, comparativos e indicadores calculados a partir das vendas
 
-## Fluxo atual
+## Estrutura principal
 
-- `/` e `/festas`: visao geral com festa atual, proximas festas, festas passadas e comparacao entre eventos
-- `/festas/[id]`: dashboard individual de cada festa
-- `/historico`: resumo visual das festas passadas
+- `app/`: rotas e paginas
+- `components/`: interface e formularios operacionais
+- `lib/actions/`: server actions de auth e mutacoes
+- `lib/supabase/`: clients, tipos e queries
+- `supabase/schema.sql`: estrutura do banco e politicas RLS
+- `supabase/seed.sql`: dados iniciais para testes
 
-## Estrutura
+## Configuracao do Supabase
 
-- `app/`: rotas do App Router
-- `components/`: componentes reutilizaveis de plataforma, eventos e paineis
-- `lib/types.ts`: contratos centrais de eventos, vendas, financeiro e tarefas
-- `lib/mock-data.ts`: mocks organizados por evento
-- `lib/supabase/queries.ts`: camada de acesso preparada para trocar mocks por banco no futuro
+1. Crie um projeto no Supabase.
+2. No SQL Editor, execute o arquivo `supabase/schema.sql`.
+3. Depois execute `supabase/seed.sql`.
+4. Crie um `.env.local` com:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+```
 
 ## Como rodar
 
@@ -30,9 +44,26 @@ npm install
 npm run dev
 ```
 
+## Usuarios de teste do seed
+
+- `admin@festas.app` / `Admin123!`
+- `organizador@festas.app` / `Organizador123!`
+- `vendedor@festas.app` / `Vendedor123!`
+
+## Regras de permissao
+
+- `admin`: cria festas e edita tudo
+- `organizer`: edita vendas, tarefas e comunicados
+- `seller`: visualiza os eventos liberados para ele e edita apenas as proprias vendas
+
+## Validacao local
+
+- `npm run lint`
+- `npm run build`
+
 ## Proxima etapa sugerida
 
-- autenticar usuarios e mapear roles por evento
-- mover `lib/mock-data.ts` para tabelas reais no Supabase
-- adicionar edicao de vendas, despesas, tarefas e comunicados
-- conectar realtime por evento
+- subscriptions em tempo real por evento
+- edicao inline mais rica com feedback visual
+- upload de anexos/comprovantes
+- convites de usuarios e atribuicao de papeis via UI

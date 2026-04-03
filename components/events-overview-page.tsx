@@ -1,10 +1,12 @@
+import { CreateEventForm } from "@/components/forms/create-event-form";
 import { ComparisonSection } from "@/components/comparison-section";
 import { EventCard } from "@/components/event-card";
 import { PlatformHeader } from "@/components/platform-header";
 import { SectionCard } from "@/components/ui/section-card";
-import { EventComparisonSnapshot, EventSummary } from "@/lib/types";
+import { EventComparisonSnapshot, EventSummary, ViewerProfile } from "@/lib/types";
 
 interface EventsOverviewPageProps {
+  viewer: ViewerProfile;
   currentEvents: EventSummary[];
   upcomingEvents: EventSummary[];
   pastEvents: EventSummary[];
@@ -12,6 +14,7 @@ interface EventsOverviewPageProps {
 }
 
 export function EventsOverviewPage({
+  viewer,
   currentEvents,
   upcomingEvents,
   pastEvents,
@@ -20,7 +23,20 @@ export function EventsOverviewPage({
   return (
     <main className="min-h-screen">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-4 pb-12 sm:px-6 lg:px-8">
-        <PlatformHeader />
+        <PlatformHeader viewer={viewer} />
+
+        <SectionCard
+          title="Operacao"
+          description="Crie novas festas, acompanhe o calendario e mantenha o time trabalhando na mesma plataforma."
+        >
+          {viewer.role === "admin" ? (
+            <CreateEventForm viewer={viewer} />
+          ) : (
+            <p className="text-sm leading-6 text-slate-500">
+              Sua conta esta pronta para colaborar nos eventos liberados para o seu papel atual.
+            </p>
+          )}
+        </SectionCard>
 
         <SectionCard
           title="Festa atual"

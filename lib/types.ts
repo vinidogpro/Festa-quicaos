@@ -1,13 +1,24 @@
-export type UserRole = "admin" | "member";
+export type UserRole = "admin" | "organizer" | "seller";
 export type EventStatus = "current" | "upcoming" | "past";
 export type PaymentStatus = "paid" | "pending";
 export type TaskStatus = "pending" | "in-progress" | "done";
 
-export interface PartyUser {
+export interface ViewerProfile {
   id: string;
+  email: string;
   name: string;
   avatar: string;
   role: UserRole;
+}
+
+export interface ViewerPermissions {
+  canCreateEvents: boolean;
+  canManageEvent: boolean;
+  canManageSales: boolean;
+  canManageFinance: boolean;
+  canManageTasks: boolean;
+  canManageAnnouncements: boolean;
+  sellerId?: string;
 }
 
 export interface SummaryMetric {
@@ -18,8 +29,14 @@ export interface SummaryMetric {
   isCurrency?: boolean;
 }
 
+export interface SellerOption {
+  id: string;
+  name: string;
+}
+
 export interface SellerRanking {
   id: string;
+  sellerId?: string;
   name: string;
   ticketsSold: number;
   revenue: number;
@@ -28,11 +45,17 @@ export interface SellerRanking {
 
 export interface SalesRecord {
   id: string;
+  sellerId: string;
   seller: string;
   received: number;
   sold: number;
   remaining: number;
   paymentStatus: PaymentStatus;
+  unitPrice: number;
+  soldAt: string;
+  notes?: string;
+  amount: number;
+  isOwnedByViewer: boolean;
 }
 
 export interface Expense {
@@ -40,6 +63,7 @@ export interface Expense {
   title: string;
   amount: number;
   category: string;
+  incurredAt: string;
 }
 
 export interface TransferPending {
@@ -52,6 +76,7 @@ export interface TaskItem {
   id: string;
   title: string;
   owner: string;
+  ownerProfileId?: string;
   status: TaskStatus;
   dueLabel: string;
 }
@@ -88,7 +113,8 @@ export interface EventSummary {
 }
 
 export interface PartyEventDetail extends EventSummary {
-  user: PartyUser;
+  viewer: ViewerProfile;
+  permissions: ViewerPermissions;
   activeSellers: number;
   summary: SummaryMetric[];
   ranking: SellerRanking[];
@@ -99,6 +125,8 @@ export interface PartyEventDetail extends EventSummary {
   announcements: Announcement[];
   salesSeries: SalesSeries[];
   sellerContribution: SellerContribution[];
+  sellerOptions: SellerOption[];
+  participantOptions: SellerOption[];
 }
 
 export interface EventComparisonSnapshot {

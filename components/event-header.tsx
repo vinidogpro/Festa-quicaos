@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, Download, MapPin } from "lucide-react";
 import { EventStatusBadge } from "@/components/event-status-badge";
+import { SignOutButton } from "@/components/sign-out-button";
 import { PartyEventDetail } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
@@ -35,6 +36,9 @@ export function EventHeader({ event }: { event: PartyEventDetail }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <div className="hidden rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600 sm:block">
+            {event.viewer.name} • {event.viewer.role}
+          </div>
           <Link
             href={event.status === "past" ? "/historico" : "/festas"}
             className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
@@ -45,6 +49,7 @@ export function EventHeader({ event }: { event: PartyEventDetail }) {
             <Download className="h-4 w-4" />
             Exportar resumo
           </button>
+          <SignOutButton />
         </div>
       </div>
     </header>

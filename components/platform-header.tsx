@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { CalendarClock, Sparkles } from "lucide-react";
+import { SignOutButton } from "@/components/sign-out-button";
+import { ViewerProfile } from "@/lib/types";
 
-export function PlatformHeader() {
+export function PlatformHeader({ viewer }: { viewer: ViewerProfile }) {
   return (
     <header className="rounded-[28px] border border-white/60 bg-white/82 p-5 shadow-soft backdrop-blur sm:p-6">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -19,6 +21,9 @@ export function PlatformHeader() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <div className="hidden rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600 sm:block">
+            {viewer.name} • {viewer.role}
+          </div>
           <Link
             href="/festas"
             className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
@@ -32,6 +37,7 @@ export function PlatformHeader() {
           >
             Historico completo
           </Link>
+          <SignOutButton />
         </div>
       </div>
     </header>

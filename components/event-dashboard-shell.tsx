@@ -4,7 +4,6 @@ import { useState } from "react";
 import {
   Bell,
   ChartSpline,
-  ClipboardList,
   Crown,
   DollarSign,
   LayoutDashboard,
@@ -112,17 +111,39 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
             )}
 
             {activeTab === "overview" && <DashboardOverview data={event} />}
-            {activeTab === "sales" && <SalesControlPanel sales={event.salesControl} />}
+            {activeTab === "sales" && (
+              <SalesControlPanel
+                eventId={event.id}
+                sales={event.salesControl}
+                permissions={event.permissions}
+                sellerOptions={event.sellerOptions}
+              />
+            )}
             {activeTab === "finance" && (
               <FinancePanel
+                eventId={event.id}
+                permissions={event.permissions}
                 totalRevenue={event.totalRevenue}
                 estimatedProfit={event.estimatedProfit}
                 expenses={event.expenses}
                 transfersPending={event.transfersPending}
               />
             )}
-            {activeTab === "tasks" && <TasksPanel tasks={event.tasks} />}
-            {activeTab === "announcements" && <AnnouncementPanel announcements={event.announcements} />}
+            {activeTab === "tasks" && (
+              <TasksPanel
+                eventId={event.id}
+                tasks={event.tasks}
+                participantOptions={event.participantOptions}
+                permissions={event.permissions}
+              />
+            )}
+            {activeTab === "announcements" && (
+              <AnnouncementPanel
+                eventId={event.id}
+                announcements={event.announcements}
+                permissions={event.permissions}
+              />
+            )}
             {activeTab === "insights" && (
               <InsightsPanel
                 salesSeries={event.salesSeries}
@@ -132,19 +153,38 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
 
             {activeTab === "overview" && (
               <>
-                <SalesControlPanel sales={event.salesControl.slice(0, 4)} compact />
+                <SalesControlPanel
+                  eventId={event.id}
+                  sales={event.salesControl.slice(0, 4)}
+                  permissions={event.permissions}
+                  sellerOptions={event.sellerOptions}
+                  compact
+                />
                 <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
                   <FinancePanel
+                    eventId={event.id}
+                    permissions={event.permissions}
                     totalRevenue={event.totalRevenue}
                     estimatedProfit={event.estimatedProfit}
                     expenses={event.expenses}
                     transfersPending={event.transfersPending}
                     compact
                   />
-                  <TasksPanel tasks={event.tasks} compact />
+                  <TasksPanel
+                    eventId={event.id}
+                    tasks={event.tasks}
+                    participantOptions={event.participantOptions}
+                    permissions={event.permissions}
+                    compact
+                  />
                 </div>
                 <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-                  <AnnouncementPanel announcements={event.announcements} compact />
+                  <AnnouncementPanel
+                    eventId={event.id}
+                    announcements={event.announcements}
+                    permissions={event.permissions}
+                    compact
+                  />
                   <InsightsPanel
                     salesSeries={event.salesSeries}
                     sellerContribution={event.sellerContribution}
