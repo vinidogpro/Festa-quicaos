@@ -15,7 +15,7 @@ interface MobileTabBarProps {
 export function MobileTabBar({ items, activeTab, onSelect }: MobileTabBarProps) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2 py-2 backdrop-blur xl:hidden">
-      <div className="mx-auto grid max-w-3xl grid-cols-4 gap-2 sm:grid-cols-7">
+      <div className="mx-auto grid max-w-3xl grid-cols-4 gap-2 sm:grid-cols-8">
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;

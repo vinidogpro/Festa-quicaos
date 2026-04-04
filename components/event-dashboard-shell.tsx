@@ -8,7 +8,8 @@ import {
   DollarSign,
   LayoutDashboard,
   ListTodo,
-  Ticket
+  Ticket,
+  Users
 } from "lucide-react";
 import Link from "next/link";
 import { EventHeader } from "@/components/event-header";
@@ -20,23 +21,28 @@ import { InsightsPanel } from "@/components/panels/insights-panel";
 import { RankingPanel } from "@/components/panels/ranking-panel";
 import { SalesControlPanel } from "@/components/panels/sales-control-panel";
 import { TasksPanel } from "@/components/panels/tasks-panel";
+import { TeamPanel } from "@/components/panels/team-panel";
 import { PartyEventDetail } from "@/lib/types";
 
-const navItems = [
+const baseNavItems = [
   { id: "overview", label: "Dashboard", icon: LayoutDashboard },
   { id: "ranking", label: "Ranking", icon: Crown },
   { id: "sales", label: "Vendas", icon: Ticket },
+  { id: "team", label: "Equipe", icon: Users },
   { id: "finance", label: "Financeiro", icon: DollarSign },
   { id: "tasks", label: "Tarefas", icon: ListTodo },
   { id: "announcements", label: "Comunicados", icon: Bell },
   { id: "insights", label: "Insights", icon: ChartSpline }
 ] as const;
 
-type TabId = (typeof navItems)[number]["id"];
+type TabId = (typeof baseNavItems)[number]["id"];
 
 export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [period, setPeriod] = useState<"week" | "total">("week");
+  const navItems = event.permissions.canManageTeam
+    ? baseNavItems
+    : baseNavItems.filter((item) => item.id !== "team");
 
   return (
     <main className="min-h-screen">
@@ -117,6 +123,14 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                 sales={event.salesControl}
                 permissions={event.permissions}
                 sellerOptions={event.sellerOptions}
+              />
+            )}
+            {activeTab === "team" && (
+              <TeamPanel
+                eventId={event.id}
+                permissions={event.permissions}
+                teamMembers={event.teamMembers}
+                availableUsers={event.availableUsers}
               />
             )}
             {activeTab === "finance" && (

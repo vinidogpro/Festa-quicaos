@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { TeamActionState } from "@/lib/actions/action-state";
 import { Database } from "@/lib/supabase/database.types";
 import { createSupabaseActionClient } from "@/lib/supabase/server";
 
@@ -57,6 +58,26 @@ function assertHost(profile: ProfileRow) {
 
 function canManageEvent(profile: ProfileRow, membership: EventMembershipRow | null) {
   return profile.role === "host" || membership?.role === "host" || membership?.role === "organizer";
+}
+
+function ensureCanManageEvent(profile: ProfileRow, membership: EventMembershipRow | null) {
+  if (!canManageEvent(profile, membership)) {
+    throw new Error("Voce nao tem permissao para gerenciar a equipe desta festa.");
+  }
+}
+
+async function countEventHosts(supabase: any, eventId: string) {
+  const { count, error } = await supabase
+    .from("event_memberships")
+    .select("id", { count: "exact", head: true })
+    .eq("event_id", eventId)
+    .eq("role", "host");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return count ?? 0;
 }
 
 export async function createEventAction(formData: FormData) {
@@ -333,4 +354,202 @@ export async function createAnnouncementAction(formData: FormData) {
   }
 
   revalidatePath(`/festas/${eventSlug}`);
+}
+
+export async function addEventMemberAction(
+  _prevState: TeamActionState,
+  formData: FormData
+): Promise<TeamActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const event = await getEventRowBySlug(eventSlug);
+    const membership = await getMembership(supabase, event.id, profile.id);
+
+    ensureCanManageEvent(profile, membership);
+
+    const userId = String(formData.get("userId") ?? "").trim();
+    const role = String(formData.get("role") ?? "seller") as EventMembershipRow["role"];
+    const ticketQuota = Number(formData.get("ticketQuota") ?? 0);
+
+    if (!userId) {
+      return {
+        status: "error",
+        message: "Selecione um usuario para adicionar."
+      };
+    }
+
+    const { data: targetProfile, error: targetProfileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (targetProfileError) {
+      throw new Error(targetProfileError.message);
+    }
+
+    if (!targetProfile) {
+      return {
+        status: "error",
+        message: "Usuario nao encontrado na base."
+      };
+    }
+
+    const { error } = await supabase.from("event_memberships").insert({
+      event_id: event.id,
+      user_id: userId,
+      role,
+      ticket_quota: Math.max(ticketQuota, 0)
+    });
+
+    if (error) {
+      if (error.code === "23505") {
+        return {
+          status: "error",
+          message: "Esse usuario ja faz parte desta festa."
+        };
+      }
+
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Membro adicionado a equipe com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel adicionar o membro."
+    };
+  }
+}
+
+export async function updateEventMemberRoleAction(
+  _prevState: TeamActionState,
+  formData: FormData
+): Promise<TeamActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const event = await getEventRowBySlug(eventSlug);
+    const membership = await getMembership(supabase, event.id, profile.id);
+
+    ensureCanManageEvent(profile, membership);
+
+    const membershipId = String(formData.get("membershipId") ?? "").trim();
+    const nextRole = String(formData.get("role") ?? "seller") as EventMembershipRow["role"];
+    const ticketQuota = Number(formData.get("ticketQuota") ?? 0);
+
+    const { data: targetMembership, error: targetError } = await supabase
+      .from("event_memberships")
+      .select("*")
+      .eq("id", membershipId)
+      .eq("event_id", event.id)
+      .single();
+
+    if (targetError || !targetMembership) {
+      return {
+        status: "error",
+        message: "Membro da equipe nao encontrado."
+      };
+    }
+
+    if (targetMembership.role === "host" && nextRole !== "host") {
+      const totalHosts = await countEventHosts(supabase, event.id);
+
+      if (totalHosts <= 1) {
+        return {
+          status: "error",
+          message: "Essa festa precisa manter pelo menos um host."
+        };
+      }
+    }
+
+    const { error } = await supabase
+      .from("event_memberships")
+      .update({
+        role: nextRole,
+        ticket_quota: Math.max(ticketQuota, 0)
+      })
+      .eq("id", membershipId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Cargo atualizado com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel atualizar o cargo."
+    };
+  }
+}
+
+export async function removeEventMemberAction(
+  _prevState: TeamActionState,
+  formData: FormData
+): Promise<TeamActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const event = await getEventRowBySlug(eventSlug);
+    const membership = await getMembership(supabase, event.id, profile.id);
+
+    ensureCanManageEvent(profile, membership);
+
+    const membershipId = String(formData.get("membershipId") ?? "").trim();
+
+    const { data: targetMembership, error: targetError } = await supabase
+      .from("event_memberships")
+      .select("*")
+      .eq("id", membershipId)
+      .eq("event_id", event.id)
+      .single();
+
+    if (targetError || !targetMembership) {
+      return {
+        status: "error",
+        message: "Membro da equipe nao encontrado."
+      };
+    }
+
+    if (targetMembership.role === "host") {
+      const totalHosts = await countEventHosts(supabase, event.id);
+
+      if (totalHosts <= 1) {
+        return {
+          status: "error",
+          message: "Essa festa precisa manter pelo menos um host."
+        };
+      }
+    }
+
+    const { error } = await supabase.from("event_memberships").delete().eq("id", membershipId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Membro removido da equipe."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel remover o membro."
+    };
+  }
 }

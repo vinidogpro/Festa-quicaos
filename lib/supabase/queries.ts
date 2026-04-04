@@ -13,7 +13,9 @@ import {
   SellerOption,
   SellerRanking,
   TaskItem,
+  TeamMember,
   TransferPending,
+  UserDirectoryOption,
   ViewerProfile
 } from "@/lib/types";
 
@@ -264,6 +266,27 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     sellerUserId: eventRole === "seller" ? context.viewer.id : undefined
   };
 
+  let availableUsers: UserDirectoryOption[] = [];
+
+  if (permissions.canManageTeam) {
+    const { data: allProfiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("full_name", { ascending: true });
+
+    if (profilesError) {
+      throw profilesError;
+    }
+
+    const memberIds = new Set(membershipRows.map((membership) => membership.user_id));
+    availableUsers = ((allProfiles ?? []) as ProfileRow[])
+      .filter((profile) => !memberIds.has(profile.id))
+      .map((profile) => ({
+        id: profile.id,
+        name: profile.full_name
+      }));
+  }
+
   const summary = buildSummaryFromRows({
     event,
     sales: salesRows,
@@ -380,6 +403,16 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     ).values()
   );
 
+  const teamMembers: TeamMember[] = membershipRows.map((membership) => ({
+    id: membership.id,
+    userId: membership.user_id,
+    name: profilesMap.get(membership.user_id)?.full_name ?? "Membro",
+    role: membership.role,
+    isActive: membership.is_active,
+    ticketQuota: membership.ticket_quota,
+    isCurrentUser: membership.user_id === context.viewer.id
+  }));
+
   return {
     ...summary,
     viewer: context.viewer,
@@ -421,7 +454,9 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     salesSeries,
     sellerContribution,
     sellerOptions,
-    participantOptions
+    participantOptions,
+    teamMembers,
+    availableUsers
   };
 }
 

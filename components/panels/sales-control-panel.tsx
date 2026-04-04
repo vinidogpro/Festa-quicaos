@@ -122,7 +122,7 @@ export function SalesControlPanel({
                     <div>
                       <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Venda</p>
                       <p className="mt-2 font-medium text-slate-900">
-                        {row.sold} • {formatCurrency(row.amount)}
+                        {row.sold} | {formatCurrency(row.amount)}
                       </p>
                     </div>
                     <div>

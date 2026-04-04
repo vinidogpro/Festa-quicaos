@@ -9,6 +9,7 @@ export function buildPermissions(globalRole: UserRole, eventRole?: EventRole): V
     eventRole,
     canCreateEvents: isHost,
     canManageEvent: isHost || eventRole === "host",
+    canManageTeam: isHost || eventRole === "host" || isOrganizer,
     canManageSales: isHost || eventRole === "host" || isOrganizer || isSeller,
     canManageFinance: isHost || eventRole === "host",
     canManageTasks: isHost || eventRole === "host" || isOrganizer,

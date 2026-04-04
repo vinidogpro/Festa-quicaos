@@ -20,6 +20,7 @@ Plataforma de gestao de festas com Next.js + Supabase, autenticacao fechada e pe
 - `profiles`: perfil do usuario autenticado com cargo global
 - `event_memberships`: vinculo do usuario com uma festa especifica
 - `sales`: vendas ligadas diretamente ao `seller_user_id`
+- a gestao de membros por festa agora acontece pela aba `Equipe` dentro de cada evento
 
 ## SQL
 
@@ -55,17 +56,14 @@ set
   role = excluded.role;
 ```
 
-5. Rode um SQL como este para vincular o usuario a uma festa:
+5. Depois disso, faca login com um `host` ou `organizer` e use a aba `Equipe` da festa para:
 
-```sql
-insert into public.event_memberships (event_id, user_id, role, ticket_quota, is_active)
-values ('UUID_DO_EVENTO', 'UUID_DO_USUARIO', 'seller', 50, true)
-on conflict (event_id, user_id) do update
-set
-  role = excluded.role,
-  ticket_quota = excluded.ticket_quota,
-  is_active = excluded.is_active;
-```
+- adicionar o usuario ao evento
+- definir `host`, `organizer` ou `seller`
+- ajustar a cota de ingressos do vendedor
+- remover membros da festa
+
+Voce nao precisa mais inserir ou atualizar `event_memberships` manualmente por SQL para o uso do sistema.
 
 ## Auth no painel do Supabase
 

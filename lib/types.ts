@@ -16,6 +16,7 @@ export interface ViewerPermissions {
   eventRole?: EventRole;
   canCreateEvents: boolean;
   canManageEvent: boolean;
+  canManageTeam: boolean;
   canManageSales: boolean;
   canManageFinance: boolean;
   canManageTasks: boolean;
@@ -33,6 +34,21 @@ export interface SummaryMetric {
 }
 
 export interface SellerOption {
+  id: string;
+  name: string;
+}
+
+export interface TeamMember {
+  id: string;
+  userId: string;
+  name: string;
+  role: EventRole;
+  isActive: boolean;
+  ticketQuota: number;
+  isCurrentUser: boolean;
+}
+
+export interface UserDirectoryOption {
   id: string;
   name: string;
 }
@@ -130,6 +146,8 @@ export interface PartyEventDetail extends EventSummary {
   sellerContribution: SellerContribution[];
   sellerOptions: SellerOption[];
   participantOptions: SellerOption[];
+  teamMembers: TeamMember[];
+  availableUsers: UserDirectoryOption[];
 }
 
 export interface EventComparisonSnapshot {

@@ -176,7 +176,24 @@ alter table public.announcements enable row level security;
 drop policy if exists "profiles_select_self_or_host" on public.profiles;
 create policy "profiles_select_self_or_host"
   on public.profiles for select
-  using (id = auth.uid() or public.current_global_role() = 'host');
+  using (
+    id = auth.uid()
+    or public.current_global_role() = 'host'
+    or exists (
+      select 1
+      from public.event_memberships as viewer_membership
+      where viewer_membership.user_id = auth.uid()
+        and viewer_membership.role in ('host', 'organizer')
+    )
+    or exists (
+      select 1
+      from public.event_memberships as viewer_membership
+      join public.event_memberships as target_membership
+        on target_membership.event_id = viewer_membership.event_id
+      where viewer_membership.user_id = auth.uid()
+        and target_membership.user_id = profiles.id
+    )
+  );
 
 drop policy if exists "profiles_update_host" on public.profiles;
 create policy "profiles_update_host"
@@ -201,10 +218,11 @@ create policy "event_memberships_select_accessible"
   using (public.can_access_event(event_id));
 
 drop policy if exists "event_memberships_write_host_only" on public.event_memberships;
-create policy "event_memberships_write_host_only"
+drop policy if exists "event_memberships_write_managers" on public.event_memberships;
+create policy "event_memberships_write_managers"
   on public.event_memberships for all
-  using (public.current_global_role() = 'host')
-  with check (public.current_global_role() = 'host');
+  using (public.can_manage_event(event_id))
+  with check (public.can_manage_event(event_id));
 
 drop policy if exists "sales_select_accessible" on public.sales;
 create policy "sales_select_accessible"
