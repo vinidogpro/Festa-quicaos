@@ -39,13 +39,14 @@ function FinanceMetricCard({
   cardClassName: string;
 }) {
   return (
-    <div className={`min-w-0 rounded-[24px] p-5 ${cardClassName}`}>
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <p className="min-w-0 text-sm leading-5">{label}</p>
-        <div className="shrink-0">{icon}</div>
+    <div className={`min-w-0 rounded-[24px] p-5 sm:min-h-[168px] ${cardClassName}`}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm leading-5">{label}</p>
+        <div className="mt-0.5 shrink-0 opacity-80">{icon}</div>
       </div>
       <p
-        className={`mt-3 min-w-0 font-[var(--font-heading)] font-bold tracking-tight [overflow-wrap:anywhere] ${valueClassName}`}
+        className={`mt-8 overflow-hidden text-ellipsis whitespace-nowrap font-[var(--font-heading)] font-bold tracking-tight ${valueClassName}`}
+        title={String(value)}
       >
         {value}
       </p>
@@ -188,7 +189,7 @@ export function FinancePanel({
         <div className="grid gap-6">
           <div
             className={`grid gap-4 ${
-              compact ? "sm:grid-cols-2" : "sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
+              compact ? "sm:grid-cols-2" : "md:grid-cols-2 xl:grid-cols-3"
             }`}
           >
             <FinanceMetricCard
@@ -196,7 +197,7 @@ export function FinancePanel({
               value={formatCurrency(totalRevenue)}
               icon={<CircleDollarSign className="h-5 w-5 text-white/60" />}
               cardClassName="bg-slate-950 text-white"
-              valueClassName="text-[clamp(1.7rem,2.6vw,2.35rem)] leading-[1.05] text-white"
+              valueClassName="text-[clamp(1.9rem,3vw,2.8rem)] leading-none text-white"
             />
 
             <FinanceMetricCard
@@ -204,7 +205,7 @@ export function FinancePanel({
               value={formatCurrency(totalExpenses)}
               icon={<ReceiptText className="h-5 w-5 text-slate-400" />}
               cardClassName="border border-slate-200 bg-white text-slate-500"
-              valueClassName="text-[clamp(1.7rem,2.5vw,2.25rem)] leading-[1.05] text-slate-950"
+              valueClassName="text-[clamp(1.9rem,3vw,2.7rem)] leading-none text-slate-950"
             />
 
             <FinanceMetricCard
@@ -212,7 +213,7 @@ export function FinancePanel({
               value={formatCurrency(estimatedProfit)}
               icon={<Wallet className="h-5 w-5 text-brand-600" />}
               cardClassName="bg-brand-50 text-slate-500"
-              valueClassName="text-[clamp(1.7rem,2.5vw,2.25rem)] leading-[1.05] text-slate-950"
+              valueClassName="text-[clamp(1.9rem,3vw,2.7rem)] leading-none text-slate-950"
             />
 
             <FinanceMetricCard
@@ -220,7 +221,7 @@ export function FinancePanel({
               value={pendingPaymentsCount}
               icon={<ClipboardList className="h-5 w-5 text-amber-600" />}
               cardClassName="border border-amber-200 bg-amber-50 text-amber-800"
-              valueClassName="text-[clamp(1.7rem,2.3vw,2.2rem)] leading-none text-amber-900"
+              valueClassName="text-[clamp(2rem,3vw,2.5rem)] leading-none text-amber-900"
             />
 
             <FinanceMetricCard
@@ -228,7 +229,7 @@ export function FinancePanel({
               value={confirmedPaymentsCount}
               icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
               cardClassName="border border-emerald-200 bg-emerald-50 text-emerald-800"
-              valueClassName="text-[clamp(1.7rem,2.3vw,2.2rem)] leading-none text-emerald-900"
+              valueClassName="text-[clamp(2rem,3vw,2.5rem)] leading-none text-emerald-900"
             />
           </div>
 
