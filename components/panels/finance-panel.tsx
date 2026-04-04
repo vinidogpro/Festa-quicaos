@@ -25,6 +25,34 @@ interface FinancePanelProps {
   compact?: boolean;
 }
 
+function FinanceMetricCard({
+  label,
+  value,
+  icon,
+  valueClassName,
+  cardClassName
+}: {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+  valueClassName: string;
+  cardClassName: string;
+}) {
+  return (
+    <div className={`min-w-0 rounded-[24px] p-5 ${cardClassName}`}>
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <p className="min-w-0 text-sm leading-5">{label}</p>
+        <div className="shrink-0">{icon}</div>
+      </div>
+      <p
+        className={`mt-3 min-w-0 font-[var(--font-heading)] font-bold tracking-tight [overflow-wrap:anywhere] ${valueClassName}`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
 function ActionFeedback({
   status,
   message
@@ -158,54 +186,50 @@ export function FinancePanel({
         />
       ) : (
         <div className="grid gap-6">
-          <div className={`grid gap-4 ${compact ? "sm:grid-cols-2" : "sm:grid-cols-2 xl:grid-cols-5"}`}>
-            <div className="rounded-[24px] bg-slate-950 p-5 text-white">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-white/70">Total arrecadado</p>
-                <CircleDollarSign className="h-5 w-5 text-white/60" />
-              </div>
-              <p className="mt-3 font-[var(--font-heading)] text-3xl font-bold">{formatCurrency(totalRevenue)}</p>
-            </div>
+          <div
+            className={`grid gap-4 ${
+              compact ? "sm:grid-cols-2" : "sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
+            }`}
+          >
+            <FinanceMetricCard
+              label="Total arrecadado"
+              value={formatCurrency(totalRevenue)}
+              icon={<CircleDollarSign className="h-5 w-5 text-white/60" />}
+              cardClassName="bg-slate-950 text-white"
+              valueClassName="text-[clamp(1.7rem,2.6vw,2.35rem)] leading-[1.05] text-white"
+            />
 
-            <div className="rounded-[24px] border border-slate-200 bg-white p-5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-slate-500">Total de despesas</p>
-                <ReceiptText className="h-5 w-5 text-slate-400" />
-              </div>
-              <p className="mt-3 font-[var(--font-heading)] text-3xl font-bold text-slate-950">
-                {formatCurrency(totalExpenses)}
-              </p>
-            </div>
+            <FinanceMetricCard
+              label="Total de despesas"
+              value={formatCurrency(totalExpenses)}
+              icon={<ReceiptText className="h-5 w-5 text-slate-400" />}
+              cardClassName="border border-slate-200 bg-white text-slate-500"
+              valueClassName="text-[clamp(1.7rem,2.5vw,2.25rem)] leading-[1.05] text-slate-950"
+            />
 
-            <div className="rounded-[24px] bg-brand-50 p-5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-slate-500">Lucro estimado</p>
-                <Wallet className="h-5 w-5 text-brand-600" />
-              </div>
-              <p className="mt-3 font-[var(--font-heading)] text-3xl font-bold text-slate-950">
-                {formatCurrency(estimatedProfit)}
-              </p>
-            </div>
+            <FinanceMetricCard
+              label="Lucro estimado"
+              value={formatCurrency(estimatedProfit)}
+              icon={<Wallet className="h-5 w-5 text-brand-600" />}
+              cardClassName="bg-brand-50 text-slate-500"
+              valueClassName="text-[clamp(1.7rem,2.5vw,2.25rem)] leading-[1.05] text-slate-950"
+            />
 
-            <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-amber-800">Pagamentos pendentes</p>
-                <ClipboardList className="h-5 w-5 text-amber-600" />
-              </div>
-              <p className="mt-3 font-[var(--font-heading)] text-3xl font-bold text-amber-900">
-                {pendingPaymentsCount}
-              </p>
-            </div>
+            <FinanceMetricCard
+              label="Pagamentos pendentes"
+              value={pendingPaymentsCount}
+              icon={<ClipboardList className="h-5 w-5 text-amber-600" />}
+              cardClassName="border border-amber-200 bg-amber-50 text-amber-800"
+              valueClassName="text-[clamp(1.7rem,2.3vw,2.2rem)] leading-none text-amber-900"
+            />
 
-            <div className="rounded-[24px] border border-emerald-200 bg-emerald-50 p-5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-emerald-800">Pagamentos confirmados</p>
-                <CircleDollarSign className="h-5 w-5 text-emerald-600" />
-              </div>
-              <p className="mt-3 font-[var(--font-heading)] text-3xl font-bold text-emerald-900">
-                {confirmedPaymentsCount}
-              </p>
-            </div>
+            <FinanceMetricCard
+              label="Pagamentos confirmados"
+              value={confirmedPaymentsCount}
+              icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
+              cardClassName="border border-emerald-200 bg-emerald-50 text-emerald-800"
+              valueClassName="text-[clamp(1.7rem,2.3vw,2.2rem)] leading-none text-emerald-900"
+            />
           </div>
 
           <div className={`grid gap-6 ${compact ? "" : "xl:grid-cols-[0.95fr_1.05fr]"}`}>
