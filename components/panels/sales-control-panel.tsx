@@ -1,4 +1,10 @@
-import { Pencil, Plus } from "lucide-react";
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useFormState } from "react-dom";
+import { useRouter } from "next/navigation";
+import { CircleAlert, Pencil, Plus, Sparkles, Ticket } from "lucide-react";
+import { initialSalesActionState } from "@/lib/actions/action-state";
 import { createSaleAction, updateSaleAction } from "@/lib/actions/event-management";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
@@ -15,6 +21,286 @@ interface SalesControlPanelProps {
   compact?: boolean;
 }
 
+function ActionFeedback({
+  status,
+  message
+}: {
+  status: "idle" | "success" | "error";
+  message: string;
+}) {
+  if (!message || status === "idle") {
+    return null;
+  }
+
+  return (
+    <div
+      className={`rounded-2xl px-4 py-3 text-sm ${
+        status === "success"
+          ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+          : "border border-rose-200 bg-rose-50 text-rose-700"
+      }`}
+    >
+      {message}
+    </div>
+  );
+}
+
+function SaleQuickForm({
+  eventId,
+  permissions,
+  sellerOptions
+}: Pick<SalesControlPanelProps, "eventId" | "permissions" | "sellerOptions">) {
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [state, action] = useFormState(createSaleAction, initialSalesActionState);
+  const [quantity, setQuantity] = useState("1");
+  const [unitPrice, setUnitPrice] = useState("");
+
+  const totalPreview = useMemo(() => {
+    const parsedQuantity = Number(quantity);
+    const parsedUnitPrice = Number(unitPrice.replace(",", "."));
+
+    if (!Number.isFinite(parsedQuantity) || !Number.isFinite(parsedUnitPrice)) {
+      return 0;
+    }
+
+    return Math.max(parsedQuantity, 0) * Math.max(parsedUnitPrice, 0);
+  }, [quantity, unitPrice]);
+
+  useEffect(() => {
+    if (state.status === "success") {
+      formRef.current?.reset();
+      setQuantity("1");
+      setUnitPrice("");
+      router.refresh();
+    }
+  }, [router, state.status]);
+
+  return (
+    <div className="mb-5 overflow-hidden rounded-[28px] border border-brand-200 bg-gradient-to-br from-brand-50 via-white to-slate-50">
+      <div className="grid gap-6 p-4 sm:p-5 xl:grid-cols-[1.1fr_0.9fr]">
+        <div>
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-200/60">
+              <Ticket className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-700">
+                Registro rapido
+              </p>
+              <h3 className="mt-1 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
+                Registrar venda em poucos segundos
+              </h3>
+            </div>
+          </div>
+
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+            Preencha so o essencial. Ao salvar, a lista de vendas e o ranking do evento sao atualizados automaticamente.
+          </p>
+
+          <form ref={formRef} action={action} className="mt-5 grid gap-3">
+            <input type="hidden" name="eventId" value={eventId} />
+
+            {permissions.sellerUserId ? (
+              <input type="hidden" name="sellerId" value={permissions.sellerUserId} />
+            ) : (
+              <select
+                name="sellerId"
+                required
+                defaultValue=""
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+              >
+                <option value="" disabled>
+                  Escolher vendedor
+                </option>
+                {sellerOptions.map((seller) => (
+                  <option key={seller.id} value={seller.id}>
+                    {seller.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-[0.9fr_1.1fr_0.9fr]">
+              <label className="grid gap-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Qtd.</span>
+                <input
+                  name="quantity"
+                  type="number"
+                  min="1"
+                  inputMode="numeric"
+                  required
+                  defaultValue="1"
+                  onChange={(event) => setQuantity(event.target.value)}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-lg font-semibold text-slate-950 outline-none transition focus:border-brand-500"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Valor unitario
+                </span>
+                <input
+                  name="unitPrice"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  inputMode="decimal"
+                  required
+                  placeholder="0,00"
+                  value={unitPrice}
+                  onChange={(event) => setUnitPrice(event.target.value)}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-lg font-semibold text-slate-950 outline-none transition focus:border-brand-500"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Repasse</span>
+                <select
+                  name="paymentStatus"
+                  defaultValue="pending"
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-brand-500"
+                >
+                  <option value="pending">Pendente</option>
+                  <option value="paid">Pago</option>
+                </select>
+              </label>
+            </div>
+
+            <details className="rounded-2xl border border-slate-200 bg-white/80 p-4">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
+                Opcoes avancadas
+              </summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-[180px_1fr]">
+                <label className="grid gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Data</span>
+                  <input
+                    name="soldAt"
+                    type="date"
+                    defaultValue={new Date().toISOString().slice(0, 10)}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Observacoes
+                  </span>
+                  <input
+                    name="notes"
+                    placeholder="Opcional"
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+                  />
+                </label>
+              </div>
+            </details>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="rounded-2xl bg-slate-950 px-4 py-3 text-white">
+                <p className="text-xs uppercase tracking-[0.18em] text-white/60">Total desta venda</p>
+                <p className="mt-1 text-2xl font-bold">{formatCurrency(totalPreview)}</p>
+              </div>
+
+              <SubmitButton
+                pendingLabel="Registrando..."
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-600 px-5 py-4 text-sm font-semibold text-white shadow-lg shadow-brand-200/60 transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Sparkles className="h-4 w-4" />
+                Adicionar venda
+              </SubmitButton>
+            </div>
+
+            <ActionFeedback status={state.status} message={state.message} />
+          </form>
+        </div>
+
+        <div className="rounded-[24px] bg-slate-950 p-5 text-white">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Fluxo otimizado</p>
+          <div className="mt-4 space-y-3">
+            <div className="rounded-2xl bg-white/10 px-4 py-3">
+              <p className="text-sm font-semibold">1. Informe quantidade e valor</p>
+              <p className="mt-1 text-sm text-white/70">Os dois campos principais ficam logo na primeira linha.</p>
+            </div>
+            <div className="rounded-2xl bg-white/10 px-4 py-3">
+              <p className="text-sm font-semibold">2. Salve sem sair da tela</p>
+              <p className="mt-1 text-sm text-white/70">O sistema grava, mostra retorno e atualiza os cards da festa.</p>
+            </div>
+            <div className="rounded-2xl bg-white/10 px-4 py-3">
+              <p className="text-sm font-semibold">3. Continue vendendo</p>
+              <p className="mt-1 text-sm text-white/70">Os campos sao limpos automaticamente para o proximo registro.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SaleEditForm({ eventId, row }: { eventId: string; row: SalesRecord }) {
+  const router = useRouter();
+  const [state, action] = useFormState(updateSaleAction, initialSalesActionState);
+
+  useEffect(() => {
+    if (state.status === "success") {
+      router.refresh();
+    }
+  }, [router, state.status]);
+
+  return (
+    <details className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 lg:w-[24rem]">
+      <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+        <Pencil className="h-4 w-4" />
+        Editar venda
+      </summary>
+      <form action={action} className="mt-3 grid gap-3">
+        <input type="hidden" name="eventId" value={eventId} />
+        <input type="hidden" name="saleId" value={row.id} />
+        <input
+          name="quantity"
+          type="number"
+          min="1"
+          defaultValue={row.sold}
+          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        />
+        <input
+          name="unitPrice"
+          type="number"
+          min="0.01"
+          step="0.01"
+          defaultValue={row.unitPrice}
+          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        />
+        <input
+          name="soldAt"
+          type="date"
+          defaultValue={row.soldAt}
+          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        />
+        <select
+          name="paymentStatus"
+          defaultValue={row.paymentStatus}
+          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        >
+          <option value="pending">Pendente</option>
+          <option value="paid">Pago</option>
+        </select>
+        <input
+          name="notes"
+          defaultValue={row.notes ?? ""}
+          placeholder="Observacoes"
+          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        />
+        <SubmitButton
+          pendingLabel="Salvando..."
+          className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Salvar venda
+        </SubmitButton>
+        <ActionFeedback status={state.status} message={state.message} />
+      </form>
+    </details>
+  );
+}
+
 export function SalesControlPanel({
   eventId,
   sales,
@@ -27,79 +313,16 @@ export function SalesControlPanel({
   return (
     <SectionCard
       title="Controle de vendas"
-      description="Gerencie entregas, vendas concluidas, ingressos restantes e repasses."
+      description="Registre vendas com rapidez, acompanhe repasses e mantenha o comercial atualizado em tempo real."
     >
       {permissions.canManageSales && !compact ? (
-        <form action={createSaleAction} className="mb-5 grid gap-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4 lg:grid-cols-6">
-          <input type="hidden" name="eventId" value={eventId} />
-          {permissions.sellerUserId ? (
-            <input type="hidden" name="sellerId" value={permissions.sellerUserId} />
-          ) : (
-            <select
-              name="sellerId"
-              required
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-              defaultValue=""
-            >
-              <option value="" disabled>
-                Selecionar vendedor
-              </option>
-              {sellerOptions.map((seller) => (
-                <option key={seller.id} value={seller.id}>
-                  {seller.name}
-                </option>
-              ))}
-            </select>
-          )}
-          <input
-            name="quantity"
-            type="number"
-            min="1"
-            placeholder="Quantidade"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-            required
-          />
-          <input
-            name="unitPrice"
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="Valor unitario"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-            required
-          />
-          <input
-            name="soldAt"
-            type="date"
-            defaultValue={new Date().toISOString().slice(0, 10)}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-          />
-          <select
-            name="paymentStatus"
-            defaultValue="pending"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-          >
-            <option value="pending">Pendente</option>
-            <option value="paid">Pago</option>
-          </select>
-          <input
-            name="notes"
-            placeholder="Observacoes"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-          />
-          <div className="lg:col-span-6">
-            <SubmitButton className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60">
-              <Plus className="h-4 w-4" />
-              Adicionar venda
-            </SubmitButton>
-          </div>
-        </form>
+        <SaleQuickForm eventId={eventId} permissions={permissions} sellerOptions={sellerOptions} />
       ) : null}
 
       {visibleSales.length === 0 ? (
         <EmptyState
           title="Sem vendas registradas"
-          description="As novas vendas cadastradas pela equipe aparecerao aqui com repasse e impacto no ranking."
+          description="As novas vendas cadastradas pela equipe aparecerao aqui com repasse, impacto no ranking e atualizacao automatica."
           icon={Plus}
         />
       ) : (
@@ -141,62 +364,20 @@ export function SalesControlPanel({
                     </div>
                   </div>
 
-                  {canEdit && !compact ? (
-                    <details className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 lg:w-[24rem]">
-                      <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
-                        <Pencil className="h-4 w-4" />
-                        Editar venda
-                      </summary>
-                      <form action={updateSaleAction} className="mt-3 grid gap-3">
-                        <input type="hidden" name="eventId" value={eventId} />
-                        <input type="hidden" name="saleId" value={row.id} />
-                        <input
-                          name="quantity"
-                          type="number"
-                          min="1"
-                          defaultValue={row.sold}
-                          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                        />
-                        <input
-                          name="unitPrice"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          defaultValue={row.unitPrice}
-                          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                        />
-                        <input
-                          name="soldAt"
-                          type="date"
-                          defaultValue={row.soldAt}
-                          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                        />
-                        <select
-                          name="paymentStatus"
-                          defaultValue={row.paymentStatus}
-                          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                        >
-                          <option value="pending">Pendente</option>
-                          <option value="paid">Pago</option>
-                        </select>
-                        <input
-                          name="notes"
-                          defaultValue={row.notes ?? ""}
-                          placeholder="Observacoes"
-                          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                        />
-                        <SubmitButton className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
-                          Salvar venda
-                        </SubmitButton>
-                      </form>
-                    </details>
-                  ) : null}
+                  {canEdit && !compact ? <SaleEditForm eventId={eventId} row={row} /> : null}
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      {!compact && permissions.canManageOwnSalesOnly ? (
+        <div className="mt-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          Como vendedor, voce pode registrar novas vendas e editar apenas os seus proprios lancamentos.
+        </div>
+      ) : null}
     </SectionCard>
   );
 }

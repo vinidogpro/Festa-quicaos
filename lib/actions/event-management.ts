@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { TeamActionState } from "@/lib/actions/action-state";
+import { SalesActionState, TeamActionState } from "@/lib/actions/action-state";
 import { Database } from "@/lib/supabase/database.types";
 import { createSupabaseActionClient } from "@/lib/supabase/server";
 
@@ -130,108 +130,177 @@ export async function createEventAction(formData: FormData) {
   redirect(`/festas/${event.slug}`);
 }
 
-export async function createSaleAction(formData: FormData) {
-  const { supabase, profile } = await getActionProfile();
-  const eventSlug = String(formData.get("eventId") ?? "");
-  const event = await getEventRowBySlug(eventSlug);
-  const membership = await getMembership(supabase, event.id, profile.id);
+export async function createSaleAction(
+  _prevState: SalesActionState,
+  formData: FormData
+): Promise<SalesActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const event = await getEventRowBySlug(eventSlug);
+    const membership = await getMembership(supabase, event.id, profile.id);
 
-  let sellerUserId = String(formData.get("sellerId") ?? "");
+    let sellerUserId = String(formData.get("sellerId") ?? "");
 
-  if (profile.role === "host" || canManageEvent(profile, membership)) {
-    if (!sellerUserId) {
-      throw new Error("Selecione um vendedor.");
+    if (profile.role === "host" || canManageEvent(profile, membership)) {
+      if (!sellerUserId) {
+        return {
+          status: "error",
+          message: "Selecione um vendedor para registrar a venda."
+        };
+      }
+    } else if (membership?.role === "seller") {
+      sellerUserId = profile.id;
+    } else {
+      return {
+        status: "error",
+        message: "Voce nao tem permissao para registrar vendas nesta festa."
+      };
     }
-  } else if (membership?.role === "seller") {
-    sellerUserId = profile.id;
-  } else {
-    throw new Error("Voce nao tem permissao para registrar vendas nesta festa.");
-  }
 
-  const quantity = Number(formData.get("quantity") ?? 0);
-  const unitPrice = Number(formData.get("unitPrice") ?? 0);
-  const paymentStatus = String(formData.get("paymentStatus") ?? "pending") as Database["public"]["Tables"]["sales"]["Row"]["payment_status"];
-  const soldAt = String(formData.get("soldAt") ?? new Date().toISOString().slice(0, 10));
-  const notes = String(formData.get("notes") ?? "").trim();
+    const quantity = Number(formData.get("quantity") ?? 0);
+    const unitPrice = Number(formData.get("unitPrice") ?? 0);
+    const paymentStatus = String(formData.get("paymentStatus") ?? "pending") as Database["public"]["Tables"]["sales"]["Row"]["payment_status"];
+    const soldAt = String(formData.get("soldAt") ?? new Date().toISOString().slice(0, 10));
+    const notes = String(formData.get("notes") ?? "").trim();
 
-  if (quantity <= 0 || unitPrice <= 0) {
-    throw new Error("Informe quantidade e valor unitario validos.");
-  }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return {
+        status: "error",
+        message: "Informe uma quantidade valida maior que zero."
+      };
+    }
 
-  const { data: sellerMembership } = await supabase
-    .from("event_memberships")
-    .select("role")
-    .eq("event_id", event.id)
-    .eq("user_id", sellerUserId)
-    .single();
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      return {
+        status: "error",
+        message: "Informe um valor unitario valido maior que zero."
+      };
+    }
 
-  if (!sellerMembership || sellerMembership.role !== "seller") {
-    throw new Error("O usuario selecionado nao esta vinculado como vendedor desta festa.");
-  }
+    const { data: sellerMembership } = await supabase
+      .from("event_memberships")
+      .select("role")
+      .eq("event_id", event.id)
+      .eq("user_id", sellerUserId)
+      .single();
 
-  const { error } = await supabase.from("sales").insert({
-    event_id: event.id,
-    seller_user_id: sellerUserId,
-    quantity,
-    unit_price: unitPrice,
-    payment_status: paymentStatus,
-    sold_at: soldAt,
-    notes: notes || null,
-    created_by: profile.id
-  });
+    if (!sellerMembership || sellerMembership.role !== "seller") {
+      return {
+        status: "error",
+        message: "O usuario selecionado precisa estar vinculado como vendedor nesta festa."
+      };
+    }
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  revalidatePath(`/festas/${eventSlug}`);
-  revalidatePath("/");
-  revalidatePath("/festas");
-}
-
-export async function updateSaleAction(formData: FormData) {
-  const { supabase, profile } = await getActionProfile();
-  const eventSlug = String(formData.get("eventId") ?? "");
-  const saleId = String(formData.get("saleId") ?? "");
-
-  const { data: sale, error: saleError } = await supabase.from("sales").select("*").eq("id", saleId).single();
-
-  if (saleError || !sale) {
-    throw new Error("Venda nao encontrada.");
-  }
-
-  const membership = await getMembership(supabase, sale.event_id, profile.id);
-  const canManageThisSale =
-    profile.role === "host" ||
-    canManageEvent(profile, membership) ||
-    (membership?.role === "seller" && sale.seller_user_id === profile.id);
-
-  if (!canManageThisSale) {
-    throw new Error("Voce nao pode editar esta venda.");
-  }
-
-  const quantity = Number(formData.get("quantity") ?? sale.quantity);
-  const unitPrice = Number(formData.get("unitPrice") ?? sale.unit_price);
-  const paymentStatus = String(formData.get("paymentStatus") ?? sale.payment_status) as Database["public"]["Tables"]["sales"]["Row"]["payment_status"];
-  const soldAt = String(formData.get("soldAt") ?? sale.sold_at);
-  const notes = String(formData.get("notes") ?? sale.notes ?? "").trim();
-
-  const { error } = await supabase
-    .from("sales")
-    .update({
+    const { error } = await supabase.from("sales").insert({
+      event_id: event.id,
+      seller_user_id: sellerUserId,
       quantity,
       unit_price: unitPrice,
       payment_status: paymentStatus,
       sold_at: soldAt,
-      notes: notes || null
-    })
-    .eq("id", saleId);
+      notes: notes || null,
+      created_by: profile.id
+    });
 
-  if (error) {
-    throw new Error(error.message);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+    revalidatePath("/");
+    revalidatePath("/festas");
+
+    return {
+      status: "success",
+      message: "Venda registrada com sucesso. Ranking e lista ja foram atualizados."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel registrar a venda."
+    };
   }
+}
 
-  revalidatePath(`/festas/${eventSlug}`);
+export async function updateSaleAction(
+  _prevState: SalesActionState,
+  formData: FormData
+): Promise<SalesActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const saleId = String(formData.get("saleId") ?? "");
+
+    const { data: sale, error: saleError } = await supabase.from("sales").select("*").eq("id", saleId).single();
+
+    if (saleError || !sale) {
+      return {
+        status: "error",
+        message: "Venda nao encontrada."
+      };
+    }
+
+    const membership = await getMembership(supabase, sale.event_id, profile.id);
+    const canManageThisSale =
+      profile.role === "host" ||
+      canManageEvent(profile, membership) ||
+      (membership?.role === "seller" && sale.seller_user_id === profile.id);
+
+    if (!canManageThisSale) {
+      return {
+        status: "error",
+        message: "Voce nao pode editar esta venda."
+      };
+    }
+
+    const quantity = Number(formData.get("quantity") ?? sale.quantity);
+    const unitPrice = Number(formData.get("unitPrice") ?? sale.unit_price);
+    const paymentStatus = String(formData.get("paymentStatus") ?? sale.payment_status) as Database["public"]["Tables"]["sales"]["Row"]["payment_status"];
+    const soldAt = String(formData.get("soldAt") ?? sale.sold_at);
+    const notes = String(formData.get("notes") ?? sale.notes ?? "").trim();
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return {
+        status: "error",
+        message: "Informe uma quantidade valida maior que zero."
+      };
+    }
+
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      return {
+        status: "error",
+        message: "Informe um valor unitario valido maior que zero."
+      };
+    }
+
+    const { error } = await supabase
+      .from("sales")
+      .update({
+        quantity,
+        unit_price: unitPrice,
+        payment_status: paymentStatus,
+        sold_at: soldAt,
+        notes: notes || null
+      })
+      .eq("id", saleId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Venda atualizada com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel atualizar a venda."
+    };
+  }
 }
 
 export async function createExpenseAction(formData: FormData) {
