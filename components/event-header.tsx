@@ -6,6 +6,8 @@ import { PartyEventDetail } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
 export function EventHeader({ event }: { event: PartyEventDetail }) {
+  const viewerRoleLabel = event.viewerEventRole ?? "sem papel";
+
   return (
     <header className="rounded-[28px] border border-white/60 bg-white/80 p-5 shadow-soft backdrop-blur sm:p-6">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -37,7 +39,7 @@ export function EventHeader({ event }: { event: PartyEventDetail }) {
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="hidden rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600 sm:block">
-            {event.viewer.name} | {event.viewer.role}
+            {event.viewer.name} | {viewerRoleLabel}
           </div>
           <Link
             href={event.status === "past" ? "/historico" : "/festas"}

@@ -133,6 +133,7 @@ export interface EventSummary {
 
 export interface PartyEventDetail extends EventSummary {
   viewer: ViewerProfile;
+  viewerEventRole?: EventRole;
   permissions: ViewerPermissions;
   activeSellers: number;
   summary: SummaryMetric[];

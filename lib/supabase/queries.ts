@@ -260,7 +260,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
   const profilesMap = await getProfilesMap(profileIds);
 
   const viewerMembership = membershipRows.find((membership) => membership.user_id === context.viewer.id);
-  const eventRole = context.viewer.role === "host" ? "host" : viewerMembership?.role;
+  const eventRole = viewerMembership?.role;
   const permissions = {
     ...buildPermissions(context.viewer.role, eventRole),
     sellerUserId: eventRole === "seller" ? context.viewer.id : undefined
@@ -416,6 +416,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
   return {
     ...summary,
     viewer: context.viewer,
+    viewerEventRole: eventRole,
     permissions,
     activeSellers: sellerMemberships.filter((membership) => membership.is_active).length,
     summary: [
