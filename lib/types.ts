@@ -83,6 +83,7 @@ export interface Expense {
   amount: number;
   category: string;
   incurredAt: string;
+  notes?: string;
 }
 
 export interface TransferPending {
@@ -136,6 +137,9 @@ export interface PartyEventDetail extends EventSummary {
   viewerEventRole?: EventRole;
   permissions: ViewerPermissions;
   activeSellers: number;
+  totalExpenses: number;
+  pendingPaymentsCount: number;
+  confirmedPaymentsCount: number;
   summary: SummaryMetric[];
   ranking: SellerRanking[];
   salesControl: SalesRecord[];

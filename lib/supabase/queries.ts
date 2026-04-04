@@ -351,12 +351,17 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     })
     .filter((item) => item.amount > 0);
 
+  const totalExpenses = expenseRows.reduce((sum, expense) => sum + expense.amount, 0);
+  const pendingPaymentsCount = salesRows.filter((sale) => sale.payment_status === "pending").length;
+  const confirmedPaymentsCount = salesRows.filter((sale) => sale.payment_status === "paid").length;
+
   const expenseItems: Expense[] = expenseRows.map((expense) => ({
     id: expense.id,
     title: expense.title,
     amount: expense.amount,
     category: expense.category,
-    incurredAt: expense.incurred_at
+    incurredAt: expense.incurred_at,
+    notes: expense.notes ?? undefined
   }));
 
   const taskItems: TaskItem[] = taskRows.map((task) => ({
@@ -419,6 +424,9 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     viewerEventRole: eventRole,
     permissions,
     activeSellers: sellerMemberships.filter((membership) => membership.is_active).length,
+    totalExpenses,
+    pendingPaymentsCount,
+    confirmedPaymentsCount,
     summary: [
       {
         label: "Total arrecadado",

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { SalesActionState, TeamActionState } from "@/lib/actions/action-state";
+import { FinanceActionState, SalesActionState, TeamActionState } from "@/lib/actions/action-state";
 import { Database } from "@/lib/supabase/database.types";
 import { createSupabaseActionClient } from "@/lib/supabase/server";
 
@@ -303,39 +303,62 @@ export async function updateSaleAction(
   }
 }
 
-export async function createExpenseAction(formData: FormData) {
-  const { supabase, profile } = await getActionProfile();
-  const eventSlug = String(formData.get("eventId") ?? "");
-  const event = await getEventRowBySlug(eventSlug);
-  const membership = await getMembership(supabase, event.id, profile.id);
+export async function createExpenseAction(
+  _prevState: FinanceActionState,
+  formData: FormData
+): Promise<FinanceActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const event = await getEventRowBySlug(eventSlug);
+    const membership = await getMembership(supabase, event.id, profile.id);
 
-  if (!(profile.role === "host" || membership?.role === "host")) {
-    throw new Error("Apenas host pode criar despesas.");
+    if (!(profile.role === "host" || membership?.role === "host")) {
+      return {
+        status: "error",
+        message: "Somente host da festa pode cadastrar despesas."
+      };
+    }
+
+    const title = String(formData.get("title") ?? "").trim();
+    const category = String(formData.get("category") ?? "").trim();
+    const amount = Number(formData.get("amount") ?? 0);
+    const incurredAt = String(formData.get("incurredAt") ?? new Date().toISOString().slice(0, 10));
+    const notes = String(formData.get("notes") ?? "").trim();
+
+    if (!title || !category || !Number.isFinite(amount) || amount <= 0) {
+      return {
+        status: "error",
+        message: "Preencha titulo, categoria e valor valido para a despesa."
+      };
+    }
+
+    const { error } = await supabase.from("expenses").insert({
+      event_id: event.id,
+      title,
+      category,
+      amount,
+      incurred_at: incurredAt,
+      notes: notes || null,
+      created_by: profile.id
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Despesa cadastrada com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel cadastrar a despesa."
+    };
   }
-
-  const title = String(formData.get("title") ?? "").trim();
-  const category = String(formData.get("category") ?? "").trim();
-  const amount = Number(formData.get("amount") ?? 0);
-  const incurredAt = String(formData.get("incurredAt") ?? new Date().toISOString().slice(0, 10));
-
-  if (!title || !category || amount <= 0) {
-    throw new Error("Preencha os dados da despesa corretamente.");
-  }
-
-  const { error } = await supabase.from("expenses").insert({
-    event_id: event.id,
-    title,
-    category,
-    amount,
-    incurred_at: incurredAt,
-    created_by: profile.id
-  });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  revalidatePath(`/festas/${eventSlug}`);
 }
 
 export async function createTaskAction(formData: FormData) {

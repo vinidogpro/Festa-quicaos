@@ -138,7 +138,10 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                 eventId={event.id}
                 permissions={event.permissions}
                 totalRevenue={event.totalRevenue}
+                totalExpenses={event.totalExpenses}
                 estimatedProfit={event.estimatedProfit}
+                pendingPaymentsCount={event.pendingPaymentsCount}
+                confirmedPaymentsCount={event.confirmedPaymentsCount}
                 expenses={event.expenses}
                 transfersPending={event.transfersPending}
               />
@@ -179,7 +182,10 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                     eventId={event.id}
                     permissions={event.permissions}
                     totalRevenue={event.totalRevenue}
+                    totalExpenses={event.totalExpenses}
                     estimatedProfit={event.estimatedProfit}
+                    pendingPaymentsCount={event.pendingPaymentsCount}
+                    confirmedPaymentsCount={event.confirmedPaymentsCount}
                     expenses={event.expenses}
                     transfersPending={event.transfersPending}
                     compact

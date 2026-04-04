@@ -10,6 +10,8 @@ export const initialMutationActionState: MutationActionState = {
 
 export type TeamActionState = MutationActionState;
 export type SalesActionState = MutationActionState;
+export type FinanceActionState = MutationActionState;
 
 export const initialTeamActionState = initialMutationActionState;
 export const initialSalesActionState = initialMutationActionState;
+export const initialFinanceActionState = initialMutationActionState;
