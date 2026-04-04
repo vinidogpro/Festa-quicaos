@@ -32,8 +32,8 @@ export function SalesControlPanel({
       {permissions.canManageSales && !compact ? (
         <form action={createSaleAction} className="mb-5 grid gap-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4 lg:grid-cols-6">
           <input type="hidden" name="eventId" value={eventId} />
-          {permissions.sellerId ? (
-            <input type="hidden" name="sellerId" value={permissions.sellerId} />
+          {permissions.sellerUserId ? (
+            <input type="hidden" name="sellerId" value={permissions.sellerUserId} />
           ) : (
             <select
               name="sellerId"
@@ -105,7 +105,7 @@ export function SalesControlPanel({
       ) : (
         <div className="space-y-3">
           {visibleSales.map((row) => {
-            const canEdit = permissions.canManageSales && (row.isOwnedByViewer || !permissions.sellerId);
+            const canEdit = permissions.canManageSales && (row.isOwnedByViewer || !permissions.canManageOwnSalesOnly);
 
             return (
               <div key={row.id} className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">

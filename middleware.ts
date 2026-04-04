@@ -22,13 +22,14 @@ export async function middleware(req: NextRequest) {
   if (!session && !isPublicRoute) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
+    url.searchParams.set("next", `${req.nextUrl.pathname}${req.nextUrl.search}`);
     return NextResponse.redirect(url);
   }
 
   if (session && req.nextUrl.pathname === "/login") {
-    const url = req.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
+    const nextPath = req.nextUrl.searchParams.get("next") || "/";
+    const safePath = nextPath.startsWith("/") ? nextPath : "/";
+    return NextResponse.redirect(new URL(safePath, req.url));
   }
 
   return res;

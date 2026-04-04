@@ -29,7 +29,7 @@ export function EventsOverviewPage({
           title="Operacao"
           description="Crie novas festas, acompanhe o calendario e mantenha o time trabalhando na mesma plataforma."
         >
-          {viewer.role === "admin" ? (
+          {viewer.role === "host" ? (
             <CreateEventForm viewer={viewer} />
           ) : (
             <p className="text-sm leading-6 text-slate-500">

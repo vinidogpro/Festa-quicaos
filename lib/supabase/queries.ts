@@ -18,9 +18,9 @@ import {
 } from "@/lib/types";
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
+type EventMembershipRow = Database["public"]["Tables"]["event_memberships"]["Row"];
 type ExpenseRow = Database["public"]["Tables"]["expenses"]["Row"];
 type SaleRow = Database["public"]["Tables"]["sales"]["Row"];
-type SellerRow = Database["public"]["Tables"]["sellers"]["Row"];
 type TaskRow = Database["public"]["Tables"]["tasks"]["Row"];
 type AnnouncementRow = Database["public"]["Tables"]["announcements"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
@@ -55,11 +55,7 @@ async function getViewerContext(): Promise<ViewerContext | null> {
     return null;
   }
 
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+  const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
 
   if (error || !profile) {
     return null;
@@ -79,7 +75,7 @@ async function getViewerContext(): Promise<ViewerContext | null> {
 async function getAccessibleEvents(viewer: ViewerProfile): Promise<EventRow[]> {
   const supabase = createSupabaseServerClient() as any;
 
-  if (viewer.role === "admin" || viewer.role === "organizer") {
+  if (viewer.role === "host") {
     const { data, error } = await supabase.from("events").select("*").order("event_date", { ascending: true });
 
     if (error) {
@@ -89,30 +85,29 @@ async function getAccessibleEvents(viewer: ViewerProfile): Promise<EventRow[]> {
     return (data ?? []) as EventRow[];
   }
 
-  const { data: sellerRows, error: sellersError } = await supabase
-    .from("sellers")
+  const { data: memberships, error } = await supabase
+    .from("event_memberships")
     .select("event_id")
-    .eq("profile_id", viewer.id);
+    .eq("user_id", viewer.id);
 
-  if (sellersError) {
-    throw sellersError;
+  if (error) {
+    throw error;
   }
 
-  const sellerEventRows = (sellerRows ?? []) as Array<Pick<SellerRow, "event_id">>;
-  const eventIds = [...new Set(sellerEventRows.map((row) => row.event_id))];
+  const eventIds = [...new Set(((memberships ?? []) as Array<Pick<EventMembershipRow, "event_id">>).map((row) => row.event_id))];
 
   if (eventIds.length === 0) {
-    return [] as EventRow[];
+    return [];
   }
 
-  const { data, error } = await supabase
+  const { data, error: eventsError } = await supabase
     .from("events")
     .select("*")
     .in("id", eventIds)
     .order("event_date", { ascending: true });
 
-  if (error) {
-    throw error;
+  if (eventsError) {
+    throw eventsError;
   }
 
   return (data ?? []) as EventRow[];
@@ -137,13 +132,13 @@ function buildSummaryFromRows({
   event,
   sales,
   expenses,
-  sellers,
+  memberships,
   profilesMap
 }: {
   event: EventRow;
   sales: SaleRow[];
   expenses: ExpenseRow[];
-  sellers: SellerRow[];
+  memberships: EventMembershipRow[];
   profilesMap: Map<string, ProfileRow>;
 }): EventSummary {
   const totalRevenue = sales.reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0);
@@ -151,19 +146,20 @@ function buildSummaryFromRows({
   const totalTicketsSold = sales.reduce((sum, sale) => sum + sale.quantity, 0);
   const progress = event.goal_value > 0 ? Math.round((totalRevenue / event.goal_value) * 100) : 0;
 
-  const revenueBySeller = sellers.map((seller) => {
+  const sellerMemberships = memberships.filter((membership) => membership.role === "seller");
+  const revenueBySeller = sellerMemberships.map((membership) => {
     const revenue = sales
-      .filter((sale) => sale.seller_id === seller.id)
+      .filter((sale) => sale.seller_user_id === membership.user_id)
       .reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0);
 
     return {
-      seller,
+      membership,
       revenue
     };
   });
 
   const best = revenueBySeller.sort((left, right) => right.revenue - left.revenue)[0];
-  const bestProfile = best ? profilesMap.get(best.seller.profile_id) : undefined;
+  const bestProfile = best ? profilesMap.get(best.membership.user_id) : undefined;
 
   return {
     id: event.slug,
@@ -201,17 +197,16 @@ export async function getEvents(): Promise<EventSummary[]> {
 
   const eventIds = events.map((event) => event.id);
 
-  const [{ data: sales }, { data: expenses }, { data: sellers }] = await Promise.all([
+  const [{ data: sales }, { data: expenses }, { data: memberships }] = await Promise.all([
     supabase.from("sales").select("*").in("event_id", eventIds),
     supabase.from("expenses").select("*").in("event_id", eventIds),
-    supabase.from("sellers").select("*").in("event_id", eventIds)
+    supabase.from("event_memberships").select("*").in("event_id", eventIds)
   ]);
 
   const salesRows = (sales ?? []) as SaleRow[];
   const expenseRows = (expenses ?? []) as ExpenseRow[];
-  const sellerRows = (sellers ?? []) as SellerRow[];
-
-  const profileIds = [...new Set(sellerRows.map((seller) => seller.profile_id))];
+  const membershipRows = (memberships ?? []) as EventMembershipRow[];
+  const profileIds = [...new Set(membershipRows.map((membership) => membership.user_id))];
   const profilesMap = await getProfilesMap(profileIds);
 
   return events.map((event) =>
@@ -219,7 +214,7 @@ export async function getEvents(): Promise<EventSummary[]> {
       event,
       sales: salesRows.filter((sale) => sale.event_id === event.id),
       expenses: expenseRows.filter((expense) => expense.event_id === event.id),
-      sellers: sellerRows.filter((seller) => seller.event_id === event.id),
+      memberships: membershipRows.filter((membership) => membership.event_id === event.id),
       profilesMap
     })
   );
@@ -239,16 +234,16 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     return undefined;
   }
 
-  const [{ data: sellers }, { data: sales }, { data: expenses }, { data: tasks }, { data: announcements }] =
+  const [{ data: memberships }, { data: sales }, { data: expenses }, { data: tasks }, { data: announcements }] =
     await Promise.all([
-      supabase.from("sellers").select("*").eq("event_id", event.id).order("created_at", { ascending: true }),
+      supabase.from("event_memberships").select("*").eq("event_id", event.id).order("created_at", { ascending: true }),
       supabase.from("sales").select("*").eq("event_id", event.id).order("sold_at", { ascending: false }),
       supabase.from("expenses").select("*").eq("event_id", event.id).order("incurred_at", { ascending: false }),
       supabase.from("tasks").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
       supabase.from("announcements").select("*").eq("event_id", event.id).order("created_at", { ascending: false })
     ]);
 
-  const sellerRows = (sellers ?? []) as SellerRow[];
+  const membershipRows = (memberships ?? []) as EventMembershipRow[];
   const salesRows = (sales ?? []) as SaleRow[];
   const expenseRows = (expenses ?? []) as ExpenseRow[];
   const taskRows = (tasks ?? []) as TaskRow[];
@@ -256,72 +251,78 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
 
   const profileIds = [
     ...new Set([
-      ...sellerRows.map((seller) => seller.profile_id),
+      ...membershipRows.map((membership) => membership.user_id),
       ...taskRows.flatMap((task) => (task.owner_profile_id ? [task.owner_profile_id] : []))
     ])
   ];
   const profilesMap = await getProfilesMap(profileIds);
 
-  const viewerSeller = sellerRows.find((seller) => seller.profile_id === context.viewer.id);
-  const permissions = buildPermissions(context.viewer.role, viewerSeller?.id);
+  const viewerMembership = membershipRows.find((membership) => membership.user_id === context.viewer.id);
+  const eventRole = context.viewer.role === "host" ? "host" : viewerMembership?.role;
+  const permissions = {
+    ...buildPermissions(context.viewer.role, eventRole),
+    sellerUserId: eventRole === "seller" ? context.viewer.id : undefined
+  };
 
   const summary = buildSummaryFromRows({
     event,
     sales: salesRows,
     expenses: expenseRows,
-    sellers: sellerRows,
+    memberships: membershipRows,
     profilesMap
   });
 
-  const ranking: SellerRanking[] = sellerRows
-    .map((seller) => {
-      const sellerSales = salesRows.filter((sale) => sale.seller_id === seller.id);
+  const sellerMemberships = membershipRows.filter((membership) => membership.role === "seller");
+
+  const ranking: SellerRanking[] = sellerMemberships
+    .map((membership) => {
+      const sellerSales = salesRows.filter((sale) => sale.seller_user_id === membership.user_id);
       const ticketsSold = sellerSales.reduce((sum, sale) => sum + sale.quantity, 0);
       const revenue = sellerSales.reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0);
-      const profile = profilesMap.get(seller.profile_id);
+      const profile = profilesMap.get(membership.user_id);
 
       return {
-        id: seller.id,
-        sellerId: seller.id,
+        id: membership.id,
+        sellerUserId: membership.user_id,
         name: profile?.full_name ?? "Vendedor",
         ticketsSold,
         revenue,
-        delta: sellerSales.length > 0 ? `+${Math.max(1, Math.round((ticketsSold / Math.max(1, seller.ticket_quota)) * 10))}%` : "+0%"
+        delta: sellerSales.length > 0 ? `+${Math.max(1, Math.round((ticketsSold / Math.max(1, membership.ticket_quota || 1)) * 10))}%` : "+0%"
       };
     })
     .sort((left, right) => right.revenue - left.revenue);
 
   const salesControl: SalesRecord[] = salesRows.map((sale) => {
-    const seller = sellerRows.find((item) => item.id === sale.seller_id);
-    const profile = seller ? profilesMap.get(seller.profile_id) : undefined;
-    const sellerSales = salesRows.filter((item) => item.seller_id === sale.seller_id);
+    const membership = sellerMemberships.find((item) => item.user_id === sale.seller_user_id);
+    const profile = profilesMap.get(sale.seller_user_id);
+    const sellerSales = salesRows.filter((item) => item.seller_user_id === sale.seller_user_id);
     const soldBySeller = sellerSales.reduce((sum, item) => sum + item.quantity, 0);
 
     return {
       id: sale.id,
-      sellerId: sale.seller_id,
+      sellerUserId: sale.seller_user_id,
       seller: profile?.full_name ?? "Vendedor",
-      received: seller?.ticket_quota ?? soldBySeller,
+      received: membership?.ticket_quota ?? soldBySeller,
       sold: sale.quantity,
-      remaining: Math.max((seller?.ticket_quota ?? soldBySeller) - soldBySeller, 0),
+      remaining: Math.max((membership?.ticket_quota ?? soldBySeller) - soldBySeller, 0),
       paymentStatus: sale.payment_status,
       unitPrice: sale.unit_price,
       soldAt: sale.sold_at,
       notes: sale.notes ?? undefined,
       amount: sale.quantity * sale.unit_price,
-      isOwnedByViewer: seller?.profile_id === context.viewer.id
+      isOwnedByViewer: sale.seller_user_id === context.viewer.id
     };
   });
 
-  const transfersPending: TransferPending[] = sellerRows
-    .map((seller) => {
+  const transfersPending: TransferPending[] = sellerMemberships
+    .map((membership) => {
       const sellerSales = salesRows.filter(
-        (sale) => sale.seller_id === seller.id && sale.payment_status === "pending"
+        (sale) => sale.seller_user_id === membership.user_id && sale.payment_status === "pending"
       );
 
       return {
-        id: seller.id,
-        name: profilesMap.get(seller.profile_id)?.full_name ?? "Vendedor",
+        id: membership.user_id,
+        name: profilesMap.get(membership.user_id)?.full_name ?? "Vendedor",
         amount: sellerSales.reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0)
       };
     })
@@ -358,34 +359,32 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
   }
 
   const salesSeries = Array.from(salesByDay.entries()).map(([day, amount]) => ({ day, amount }));
-
   const sellerContribution: SellerContribution[] = ranking.map((item) => ({
     seller: item.name.split(" ")[0] ?? item.name,
     amount: item.revenue
   }));
 
-  const sellerOptions: SellerOption[] = sellerRows.map((seller) => ({
-    id: seller.id,
-    name: profilesMap.get(seller.profile_id)?.full_name ?? "Vendedor"
+  const sellerOptions: SellerOption[] = sellerMemberships.map((membership) => ({
+    id: membership.user_id,
+    name: profilesMap.get(membership.user_id)?.full_name ?? "Vendedor"
   }));
 
   const participantOptions: SellerOption[] = Array.from(
     new Map(
-      [
-        context.viewer,
-        ...(Array.from(profilesMap.values()).map((profile) => ({
-          id: profile.id,
-          name: profile.full_name
-        })) as SellerOption[])
-      ].map((item) => [item.id, item])
+      membershipRows
+        .map((membership) => ({
+          id: membership.user_id,
+          name: profilesMap.get(membership.user_id)?.full_name ?? "Membro"
+        }))
+        .map((item) => [item.id, item])
     ).values()
-  ).map((item) => ({ id: item.id, name: item.name }));
+  );
 
   return {
     ...summary,
     viewer: context.viewer,
     permissions,
-    activeSellers: sellerRows.filter((seller) => seller.is_active).length,
+    activeSellers: sellerMemberships.filter((membership) => membership.is_active).length,
     summary: [
       {
         label: "Total arrecadado",
@@ -402,8 +401,8 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
       },
       {
         label: "Vendedores ativos",
-        value: sellerRows.filter((seller) => seller.is_active).length,
-        helper: "Equipe comercial habilitada",
+        value: sellerMemberships.filter((membership) => membership.is_active).length,
+        helper: "Equipe comercial vinculada",
         isCurrency: false
       },
       {

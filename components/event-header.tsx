@@ -37,7 +37,7 @@ export function EventHeader({ event }: { event: PartyEventDetail }) {
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="hidden rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600 sm:block">
-            {event.viewer.name} • {event.viewer.role}
+            {event.viewer.name} | {event.viewer.role}
           </div>
           <Link
             href={event.status === "past" ? "/historico" : "/festas"}

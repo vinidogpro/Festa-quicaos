@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
-import { SignInForm } from "@/components/auth/sign-in-form";
+import { AuthForm } from "@/components/auth/auth-form";
 import { SetupCard } from "@/components/setup-card";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
   if (!isSupabaseConfigured()) {
@@ -28,9 +30,9 @@ export default async function LoginPage() {
           Entrar na plataforma
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-500">
-          Use e-mail e senha para acessar eventos, registrar vendas e colaborar com a equipe.
+          Entre com um usuario criado manualmente por voce no Supabase para acessar a plataforma.
         </p>
-        <SignInForm />
+        <AuthForm />
       </section>
     </main>
   );

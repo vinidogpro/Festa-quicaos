@@ -1,13 +1,19 @@
-import { UserRole, ViewerPermissions } from "@/lib/types";
+import { EventRole, UserRole, ViewerPermissions } from "@/lib/types";
 
-export function buildPermissions(role: UserRole, sellerId?: string): ViewerPermissions {
+export function buildPermissions(globalRole: UserRole, eventRole?: EventRole): ViewerPermissions {
+  const isHost = globalRole === "host";
+  const isOrganizer = eventRole === "organizer";
+  const isSeller = eventRole === "seller";
+
   return {
-    canCreateEvents: role === "admin",
-    canManageEvent: role === "admin",
-    canManageSales: role === "admin" || role === "organizer" || Boolean(sellerId),
-    canManageFinance: role === "admin",
-    canManageTasks: role === "admin" || role === "organizer",
-    canManageAnnouncements: role === "admin" || role === "organizer",
-    sellerId
+    eventRole,
+    canCreateEvents: isHost,
+    canManageEvent: isHost || eventRole === "host",
+    canManageSales: isHost || eventRole === "host" || isOrganizer || isSeller,
+    canManageFinance: isHost || eventRole === "host",
+    canManageTasks: isHost || eventRole === "host" || isOrganizer,
+    canManageAnnouncements: isHost || eventRole === "host" || isOrganizer,
+    canManageOwnSalesOnly: isSeller && !isHost,
+    sellerUserId: isSeller ? undefined : undefined
   };
 }

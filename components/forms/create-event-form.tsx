@@ -3,7 +3,7 @@ import { ViewerProfile } from "@/lib/types";
 import { SubmitButton } from "@/components/forms/submit-button";
 
 export function CreateEventForm({ viewer }: { viewer: ViewerProfile }) {
-  if (viewer.role !== "admin") {
+  if (viewer.role !== "host") {
     return null;
   }
 

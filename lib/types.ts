@@ -1,4 +1,5 @@
-export type UserRole = "admin" | "organizer" | "seller";
+export type UserRole = "host" | "organizer" | "seller";
+export type EventRole = "host" | "organizer" | "seller";
 export type EventStatus = "current" | "upcoming" | "past";
 export type PaymentStatus = "paid" | "pending";
 export type TaskStatus = "pending" | "in-progress" | "done";
@@ -12,13 +13,15 @@ export interface ViewerProfile {
 }
 
 export interface ViewerPermissions {
+  eventRole?: EventRole;
   canCreateEvents: boolean;
   canManageEvent: boolean;
   canManageSales: boolean;
   canManageFinance: boolean;
   canManageTasks: boolean;
   canManageAnnouncements: boolean;
-  sellerId?: string;
+  canManageOwnSalesOnly: boolean;
+  sellerUserId?: string;
 }
 
 export interface SummaryMetric {
@@ -36,7 +39,7 @@ export interface SellerOption {
 
 export interface SellerRanking {
   id: string;
-  sellerId?: string;
+  sellerUserId?: string;
   name: string;
   ticketsSold: number;
   revenue: number;
@@ -45,7 +48,7 @@ export interface SellerRanking {
 
 export interface SalesRecord {
   id: string;
-  sellerId: string;
+  sellerUserId: string;
   seller: string;
   received: number;
   sold: number;

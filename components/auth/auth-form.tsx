@@ -1,20 +1,43 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { LockKeyhole, Mail } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-export function SignInForm() {
+type Feedback = {
+  type: "error" | "success";
+  message: string;
+};
+
+function getFriendlyErrorMessage(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("invalid login credentials")) {
+    return "E-mail ou senha incorretos. Se a conta foi criada manualmente agora, confirme se o usuario ja existe no Supabase Auth.";
+  }
+
+  if (normalized.includes("email not confirmed")) {
+    return "Este usuario ainda nao confirmou o e-mail. Confirme pelo painel do Supabase ou desative essa exigencia para seu fluxo interno.";
+  }
+
+  return message;
+}
+
+export function AuthForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const nextPath = useMemo(() => searchParams.get("next") || "/", [searchParams]);
+  const safeNextPath = useMemo(() => (nextPath.startsWith("/") ? nextPath : "/"), [nextPath]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setErrorMessage(null);
+    setFeedback(null);
 
     const supabase = createSupabaseBrowserClient();
     const { error } = await supabase.auth.signInWithPassword({
@@ -23,12 +46,20 @@ export function SignInForm() {
     });
 
     if (error) {
-      setErrorMessage(error.message);
+      setFeedback({
+        type: "error",
+        message: getFriendlyErrorMessage(error.message)
+      });
       return;
     }
 
+    setFeedback({
+      type: "success",
+      message: "Login realizado com sucesso. Redirecionando..."
+    });
+
     startTransition(() => {
-      router.replace("/");
+      router.replace(safeNextPath as any);
       router.refresh();
     });
   };
@@ -57,6 +88,7 @@ export function SignInForm() {
           <input
             type="password"
             required
+            minLength={6}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
@@ -65,12 +97,21 @@ export function SignInForm() {
         </div>
       </label>
 
-      {errorMessage ? <p className="text-sm text-rose-600">{errorMessage}</p> : null}
+      {feedback ? (
+        <p
+          className={`rounded-2xl px-4 py-3 text-sm ${
+            feedback.type === "error" ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"
+          }`}
+        >
+          {feedback.message}
+        </p>
+      ) : null}
 
       <button
         disabled={isPending}
         className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
+        {isPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
         Entrar
       </button>
     </form>

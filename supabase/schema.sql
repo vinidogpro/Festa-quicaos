@@ -4,7 +4,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   full_name text not null,
   avatar_label text,
-  role text not null default 'seller' check (role in ('admin', 'organizer', 'seller')),
+  role text not null default 'seller' check (role in ('host', 'organizer', 'seller')),
   created_at timestamptz not null default timezone('utc', now())
 );
 
@@ -21,20 +21,21 @@ create table if not exists public.events (
   created_at timestamptz not null default timezone('utc', now())
 );
 
-create table if not exists public.sellers (
+create table if not exists public.event_memberships (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events (id) on delete cascade,
-  profile_id uuid not null references public.profiles (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  role text not null check (role in ('host', 'organizer', 'seller')),
   ticket_quota integer not null default 0,
   is_active boolean not null default true,
   created_at timestamptz not null default timezone('utc', now()),
-  unique (event_id, profile_id)
+  unique (event_id, user_id)
 );
 
 create table if not exists public.sales (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events (id) on delete cascade,
-  seller_id uuid not null references public.sellers (id) on delete cascade,
+  seller_user_id uuid not null references public.profiles (id) on delete cascade,
   quantity integer not null default 1 check (quantity > 0),
   unit_price numeric(12,2) not null default 0,
   payment_status text not null default 'pending' check (payment_status in ('paid', 'pending')),
@@ -89,9 +90,12 @@ begin
     new.id,
     coalesce(new.raw_user_meta_data ->> 'full_name', split_part(new.email, '@', 1)),
     upper(left(coalesce(new.raw_user_meta_data ->> 'full_name', split_part(new.email, '@', 1)), 2)),
-    coalesce((new.raw_user_meta_data ->> 'role')::text, 'seller')
+    'seller'
   )
-  on conflict (id) do nothing;
+  on conflict (id) do update
+  set
+    full_name = excluded.full_name,
+    avatar_label = excluded.avatar_label;
 
   return new;
 end;
@@ -102,12 +106,24 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
-create or replace function public.current_profile_role()
+create or replace function public.current_global_role()
 returns text
 language sql
 stable
 as $$
   select role from public.profiles where id = auth.uid()
+$$;
+
+create or replace function public.membership_role(target_event_id uuid)
+returns text
+language sql
+stable
+as $$
+  select role
+  from public.event_memberships
+  where event_id = target_event_id
+    and user_id = auth.uid()
+  limit 1
 $$;
 
 create or replace function public.can_access_event(target_event_id uuid)
@@ -116,104 +132,120 @@ language sql
 stable
 as $$
   select
-    exists (
-      select 1
-      from public.profiles
-      where id = auth.uid()
-        and role in ('admin', 'organizer')
-    )
+    public.current_global_role() = 'host'
     or exists (
       select 1
-      from public.sellers
+      from public.event_memberships
       where event_id = target_event_id
-        and profile_id = auth.uid()
+        and user_id = auth.uid()
+    )
+$$;
+
+create or replace function public.can_manage_event(target_event_id uuid)
+returns boolean
+language sql
+stable
+as $$
+  select
+    public.current_global_role() = 'host'
+    or public.membership_role(target_event_id) in ('host', 'organizer')
+$$;
+
+create or replace function public.can_manage_sale(target_event_id uuid, target_seller_user_id uuid)
+returns boolean
+language sql
+stable
+as $$
+  select
+    public.current_global_role() = 'host'
+    or public.membership_role(target_event_id) in ('host', 'organizer')
+    or (
+      public.membership_role(target_event_id) = 'seller'
+      and target_seller_user_id = auth.uid()
     )
 $$;
 
 alter table public.profiles enable row level security;
 alter table public.events enable row level security;
-alter table public.sellers enable row level security;
+alter table public.event_memberships enable row level security;
 alter table public.sales enable row level security;
 alter table public.expenses enable row level security;
 alter table public.tasks enable row level security;
 alter table public.announcements enable row level security;
 
-drop policy if exists "profiles_select_own" on public.profiles;
-create policy "profiles_select_own"
+drop policy if exists "profiles_select_self_or_host" on public.profiles;
+create policy "profiles_select_self_or_host"
   on public.profiles for select
-  using (id = auth.uid());
+  using (id = auth.uid() or public.current_global_role() = 'host');
 
-drop policy if exists "profiles_update_own" on public.profiles;
-create policy "profiles_update_own"
+drop policy if exists "profiles_update_host" on public.profiles;
+create policy "profiles_update_host"
   on public.profiles for update
-  using (id = auth.uid());
+  using (public.current_global_role() = 'host')
+  with check (public.current_global_role() = 'host');
 
 drop policy if exists "events_select_accessible" on public.events;
 create policy "events_select_accessible"
   on public.events for select
   using (public.can_access_event(id));
 
-drop policy if exists "events_admin_write" on public.events;
-create policy "events_admin_write"
+drop policy if exists "events_write_host_only" on public.events;
+create policy "events_write_host_only"
   on public.events for all
-  using (public.current_profile_role() = 'admin')
-  with check (public.current_profile_role() = 'admin');
+  using (public.current_global_role() = 'host')
+  with check (public.current_global_role() = 'host');
 
-drop policy if exists "sellers_select_accessible" on public.sellers;
-create policy "sellers_select_accessible"
-  on public.sellers for select
+drop policy if exists "event_memberships_select_accessible" on public.event_memberships;
+create policy "event_memberships_select_accessible"
+  on public.event_memberships for select
   using (public.can_access_event(event_id));
 
-drop policy if exists "sellers_admin_organizer_write" on public.sellers;
-create policy "sellers_admin_organizer_write"
-  on public.sellers for all
-  using (public.current_profile_role() in ('admin', 'organizer'))
-  with check (public.current_profile_role() in ('admin', 'organizer'));
+drop policy if exists "event_memberships_write_host_only" on public.event_memberships;
+create policy "event_memberships_write_host_only"
+  on public.event_memberships for all
+  using (public.current_global_role() = 'host')
+  with check (public.current_global_role() = 'host');
 
 drop policy if exists "sales_select_accessible" on public.sales;
 create policy "sales_select_accessible"
   on public.sales for select
   using (public.can_access_event(event_id));
 
-drop policy if exists "sales_admin_organizer_write" on public.sales;
-create policy "sales_admin_organizer_write"
-  on public.sales for all
-  using (public.current_profile_role() in ('admin', 'organizer'))
-  with check (public.current_profile_role() in ('admin', 'organizer'));
-
-drop policy if exists "sales_seller_insert_own" on public.sales;
-create policy "sales_seller_insert_own"
+drop policy if exists "sales_insert_with_membership_rules" on public.sales;
+create policy "sales_insert_with_membership_rules"
   on public.sales for insert
   with check (
-    public.current_profile_role() = 'seller'
+    public.can_manage_sale(event_id, seller_user_id)
     and exists (
       select 1
-      from public.sellers
-      where id = seller_id
-        and profile_id = auth.uid()
+      from public.event_memberships
+      where event_id = sales.event_id
+        and user_id = sales.seller_user_id
+        and role = 'seller'
     )
   );
 
-drop policy if exists "sales_seller_update_own" on public.sales;
-create policy "sales_seller_update_own"
+drop policy if exists "sales_update_with_membership_rules" on public.sales;
+create policy "sales_update_with_membership_rules"
   on public.sales for update
-  using (
-    public.current_profile_role() = 'seller'
-    and exists (
-      select 1
-      from public.sellers
-      where id = seller_id
-        and profile_id = auth.uid()
-    )
-  )
+  using (public.can_manage_sale(event_id, seller_user_id))
   with check (
-    public.current_profile_role() = 'seller'
+    public.can_manage_sale(event_id, seller_user_id)
     and exists (
       select 1
-      from public.sellers
-      where id = seller_id
-        and profile_id = auth.uid()
+      from public.event_memberships
+      where event_id = sales.event_id
+        and user_id = sales.seller_user_id
+        and role = 'seller'
     )
+  );
+
+drop policy if exists "sales_delete_host_or_event_host" on public.sales;
+create policy "sales_delete_host_or_event_host"
+  on public.sales for delete
+  using (
+    public.current_global_role() = 'host'
+    or public.membership_role(event_id) = 'host'
   );
 
 drop policy if exists "expenses_select_accessible" on public.expenses;
@@ -221,30 +253,30 @@ create policy "expenses_select_accessible"
   on public.expenses for select
   using (public.can_access_event(event_id));
 
-drop policy if exists "expenses_admin_write" on public.expenses;
-create policy "expenses_admin_write"
+drop policy if exists "expenses_write_host_or_event_host" on public.expenses;
+create policy "expenses_write_host_or_event_host"
   on public.expenses for all
-  using (public.current_profile_role() = 'admin')
-  with check (public.current_profile_role() = 'admin');
+  using (public.current_global_role() = 'host' or public.membership_role(event_id) = 'host')
+  with check (public.current_global_role() = 'host' or public.membership_role(event_id) = 'host');
 
 drop policy if exists "tasks_select_accessible" on public.tasks;
 create policy "tasks_select_accessible"
   on public.tasks for select
   using (public.can_access_event(event_id));
 
-drop policy if exists "tasks_admin_organizer_write" on public.tasks;
-create policy "tasks_admin_organizer_write"
+drop policy if exists "tasks_write_managers" on public.tasks;
+create policy "tasks_write_managers"
   on public.tasks for all
-  using (public.current_profile_role() in ('admin', 'organizer'))
-  with check (public.current_profile_role() in ('admin', 'organizer'));
+  using (public.can_manage_event(event_id))
+  with check (public.can_manage_event(event_id));
 
 drop policy if exists "announcements_select_accessible" on public.announcements;
 create policy "announcements_select_accessible"
   on public.announcements for select
   using (public.can_access_event(event_id));
 
-drop policy if exists "announcements_admin_organizer_write" on public.announcements;
-create policy "announcements_admin_organizer_write"
+drop policy if exists "announcements_write_managers" on public.announcements;
+create policy "announcements_write_managers"
   on public.announcements for all
-  using (public.current_profile_role() in ('admin', 'organizer'))
-  with check (public.current_profile_role() in ('admin', 'organizer'));
+  using (public.can_manage_event(event_id))
+  with check (public.can_manage_event(event_id));

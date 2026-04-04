@@ -8,21 +8,21 @@ export interface Database {
           id: string;
           full_name: string;
           avatar_label: string | null;
-          role: "admin" | "organizer" | "seller";
+          role: "host" | "organizer" | "seller";
           created_at: string;
         };
         Insert: {
           id: string;
           full_name: string;
           avatar_label?: string | null;
-          role?: "admin" | "organizer" | "seller";
+          role?: "host" | "organizer" | "seller";
           created_at?: string;
         };
         Update: {
           id?: string;
           full_name?: string;
           avatar_label?: string | null;
-          role?: "admin" | "organizer" | "seller";
+          role?: "host" | "organizer" | "seller";
           created_at?: string;
         };
         Relationships: [];
@@ -66,11 +66,12 @@ export interface Database {
         };
         Relationships: [];
       };
-      sellers: {
+      event_memberships: {
         Row: {
           id: string;
           event_id: string;
-          profile_id: string;
+          user_id: string;
+          role: "host" | "organizer" | "seller";
           ticket_quota: number;
           is_active: boolean;
           created_at: string;
@@ -78,7 +79,8 @@ export interface Database {
         Insert: {
           id?: string;
           event_id: string;
-          profile_id: string;
+          user_id: string;
+          role?: "host" | "organizer" | "seller";
           ticket_quota?: number;
           is_active?: boolean;
           created_at?: string;
@@ -86,7 +88,8 @@ export interface Database {
         Update: {
           id?: string;
           event_id?: string;
-          profile_id?: string;
+          user_id?: string;
+          role?: "host" | "organizer" | "seller";
           ticket_quota?: number;
           is_active?: boolean;
           created_at?: string;
@@ -97,7 +100,7 @@ export interface Database {
         Row: {
           id: string;
           event_id: string;
-          seller_id: string;
+          seller_user_id: string;
           quantity: number;
           unit_price: number;
           payment_status: "paid" | "pending";
@@ -109,7 +112,7 @@ export interface Database {
         Insert: {
           id?: string;
           event_id: string;
-          seller_id: string;
+          seller_user_id: string;
           quantity?: number;
           unit_price?: number;
           payment_status?: "paid" | "pending";
@@ -121,7 +124,7 @@ export interface Database {
         Update: {
           id?: string;
           event_id?: string;
-          seller_id?: string;
+          seller_user_id?: string;
           quantity?: number;
           unit_price?: number;
           payment_status?: "paid" | "pending";
