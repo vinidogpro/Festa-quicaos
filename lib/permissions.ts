@@ -12,7 +12,7 @@ export function buildPermissions(globalRole: UserRole, eventRole?: EventRole): V
     canManageEvent: isEventHost,
     canManageTeam: isEventHost || isOrganizer,
     canManageSales: isEventHost || isOrganizer || isSeller,
-    canManageFinance: isEventHost,
+    canManageFinance: isEventHost || isOrganizer,
     canManageTasks: isEventHost || isOrganizer,
     canManageAnnouncements: isEventHost || isOrganizer,
     canManageOwnSalesOnly: isSeller,

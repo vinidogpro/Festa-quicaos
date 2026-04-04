@@ -209,8 +209,8 @@ create policy "events_select_accessible"
 drop policy if exists "events_write_host_only" on public.events;
 create policy "events_write_host_only"
   on public.events for all
-  using (public.current_global_role() = 'host')
-  with check (public.current_global_role() = 'host');
+  using (public.current_global_role() = 'host' or public.membership_role(id) = 'host')
+  with check (public.current_global_role() = 'host' or public.membership_role(id) = 'host');
 
 drop policy if exists "event_memberships_select_accessible" on public.event_memberships;
 create policy "event_memberships_select_accessible"
@@ -274,8 +274,8 @@ create policy "expenses_select_accessible"
 drop policy if exists "expenses_write_host_or_event_host" on public.expenses;
 create policy "expenses_write_host_or_event_host"
   on public.expenses for all
-  using (public.current_global_role() = 'host' or public.membership_role(event_id) = 'host')
-  with check (public.current_global_role() = 'host' or public.membership_role(event_id) = 'host');
+  using (public.current_global_role() = 'host' or public.membership_role(event_id) in ('host', 'organizer'))
+  with check (public.current_global_role() = 'host' or public.membership_role(event_id) in ('host', 'organizer'));
 
 drop policy if exists "tasks_select_accessible" on public.tasks;
 create policy "tasks_select_accessible"

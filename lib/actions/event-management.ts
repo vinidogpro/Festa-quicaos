@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { FinanceActionState, SalesActionState, TeamActionState } from "@/lib/actions/action-state";
+import { EventActionState, FinanceActionState, SalesActionState, TeamActionState } from "@/lib/actions/action-state";
 import { Database } from "@/lib/supabase/database.types";
 import { createSupabaseActionClient } from "@/lib/supabase/server";
 
@@ -78,6 +78,16 @@ async function countEventHosts(supabase: any, eventId: string) {
   }
 
   return count ?? 0;
+}
+
+async function getExpenseRowById(supabase: any, expenseId: string) {
+  const { data: expense, error } = await supabase.from("expenses").select("*").eq("id", expenseId).single();
+
+  if (error || !expense) {
+    throw new Error("Despesa nao encontrada.");
+  }
+
+  return expense;
 }
 
 export async function createEventAction(formData: FormData) {
@@ -357,6 +367,162 @@ export async function createExpenseAction(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "Nao foi possivel cadastrar a despesa."
+    };
+  }
+}
+
+export async function deleteExpenseAction(
+  _prevState: FinanceActionState,
+  formData: FormData
+): Promise<FinanceActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const expenseId = String(formData.get("expenseId") ?? "");
+    const expense = await getExpenseRowById(supabase, expenseId);
+    const membership = await getMembership(supabase, expense.event_id, profile.id);
+
+    if (!(profile.role === "host" || membership?.role === "host" || membership?.role === "organizer")) {
+      return {
+        status: "error",
+        message: "Voce nao tem permissao para excluir esta despesa."
+      };
+    }
+
+    const { error } = await supabase.from("expenses").delete().eq("id", expenseId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Despesa excluida com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel excluir a despesa."
+    };
+  }
+}
+
+export async function updateEventAction(
+  _prevState: EventActionState,
+  formData: FormData
+): Promise<EventActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const currentSlug = String(formData.get("eventId") ?? "").trim();
+    const event = await getEventRowBySlug(currentSlug);
+    const membership = await getMembership(supabase, event.id, profile.id);
+
+    if (!(profile.role === "host" || membership?.role === "host")) {
+      return {
+        status: "error",
+        message: "Somente host pode editar os dados desta festa."
+      };
+    }
+
+    const name = String(formData.get("name") ?? "").trim();
+    const venue = String(formData.get("venue") ?? "").trim();
+    const eventDate = String(formData.get("eventDate") ?? "").trim();
+    const goalValue = Number(formData.get("goalValue") ?? 0);
+
+    if (!name || !venue || !eventDate || !Number.isFinite(goalValue) || goalValue < 0) {
+      return {
+        status: "error",
+        message: "Preencha nome, local, data e meta corretamente."
+      };
+    }
+
+    const nextSlug = name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
+    const { error } = await supabase
+      .from("events")
+      .update({
+        name,
+        venue,
+        event_date: eventDate,
+        goal_value: goalValue,
+        slug: nextSlug
+      })
+      .eq("id", event.id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath("/");
+    revalidatePath("/festas");
+    revalidatePath(`/festas/${currentSlug}`);
+    revalidatePath(`/festas/${nextSlug}`);
+
+    return {
+      status: "success",
+      message: "Evento atualizado com sucesso.",
+      redirectTo: `/festas/${nextSlug}`
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel atualizar o evento."
+    };
+  }
+}
+
+export async function deleteEventAction(
+  _prevState: EventActionState,
+  formData: FormData
+): Promise<EventActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "").trim();
+    const event = await getEventRowBySlug(eventSlug);
+    const membership = await getMembership(supabase, event.id, profile.id);
+
+    if (!(profile.role === "host" || membership?.role === "host")) {
+      return {
+        status: "error",
+        message: "Somente host pode excluir esta festa."
+      };
+    }
+
+    const confirmation = String(formData.get("confirmation") ?? "").trim();
+
+    if (confirmation !== event.name) {
+      return {
+        status: "error",
+        message: "Digite o nome exato da festa para confirmar a exclusao."
+      };
+    }
+
+    const { error } = await supabase.from("events").delete().eq("id", event.id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath("/");
+    revalidatePath("/festas");
+    revalidatePath("/historico");
+
+    return {
+      status: "success",
+      message: "Evento excluido com sucesso.",
+      redirectTo: "/festas"
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel excluir o evento."
     };
   }
 }

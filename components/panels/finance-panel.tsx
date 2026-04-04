@@ -3,9 +3,9 @@
 import { useEffect, useRef } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
-import { CircleDollarSign, ClipboardList, Plus, ReceiptText, Wallet } from "lucide-react";
+import { CircleDollarSign, ClipboardList, Plus, ReceiptText, Trash2, Wallet } from "lucide-react";
 import { initialFinanceActionState } from "@/lib/actions/action-state";
-import { createExpenseAction } from "@/lib/actions/event-management";
+import { createExpenseAction, deleteExpenseAction } from "@/lib/actions/event-management";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
@@ -39,13 +39,13 @@ function FinanceMetricCard({
   cardClassName: string;
 }) {
   return (
-    <div className={`min-w-0 rounded-[24px] p-5 sm:min-h-[168px] ${cardClassName}`}>
+    <div className={`min-w-0 rounded-[24px] p-5 sm:min-h-[176px] ${cardClassName}`}>
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm leading-5">{label}</p>
         <div className="mt-0.5 shrink-0 opacity-80">{icon}</div>
       </div>
       <p
-        className={`mt-8 overflow-hidden text-ellipsis whitespace-nowrap font-[var(--font-heading)] font-bold tracking-tight ${valueClassName}`}
+        className={`mt-8 whitespace-nowrap font-[var(--font-heading)] font-bold tracking-tight ${valueClassName}`}
         title={String(value)}
       >
         {value}
@@ -158,6 +158,40 @@ function ExpenseForm({ eventId }: { eventId: string }) {
   );
 }
 
+function ExpenseDeleteForm({ eventId, expenseId }: { eventId: string; expenseId: string }) {
+  const router = useRouter();
+  const [state, action] = useFormState(deleteExpenseAction, initialFinanceActionState);
+
+  useEffect(() => {
+    if (state.status === "success") {
+      router.refresh();
+    }
+  }, [router, state.status]);
+
+  return (
+    <form
+      action={action}
+      onSubmit={(event) => {
+        if (!window.confirm("Deseja realmente excluir esta despesa?")) {
+          event.preventDefault();
+        }
+      }}
+      className="flex flex-col items-end gap-2"
+    >
+      <input type="hidden" name="eventId" value={eventId} />
+      <input type="hidden" name="expenseId" value={expenseId} />
+      <SubmitButton
+        pendingLabel="Excluindo..."
+        className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <Trash2 className="h-4 w-4" />
+        Excluir
+      </SubmitButton>
+      <ActionFeedback status={state.status} message={state.message} />
+    </form>
+  );
+}
+
 export function FinancePanel({
   eventId,
   permissions,
@@ -189,7 +223,7 @@ export function FinancePanel({
         <div className="grid gap-6">
           <div
             className={`grid gap-4 ${
-              compact ? "sm:grid-cols-2" : "md:grid-cols-2 xl:grid-cols-3"
+              compact ? "sm:grid-cols-2" : "md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3"
             }`}
           >
             <FinanceMetricCard
@@ -197,7 +231,7 @@ export function FinancePanel({
               value={formatCurrency(totalRevenue)}
               icon={<CircleDollarSign className="h-5 w-5 text-white/60" />}
               cardClassName="bg-slate-950 text-white"
-              valueClassName="text-[clamp(1.9rem,3vw,2.8rem)] leading-none text-white"
+              valueClassName="text-[clamp(1.7rem,2.5vw,2.45rem)] leading-none text-white"
             />
 
             <FinanceMetricCard
@@ -205,7 +239,7 @@ export function FinancePanel({
               value={formatCurrency(totalExpenses)}
               icon={<ReceiptText className="h-5 w-5 text-slate-400" />}
               cardClassName="border border-slate-200 bg-white text-slate-500"
-              valueClassName="text-[clamp(1.9rem,3vw,2.7rem)] leading-none text-slate-950"
+              valueClassName="text-[clamp(1.7rem,2.5vw,2.35rem)] leading-none text-slate-950"
             />
 
             <FinanceMetricCard
@@ -213,7 +247,7 @@ export function FinancePanel({
               value={formatCurrency(estimatedProfit)}
               icon={<Wallet className="h-5 w-5 text-brand-600" />}
               cardClassName="bg-brand-50 text-slate-500"
-              valueClassName="text-[clamp(1.9rem,3vw,2.7rem)] leading-none text-slate-950"
+              valueClassName="text-[clamp(1.7rem,2.5vw,2.35rem)] leading-none text-slate-950"
             />
 
             <FinanceMetricCard
@@ -221,7 +255,7 @@ export function FinancePanel({
               value={pendingPaymentsCount}
               icon={<ClipboardList className="h-5 w-5 text-amber-600" />}
               cardClassName="border border-amber-200 bg-amber-50 text-amber-800"
-              valueClassName="text-[clamp(2rem,3vw,2.5rem)] leading-none text-amber-900"
+              valueClassName="text-[clamp(1.9rem,2.6vw,2.3rem)] leading-none text-amber-900"
             />
 
             <FinanceMetricCard
@@ -229,7 +263,7 @@ export function FinancePanel({
               value={confirmedPaymentsCount}
               icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
               cardClassName="border border-emerald-200 bg-emerald-50 text-emerald-800"
-              valueClassName="text-[clamp(2rem,3vw,2.5rem)] leading-none text-emerald-900"
+              valueClassName="text-[clamp(1.9rem,2.6vw,2.3rem)] leading-none text-emerald-900"
             />
           </div>
 
@@ -299,6 +333,11 @@ export function FinancePanel({
                         </div>
                         <div className="text-right">
                           <p className="font-semibold text-slate-900">{formatCurrency(expense.amount)}</p>
+                          {permissions.canManageFinance && !compact ? (
+                            <div className="mt-3">
+                              <ExpenseDeleteForm eventId={eventId} expenseId={expense.id} />
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </article>
