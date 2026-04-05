@@ -4,14 +4,24 @@ import { PartyEventDetail } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
 function SummaryValue({ value, isCurrency }: { value: number; isCurrency?: boolean }) {
+  if (isCurrency === false) {
+    return (
+      <p className="font-[var(--font-heading)] text-[clamp(2rem,2.8vw,2.6rem)] font-bold tracking-tight text-slate-950">
+        {value}
+      </p>
+    );
+  }
+
+  const formatted = formatCurrency(value);
+  const [currencyLabel, amountLabel] = formatted.split(/\s(.+)/);
+
   return (
-    <p
-      className={`whitespace-nowrap font-[var(--font-heading)] font-bold tracking-tight text-slate-950 ${
-        isCurrency === false ? "text-[clamp(2rem,2.8vw,2.6rem)]" : "text-[clamp(1.8rem,2.6vw,2.3rem)]"
-      }`}
-    >
-      {isCurrency === false ? value : formatCurrency(value)}
-    </p>
+    <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+      <span className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">{currencyLabel}</span>
+      <span className="font-[var(--font-heading)] text-[clamp(1.65rem,2.4vw,2.15rem)] font-bold tracking-tight text-slate-950">
+        {amountLabel ?? formatted}
+      </span>
+    </div>
   );
 }
 
@@ -40,8 +50,8 @@ export function DashboardOverview({ data }: { data: PartyEventDetail }) {
           action={<SummaryIcon label={item.label} />}
           className="min-w-0 overflow-hidden"
         >
-          <div className="flex min-h-[108px] flex-col justify-between">
-            <div className="pt-1">
+          <div className="flex min-h-[118px] flex-col justify-between">
+            <div className="min-w-0 pt-1">
               <SummaryValue value={item.value} isCurrency={item.isCurrency} />
             </div>
           </div>

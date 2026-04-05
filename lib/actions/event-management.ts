@@ -2,7 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { EventActionState, FinanceActionState, SalesActionState, TeamActionState } from "@/lib/actions/action-state";
+import {
+  AnnouncementActionState,
+  EventActionState,
+  FinanceActionState,
+  SalesActionState,
+  TaskActionState,
+  TeamActionState
+} from "@/lib/actions/action-state";
 import { Database } from "@/lib/supabase/database.types";
 import { createSupabaseActionClient } from "@/lib/supabase/server";
 
@@ -88,6 +95,30 @@ async function getExpenseRowById(supabase: any, expenseId: string) {
   }
 
   return expense;
+}
+
+async function getTaskRowById(supabase: any, taskId: string) {
+  const { data: task, error } = await supabase.from("tasks").select("*").eq("id", taskId).single();
+
+  if (error || !task) {
+    throw new Error("Tarefa nao encontrada.");
+  }
+
+  return task;
+}
+
+async function getAnnouncementRowById(supabase: any, announcementId: string) {
+  const { data: announcement, error } = await supabase
+    .from("announcements")
+    .select("*")
+    .eq("id", announcementId)
+    .single();
+
+  if (error || !announcement) {
+    throw new Error("Comunicado nao encontrado.");
+  }
+
+  return announcement;
 }
 
 export async function createEventAction(formData: FormData) {
@@ -323,10 +354,10 @@ export async function createExpenseAction(
     const event = await getEventRowBySlug(eventSlug);
     const membership = await getMembership(supabase, event.id, profile.id);
 
-    if (!(profile.role === "host" || membership?.role === "host")) {
+    if (!(profile.role === "host" || membership?.role === "host" || membership?.role === "organizer")) {
       return {
         status: "error",
-        message: "Somente host da festa pode cadastrar despesas."
+        message: "Voce nao tem permissao para cadastrar despesas nesta festa."
       };
     }
 
@@ -527,91 +558,343 @@ export async function deleteEventAction(
   }
 }
 
-export async function createTaskAction(formData: FormData) {
-  const { supabase, profile } = await getActionProfile();
-  const eventSlug = String(formData.get("eventId") ?? "");
-  const event = await getEventRowBySlug(eventSlug);
-  const membership = await getMembership(supabase, event.id, profile.id);
+export async function createTaskAction(
+  _prevState: TaskActionState,
+  formData: FormData
+): Promise<TaskActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const event = await getEventRowBySlug(eventSlug);
+    const membership = await getMembership(supabase, event.id, profile.id);
 
-  if (!(profile.role === "host" || canManageEvent(profile, membership))) {
-    throw new Error("Voce nao pode criar tarefas nesta festa.");
+    if (!(profile.role === "host" || canManageEvent(profile, membership))) {
+      return {
+        status: "error",
+        message: "Voce nao pode criar tarefas nesta festa."
+      };
+    }
+
+    const title = String(formData.get("title") ?? "").trim();
+    const ownerProfileId = String(formData.get("ownerProfileId") ?? "").trim();
+    const dueAt = String(formData.get("dueAt") ?? "").trim();
+    const status = String(formData.get("status") ?? "pending") as Database["public"]["Tables"]["tasks"]["Row"]["status"];
+
+    if (!title) {
+      return {
+        status: "error",
+        message: "Informe o titulo da tarefa."
+      };
+    }
+
+    const { error } = await supabase.from("tasks").insert({
+      event_id: event.id,
+      title,
+      owner_profile_id: ownerProfileId || null,
+      due_at: dueAt || null,
+      status,
+      created_by: profile.id
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Tarefa criada com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel criar a tarefa."
+    };
   }
-
-  const title = String(formData.get("title") ?? "").trim();
-  const ownerProfileId = String(formData.get("ownerProfileId") ?? "").trim();
-  const dueAt = String(formData.get("dueAt") ?? "").trim();
-
-  if (!title) {
-    throw new Error("Informe o titulo da tarefa.");
-  }
-
-  const { error } = await supabase.from("tasks").insert({
-    event_id: event.id,
-    title,
-    owner_profile_id: ownerProfileId || null,
-    due_at: dueAt || null,
-    created_by: profile.id
-  });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  revalidatePath(`/festas/${eventSlug}`);
 }
 
-export async function updateTaskStatusAction(formData: FormData) {
-  const { supabase, profile } = await getActionProfile();
-  const eventSlug = String(formData.get("eventId") ?? "");
-  const taskId = String(formData.get("taskId") ?? "");
-  const event = await getEventRowBySlug(eventSlug);
-  const membership = await getMembership(supabase, event.id, profile.id);
+export async function updateTaskAction(
+  _prevState: TaskActionState,
+  formData: FormData
+): Promise<TaskActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const taskId = String(formData.get("taskId") ?? "");
+    const task = await getTaskRowById(supabase, taskId);
+    const membership = await getMembership(supabase, task.event_id, profile.id);
 
-  if (!(profile.role === "host" || canManageEvent(profile, membership))) {
-    throw new Error("Voce nao pode atualizar tarefas nesta festa.");
+    if (!(profile.role === "host" || canManageEvent(profile, membership))) {
+      return {
+        status: "error",
+        message: "Voce nao pode editar tarefas nesta festa."
+      };
+    }
+
+    const title = String(formData.get("title") ?? "").trim();
+    const ownerProfileId = String(formData.get("ownerProfileId") ?? "").trim();
+    const dueAt = String(formData.get("dueAt") ?? "").trim();
+    const status = String(formData.get("status") ?? task.status) as Database["public"]["Tables"]["tasks"]["Row"]["status"];
+
+    if (!title) {
+      return {
+        status: "error",
+        message: "Informe o titulo da tarefa."
+      };
+    }
+
+    const { error } = await supabase
+      .from("tasks")
+      .update({
+        title,
+        owner_profile_id: ownerProfileId || null,
+        due_at: dueAt || null,
+        status
+      })
+      .eq("id", taskId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Tarefa atualizada com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel atualizar a tarefa."
+    };
   }
-
-  const status = String(formData.get("status") ?? "pending") as Database["public"]["Tables"]["tasks"]["Row"]["status"];
-  const { error } = await supabase.from("tasks").update({ status }).eq("id", taskId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  revalidatePath(`/festas/${eventSlug}`);
 }
 
-export async function createAnnouncementAction(formData: FormData) {
-  const { supabase, profile } = await getActionProfile();
-  const eventSlug = String(formData.get("eventId") ?? "");
-  const event = await getEventRowBySlug(eventSlug);
-  const membership = await getMembership(supabase, event.id, profile.id);
+export async function updateTaskStatusAction(
+  _prevState: TaskActionState,
+  formData: FormData
+): Promise<TaskActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const taskId = String(formData.get("taskId") ?? "");
+    const task = await getTaskRowById(supabase, taskId);
+    const membership = await getMembership(supabase, task.event_id, profile.id);
 
-  if (!(profile.role === "host" || canManageEvent(profile, membership))) {
-    throw new Error("Voce nao pode publicar comunicados nesta festa.");
+    if (!(profile.role === "host" || canManageEvent(profile, membership))) {
+      return {
+        status: "error",
+        message: "Voce nao pode atualizar tarefas nesta festa."
+      };
+    }
+
+    const status = String(formData.get("status") ?? "pending") as Database["public"]["Tables"]["tasks"]["Row"]["status"];
+    const { error } = await supabase.from("tasks").update({ status }).eq("id", taskId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Status da tarefa atualizado."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel atualizar a tarefa."
+    };
   }
+}
 
-  const title = String(formData.get("title") ?? "").trim();
-  const body = String(formData.get("body") ?? "").trim();
-  const pinned = String(formData.get("pinned") ?? "") === "on";
+export async function deleteTaskAction(
+  _prevState: TaskActionState,
+  formData: FormData
+): Promise<TaskActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const taskId = String(formData.get("taskId") ?? "");
+    const task = await getTaskRowById(supabase, taskId);
+    const membership = await getMembership(supabase, task.event_id, profile.id);
 
-  if (!title || !body) {
-    throw new Error("Preencha titulo e mensagem.");
+    if (!(profile.role === "host" || canManageEvent(profile, membership))) {
+      return {
+        status: "error",
+        message: "Voce nao pode excluir tarefas nesta festa."
+      };
+    }
+
+    const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Tarefa excluida com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel excluir a tarefa."
+    };
   }
+}
 
-  const { error } = await supabase.from("announcements").insert({
-    event_id: event.id,
-    title,
-    body,
-    pinned,
-    created_by: profile.id
-  });
+export async function createAnnouncementAction(
+  _prevState: AnnouncementActionState,
+  formData: FormData
+): Promise<AnnouncementActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const event = await getEventRowBySlug(eventSlug);
+    const membership = await getMembership(supabase, event.id, profile.id);
 
-  if (error) {
-    throw new Error(error.message);
+    if (!(profile.role === "host" || canManageEvent(profile, membership))) {
+      return {
+        status: "error",
+        message: "Voce nao pode publicar comunicados nesta festa."
+      };
+    }
+
+    const title = String(formData.get("title") ?? "").trim();
+    const body = String(formData.get("body") ?? "").trim();
+    const pinned = String(formData.get("pinned") ?? "") === "on";
+
+    if (!title || !body) {
+      return {
+        status: "error",
+        message: "Preencha titulo e mensagem."
+      };
+    }
+
+    const { error } = await supabase.from("announcements").insert({
+      event_id: event.id,
+      title,
+      body,
+      pinned,
+      created_by: profile.id
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Comunicado publicado com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel publicar o comunicado."
+    };
   }
+}
 
-  revalidatePath(`/festas/${eventSlug}`);
+export async function updateAnnouncementAction(
+  _prevState: AnnouncementActionState,
+  formData: FormData
+): Promise<AnnouncementActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const announcementId = String(formData.get("announcementId") ?? "");
+    const announcement = await getAnnouncementRowById(supabase, announcementId);
+    const membership = await getMembership(supabase, announcement.event_id, profile.id);
+
+    if (!(profile.role === "host" || canManageEvent(profile, membership))) {
+      return {
+        status: "error",
+        message: "Voce nao pode editar comunicados nesta festa."
+      };
+    }
+
+    const title = String(formData.get("title") ?? "").trim();
+    const body = String(formData.get("body") ?? "").trim();
+    const pinned = String(formData.get("pinned") ?? "") === "on";
+
+    if (!title || !body) {
+      return {
+        status: "error",
+        message: "Preencha titulo e mensagem."
+      };
+    }
+
+    const { error } = await supabase
+      .from("announcements")
+      .update({
+        title,
+        body,
+        pinned
+      })
+      .eq("id", announcementId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Comunicado atualizado com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel atualizar o comunicado."
+    };
+  }
+}
+
+export async function deleteAnnouncementAction(
+  _prevState: AnnouncementActionState,
+  formData: FormData
+): Promise<AnnouncementActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const announcementId = String(formData.get("announcementId") ?? "");
+    const announcement = await getAnnouncementRowById(supabase, announcementId);
+    const membership = await getMembership(supabase, announcement.event_id, profile.id);
+
+    if (!(profile.role === "host" || canManageEvent(profile, membership))) {
+      return {
+        status: "error",
+        message: "Voce nao pode excluir comunicados nesta festa."
+      };
+    }
+
+    const { error } = await supabase.from("announcements").delete().eq("id", announcementId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Comunicado excluido com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel excluir o comunicado."
+    };
+  }
 }
 
 export async function addEventMemberAction(

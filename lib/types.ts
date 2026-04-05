@@ -99,6 +99,8 @@ export interface TaskItem {
   ownerProfileId?: string;
   status: TaskStatus;
   dueLabel: string;
+  dueAt?: string;
+  createdAt: string;
 }
 
 export interface Announcement {
@@ -106,6 +108,8 @@ export interface Announcement {
   title: string;
   body: string;
   pinned?: boolean;
+  createdAt: string;
+  author?: string;
 }
 
 export interface SalesSeries {

@@ -1,5 +1,16 @@
-import { Plus } from "lucide-react";
-import { createTaskAction, updateTaskStatusAction } from "@/lib/actions/event-management";
+"use client";
+
+import { useEffect, useRef } from "react";
+import { useFormState } from "react-dom";
+import { useRouter } from "next/navigation";
+import { CalendarDays, CheckCheck, Pencil, Plus, Trash2 } from "lucide-react";
+import { initialTaskActionState } from "@/lib/actions/action-state";
+import {
+  createTaskAction,
+  deleteTaskAction,
+  updateTaskAction,
+  updateTaskStatusAction
+} from "@/lib/actions/event-management";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
@@ -12,6 +23,245 @@ interface TasksPanelProps {
   participantOptions: SellerOption[];
   permissions: ViewerPermissions;
   compact?: boolean;
+}
+
+function formatDateTime(date: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(date));
+}
+
+function ActionFeedback({
+  status,
+  message
+}: {
+  status: "idle" | "success" | "error";
+  message: string;
+}) {
+  if (!message || status === "idle") {
+    return null;
+  }
+
+  return (
+    <div
+      className={`rounded-2xl px-4 py-3 text-sm ${
+        status === "success"
+          ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+          : "border border-rose-200 bg-rose-50 text-rose-700"
+      }`}
+    >
+      {message}
+    </div>
+  );
+}
+
+function TaskCreateForm({
+  eventId,
+  participantOptions
+}: {
+  eventId: string;
+  participantOptions: SellerOption[];
+}) {
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [state, action] = useFormState(createTaskAction, initialTaskActionState);
+
+  useEffect(() => {
+    if (state.status === "success") {
+      formRef.current?.reset();
+      router.refresh();
+    }
+  }, [router, state.status]);
+
+  return (
+    <form
+      ref={formRef}
+      action={action}
+      className="mb-5 grid gap-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4 lg:grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_auto]"
+    >
+      <input type="hidden" name="eventId" value={eventId} />
+      <input
+        name="title"
+        placeholder="Titulo da tarefa"
+        className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        required
+      />
+      <select
+        name="ownerProfileId"
+        className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        defaultValue=""
+      >
+        <option value="">Sem responsavel</option>
+        {participantOptions.map((participant) => (
+          <option key={participant.id} value={participant.id}>
+            {participant.name}
+          </option>
+        ))}
+      </select>
+      <select
+        name="status"
+        defaultValue="pending"
+        className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+      >
+        <option value="pending">Pendente</option>
+        <option value="in-progress">Em andamento</option>
+        <option value="done">Concluida</option>
+      </select>
+      <input
+        name="dueAt"
+        type="date"
+        className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+      />
+      <SubmitButton
+        pendingLabel="Criando..."
+        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <Plus className="h-4 w-4" />
+        Adicionar tarefa
+      </SubmitButton>
+      <div className="lg:col-span-5">
+        <ActionFeedback status={state.status} message={state.message} />
+      </div>
+    </form>
+  );
+}
+
+function TaskStatusForm({ eventId, task }: { eventId: string; task: TaskItem }) {
+  const router = useRouter();
+  const [state, action] = useFormState(updateTaskStatusAction, initialTaskActionState);
+
+  useEffect(() => {
+    if (state.status === "success") {
+      router.refresh();
+    }
+  }, [router, state.status]);
+
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-2">
+      <input type="hidden" name="eventId" value={eventId} />
+      <input type="hidden" name="taskId" value={task.id} />
+      <select
+        name="status"
+        defaultValue={task.status}
+        className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm outline-none transition focus:border-brand-500"
+      >
+        <option value="pending">Pendente</option>
+        <option value="in-progress">Em andamento</option>
+        <option value="done">Concluida</option>
+      </select>
+      <SubmitButton
+        pendingLabel="Atualizando..."
+        className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        Status
+      </SubmitButton>
+      <ActionFeedback status={state.status} message={state.message} />
+    </form>
+  );
+}
+
+function TaskEditForm({
+  eventId,
+  task,
+  participantOptions
+}: {
+  eventId: string;
+  task: TaskItem;
+  participantOptions: SellerOption[];
+}) {
+  const router = useRouter();
+  const [updateState, updateAction] = useFormState(updateTaskAction, initialTaskActionState);
+  const [deleteState, deleteAction] = useFormState(deleteTaskAction, initialTaskActionState);
+
+  useEffect(() => {
+    if (updateState.status === "success" || deleteState.status === "success") {
+      router.refresh();
+    }
+  }, [deleteState.status, router, updateState.status]);
+
+  return (
+    <details className="rounded-2xl border border-slate-200 bg-white">
+      <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+        <Pencil className="h-4 w-4" />
+        Editar
+      </summary>
+      <div className="space-y-4 border-t border-slate-100 p-4">
+        <form action={updateAction} className="grid gap-3">
+          <input type="hidden" name="eventId" value={eventId} />
+          <input type="hidden" name="taskId" value={task.id} />
+          <input
+            name="title"
+            defaultValue={task.title}
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            required
+          />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <select
+              name="ownerProfileId"
+              defaultValue={task.ownerProfileId ?? ""}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            >
+              <option value="">Sem responsavel</option>
+              {participantOptions.map((participant) => (
+                <option key={participant.id} value={participant.id}>
+                  {participant.name}
+                </option>
+              ))}
+            </select>
+            <select
+              name="status"
+              defaultValue={task.status}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            >
+              <option value="pending">Pendente</option>
+              <option value="in-progress">Em andamento</option>
+              <option value="done">Concluida</option>
+            </select>
+            <input
+              name="dueAt"
+              type="date"
+              defaultValue={task.dueAt ?? ""}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            />
+          </div>
+          <div className="flex justify-end">
+            <SubmitButton
+              pendingLabel="Salvando..."
+              className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Salvar tarefa
+            </SubmitButton>
+          </div>
+          <ActionFeedback status={updateState.status} message={updateState.message} />
+        </form>
+
+        <form
+          action={deleteAction}
+          onSubmit={(event) => {
+            if (!window.confirm("Deseja realmente excluir esta tarefa?")) {
+              event.preventDefault();
+            }
+          }}
+        >
+          <input type="hidden" name="eventId" value={eventId} />
+          <input type="hidden" name="taskId" value={task.id} />
+          <SubmitButton
+            pendingLabel="Excluindo..."
+            className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Trash2 className="h-4 w-4" />
+            Excluir tarefa
+          </SubmitButton>
+          <div className="mt-3">
+            <ActionFeedback status={deleteState.status} message={deleteState.message} />
+          </div>
+        </form>
+      </div>
+    </details>
+  );
 }
 
 export function TasksPanel({
@@ -27,76 +277,46 @@ export function TasksPanel({
       description="Acompanhe responsaveis, andamento e proximos passos da organizacao."
     >
       {permissions.canManageTasks && !compact ? (
-        <form action={createTaskAction} className="mb-5 grid gap-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4 lg:grid-cols-4">
-          <input type="hidden" name="eventId" value={eventId} />
-          <input
-            name="title"
-            placeholder="Titulo da tarefa"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-            required
-          />
-          <select
-            name="ownerProfileId"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-            defaultValue=""
-          >
-            <option value="">Sem responsavel</option>
-            {participantOptions.map((participant) => (
-              <option key={participant.id} value={participant.id}>
-                {participant.name}
-              </option>
-            ))}
-          </select>
-          <input
-            name="dueAt"
-            type="date"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-          />
-          <SubmitButton className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60">
-            <Plus className="h-4 w-4" />
-            Adicionar tarefa
-          </SubmitButton>
-        </form>
+        <TaskCreateForm eventId={eventId} participantOptions={participantOptions} />
       ) : null}
 
       {tasks.length === 0 ? (
         <EmptyState
           title="Nenhuma tarefa cadastrada"
           description="Use este espaco para planejar operacao, marketing, staff e entregas do evento."
-          icon={Plus}
+          icon={CheckCheck}
         />
       ) : (
         <div className="space-y-3">
           {tasks.slice(0, compact ? 3 : tasks.length).map((task) => (
-            <div
+            <article
               key={task.id}
-              className="flex flex-col gap-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+              className="rounded-[24px] border border-slate-200 bg-slate-50 p-4"
             >
-              <div>
-                <p className="font-medium text-slate-900">{task.title}</p>
-                <p className="mt-1 text-sm text-slate-500">Responsavel: {task.owner} | Prazo: {task.dueLabel}</p>
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-semibold text-slate-900">{task.title}</h3>
+                    {!permissions.canManageTasks || compact ? <StatusBadge status={task.status} /> : null}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-500">
+                    <span>Responsavel: {task.owner}</span>
+                    <span>Prazo: {task.dueLabel}</span>
+                    <span className="inline-flex items-center gap-1">
+                      <CalendarDays className="h-4 w-4" />
+                      Criada em {formatDateTime(task.createdAt)}
+                    </span>
+                  </div>
+                </div>
+
+                {permissions.canManageTasks && !compact ? (
+                  <div className="grid gap-3 xl:w-[25rem]">
+                    <TaskStatusForm eventId={eventId} task={task} />
+                    <TaskEditForm eventId={eventId} task={task} participantOptions={participantOptions} />
+                  </div>
+                ) : null}
               </div>
-              {permissions.canManageTasks && !compact ? (
-                <form action={updateTaskStatusAction} className="flex flex-wrap items-center gap-2">
-                  <input type="hidden" name="eventId" value={eventId} />
-                  <input type="hidden" name="taskId" value={task.id} />
-                  <select
-                    name="status"
-                    defaultValue={task.status}
-                    className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm outline-none"
-                  >
-                    <option value="pending">Pendente</option>
-                    <option value="in-progress">Em andamento</option>
-                    <option value="done">Concluido</option>
-                  </select>
-                  <SubmitButton className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
-                    Atualizar
-                  </SubmitButton>
-                </form>
-              ) : (
-                <StatusBadge status={task.status} />
-              )}
-            </div>
+            </article>
           ))}
         </div>
       )}

@@ -370,14 +370,31 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     owner: task.owner_profile_id ? profilesMap.get(task.owner_profile_id)?.full_name ?? "Sem responsavel" : "Sem responsavel",
     ownerProfileId: task.owner_profile_id ?? undefined,
     status: task.status,
-    dueLabel: task.due_at ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(task.due_at)) : "Sem prazo"
+    dueLabel: task.due_at ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(task.due_at)) : "Sem prazo",
+    dueAt: task.due_at ?? undefined,
+    createdAt: task.created_at
   }));
+
+  const createdByProfileIds = [
+    ...new Set(announcementRows.flatMap((announcement) => (announcement.created_by ? [announcement.created_by] : [])))
+  ];
+  const createdByProfilesMap = await getProfilesMap(createdByProfileIds);
+
+  announcementRows.sort((left, right) => {
+    if (left.pinned !== right.pinned) {
+      return left.pinned ? -1 : 1;
+    }
+
+    return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+  });
 
   const announcementItems: Announcement[] = announcementRows.map((announcement) => ({
     id: announcement.id,
     title: announcement.title,
     body: announcement.body,
-    pinned: announcement.pinned
+    pinned: announcement.pinned,
+    createdAt: announcement.created_at,
+    author: createdByProfilesMap.get(announcement.created_by)?.full_name ?? "Equipe"
   }));
 
   const salesByDay = new Map<string, number>();
