@@ -6,7 +6,7 @@ import { formatCurrency } from "@/lib/utils";
 function SummaryValue({ value, isCurrency }: { value: number; isCurrency?: boolean }) {
   if (isCurrency === false) {
     return (
-      <p className="font-[var(--font-heading)] text-[clamp(2rem,3vw,2.7rem)] font-bold tracking-tight text-slate-950">
+      <p className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.6rem,2.4vw,2.2rem)] font-bold tracking-tight text-slate-950">
         {value}
       </p>
     );
@@ -16,9 +16,11 @@ function SummaryValue({ value, isCurrency }: { value: number; isCurrency?: boole
   const [currencyLabel, amountLabel] = formatted.split(/\s(.+)/);
 
   return (
-    <div className="min-w-0 space-y-3">
-      <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{currencyLabel}</span>
-      <span className="block whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.75rem,2.8vw,2.55rem)] font-bold tracking-tight text-slate-950">
+    <div className="min-w-0 space-y-3 overflow-hidden">
+      <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+        {currencyLabel}
+      </span>
+      <span className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.45rem,2.2vw,2.05rem)] font-bold tracking-tight text-slate-950">
         {amountLabel ?? formatted}
       </span>
     </div>
@@ -50,14 +52,14 @@ export function DashboardOverview({ data }: { data: PartyEventDetail }) {
           action={<SummaryIcon label={item.label} />}
           className="min-w-0 overflow-hidden"
         >
-          <div className="flex min-h-[156px] flex-col justify-between">
+          <div className="flex min-h-[156px] min-w-0 flex-col justify-between overflow-hidden">
             <div className="min-w-0 pt-3">
               <SummaryValue value={item.value} isCurrency={item.isCurrency} />
             </div>
           </div>
 
           {typeof item.progress === "number" ? (
-            <div className="mt-7">
+            <div className="mt-7 min-w-0 overflow-hidden">
               <div className="h-2 rounded-full bg-slate-100">
                 <div
                   className="h-2 rounded-full bg-brand-600 transition-all"

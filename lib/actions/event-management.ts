@@ -300,6 +300,15 @@ export async function updateSaleAction(
     const paymentStatus = String(formData.get("paymentStatus") ?? sale.payment_status) as Database["public"]["Tables"]["sales"]["Row"]["payment_status"];
     const soldAt = String(formData.get("soldAt") ?? sale.sold_at);
     const notes = String(formData.get("notes") ?? sale.notes ?? "").trim();
+    const requestedSellerUserId = String(formData.get("sellerId") ?? sale.seller_user_id).trim();
+
+    let sellerUserId = sale.seller_user_id;
+
+    if (profile.role === "host" || canManageEvent(profile, membership)) {
+      sellerUserId = requestedSellerUserId || sale.seller_user_id;
+    } else if (membership?.role === "seller") {
+      sellerUserId = profile.id;
+    }
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
       return {
@@ -315,9 +324,24 @@ export async function updateSaleAction(
       };
     }
 
+    const { data: sellerMembership } = await supabase
+      .from("event_memberships")
+      .select("role")
+      .eq("event_id", sale.event_id)
+      .eq("user_id", sellerUserId)
+      .single();
+
+    if (!sellerMembership || sellerMembership.role !== "seller") {
+      return {
+        status: "error",
+        message: "O vendedor selecionado precisa estar vinculado como seller nesta festa."
+      };
+    }
+
     const { error } = await supabase
       .from("sales")
       .update({
+        seller_user_id: sellerUserId,
         quantity,
         unit_price: unitPrice,
         payment_status: paymentStatus,
@@ -331,6 +355,8 @@ export async function updateSaleAction(
     }
 
     revalidatePath(`/festas/${eventSlug}`);
+    revalidatePath("/");
+    revalidatePath("/festas");
 
     return {
       status: "success",
@@ -340,6 +366,59 @@ export async function updateSaleAction(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "Nao foi possivel atualizar a venda."
+    };
+  }
+}
+
+export async function deleteSaleAction(
+  _prevState: SalesActionState,
+  formData: FormData
+): Promise<SalesActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const saleId = String(formData.get("saleId") ?? "");
+
+    const { data: sale, error: saleError } = await supabase.from("sales").select("*").eq("id", saleId).single();
+
+    if (saleError || !sale) {
+      return {
+        status: "error",
+        message: "Venda nao encontrada."
+      };
+    }
+
+    const membership = await getMembership(supabase, sale.event_id, profile.id);
+    const canDeleteThisSale =
+      profile.role === "host" ||
+      canManageEvent(profile, membership) ||
+      (membership?.role === "seller" && sale.seller_user_id === profile.id);
+
+    if (!canDeleteThisSale) {
+      return {
+        status: "error",
+        message: "Voce nao pode excluir esta venda."
+      };
+    }
+
+    const { error } = await supabase.from("sales").delete().eq("id", saleId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/festas/${eventSlug}`);
+    revalidatePath("/");
+    revalidatePath("/festas");
+
+    return {
+      status: "success",
+      message: "Venda excluida com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel excluir a venda."
     };
   }
 }

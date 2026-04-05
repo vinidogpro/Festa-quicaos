@@ -259,12 +259,10 @@ create policy "sales_update_with_membership_rules"
   );
 
 drop policy if exists "sales_delete_host_or_event_host" on public.sales;
-create policy "sales_delete_host_or_event_host"
+drop policy if exists "sales_delete_with_membership_rules" on public.sales;
+create policy "sales_delete_with_membership_rules"
   on public.sales for delete
-  using (
-    public.current_global_role() = 'host'
-    or public.membership_role(event_id) = 'host'
-  );
+  using (public.can_manage_sale(event_id, seller_user_id));
 
 drop policy if exists "expenses_select_accessible" on public.expenses;
 create policy "expenses_select_accessible"

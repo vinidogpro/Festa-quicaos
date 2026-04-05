@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
-import { CircleAlert, Pencil, Plus, Sparkles, Ticket } from "lucide-react";
+import { CircleAlert, Pencil, Plus, Sparkles, Ticket, Trash2 } from "lucide-react";
 import { initialSalesActionState } from "@/lib/actions/action-state";
-import { createSaleAction, updateSaleAction } from "@/lib/actions/event-management";
+import { createSaleAction, deleteSaleAction, updateSaleAction } from "@/lib/actions/event-management";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -235,7 +235,51 @@ function SaleQuickForm({
   );
 }
 
-function SaleEditForm({ eventId, row }: { eventId: string; row: SalesRecord }) {
+function SaleDeleteForm({ eventId, saleId }: { eventId: string; saleId: string }) {
+  const router = useRouter();
+  const [state, action] = useFormState(deleteSaleAction, initialSalesActionState);
+
+  useEffect(() => {
+    if (state.status === "success") {
+      router.refresh();
+    }
+  }, [router, state.status]);
+
+  return (
+    <form
+      action={action}
+      onSubmit={(event) => {
+        if (!window.confirm("Tem certeza que deseja excluir esta venda? Essa acao atualiza ranking, financeiro e insights.")) {
+          event.preventDefault();
+        }
+      }}
+      className="grid gap-3"
+    >
+      <input type="hidden" name="eventId" value={eventId} />
+      <input type="hidden" name="saleId" value={saleId} />
+      <SubmitButton
+        pendingLabel="Excluindo..."
+        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <Trash2 className="h-4 w-4" />
+        Excluir venda
+      </SubmitButton>
+      <ActionFeedback status={state.status} message={state.message} />
+    </form>
+  );
+}
+
+function SaleEditForm({
+  eventId,
+  row,
+  permissions,
+  sellerOptions
+}: {
+  eventId: string;
+  row: SalesRecord;
+  permissions: ViewerPermissions;
+  sellerOptions: SellerOption[];
+}) {
   const router = useRouter();
   const [state, action] = useFormState(updateSaleAction, initialSalesActionState);
 
@@ -246,7 +290,7 @@ function SaleEditForm({ eventId, row }: { eventId: string; row: SalesRecord }) {
   }, [router, state.status]);
 
   return (
-    <details className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 lg:w-[24rem]">
+    <details className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 lg:w-[26rem]">
       <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
         <Pencil className="h-4 w-4" />
         Editar venda
@@ -254,6 +298,24 @@ function SaleEditForm({ eventId, row }: { eventId: string; row: SalesRecord }) {
       <form action={action} className="mt-3 grid gap-3">
         <input type="hidden" name="eventId" value={eventId} />
         <input type="hidden" name="saleId" value={row.id} />
+        {permissions.canManageOwnSalesOnly ? (
+          <input type="hidden" name="sellerId" value={row.sellerUserId} />
+        ) : (
+          <label className="grid gap-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Vendedor</span>
+            <select
+              name="sellerId"
+              defaultValue={row.sellerUserId}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            >
+              {sellerOptions.map((seller) => (
+                <option key={seller.id} value={seller.id}>
+                  {seller.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <input
           name="quantity"
           type="number"
@@ -297,6 +359,9 @@ function SaleEditForm({ eventId, row }: { eventId: string; row: SalesRecord }) {
         </SubmitButton>
         <ActionFeedback status={state.status} message={state.message} />
       </form>
+      <div className="mt-3 border-t border-slate-200 pt-3">
+        <SaleDeleteForm eventId={eventId} saleId={row.id} />
+      </div>
     </details>
   );
 }
@@ -364,7 +429,14 @@ export function SalesControlPanel({
                     </div>
                   </div>
 
-                  {canEdit && !compact ? <SaleEditForm eventId={eventId} row={row} /> : null}
+                  {canEdit && !compact ? (
+                    <SaleEditForm
+                      eventId={eventId}
+                      row={row}
+                      permissions={permissions}
+                      sellerOptions={sellerOptions}
+                    />
+                  ) : null}
                 </div>
               </div>
             );
@@ -375,7 +447,7 @@ export function SalesControlPanel({
       {!compact && permissions.canManageOwnSalesOnly ? (
         <div className="mt-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-          Como vendedor, voce pode registrar novas vendas e editar apenas os seus proprios lancamentos.
+          Como vendedor, voce pode registrar, editar e excluir apenas os seus proprios lancamentos.
         </div>
       ) : null}
     </SectionCard>
