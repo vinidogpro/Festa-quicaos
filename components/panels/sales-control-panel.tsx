@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
-import { CircleAlert, Pencil, Plus, Sparkles, Ticket, Trash2 } from "lucide-react";
+import { ChevronDown, CircleAlert, Pencil, Plus, Sparkles, Ticket, Trash2 } from "lucide-react";
 import { initialSalesActionState } from "@/lib/actions/action-state";
 import { createSaleAction, deleteSaleAction, updateSaleAction } from "@/lib/actions/event-management";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -298,10 +298,10 @@ function SaleDeleteForm({ eventId, saleId }: { eventId: string; saleId: string }
       <input type="hidden" name="saleId" value={saleId} />
       <SubmitButton
         pendingLabel="Excluindo..."
-        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Trash2 className="h-4 w-4" />
-        Excluir venda
+        Excluir
       </SubmitButton>
       <ActionFeedback status={state.status} message={state.message} />
     </form>
@@ -330,7 +330,7 @@ function SaleEditForm({
   }, [router, state.status]);
 
   return (
-    <details className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 lg:w-[26rem]">
+    <details data-sale-edit className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 lg:w-[26rem]">
       <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
         <Pencil className="h-4 w-4" />
         Editar venda
@@ -401,9 +401,6 @@ function SaleEditForm({
         </SubmitButton>
         <ActionFeedback status={state.status} message={state.message} />
       </form>
-      <div className="mt-3 border-t border-slate-200 pt-3">
-        <SaleDeleteForm eventId={eventId} saleId={row.id} />
-      </div>
     </details>
   );
 }
@@ -433,78 +430,98 @@ export function SalesControlPanel({
           icon={Plus}
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {visibleSales.map((row) => {
             const canEdit = permissions.canManageSales && (row.isOwnedByViewer || !permissions.canManageOwnSalesOnly);
 
             return (
-              <div key={row.id} className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="grid flex-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Vendedor</p>
-                      <p className="mt-2 font-medium text-slate-900">{row.seller}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Recebidos</p>
-                      <p className="mt-2 font-medium text-slate-900">{row.received}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Venda</p>
-                      <p className="mt-2 font-medium text-slate-900">
-                        {row.sold} | {formatCurrency(row.amount)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Restantes</p>
-                      <p className="mt-2 font-medium text-slate-900">{row.remaining}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Data</p>
-                      <p className="mt-2 font-medium text-slate-900">{row.soldAt}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Pagamento</p>
-                      <div className="mt-2">
+              <div key={row.id} data-sale-card className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex-1 space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Vendedor</p>
+                        <p className="mt-2 font-[var(--font-heading)] text-2xl font-bold text-slate-950">
+                          {row.seller}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Total</p>
+                        <p className="mt-2 font-[var(--font-heading)] text-2xl font-bold text-slate-950">
+                          {formatCurrency(row.amount)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2">
                         <StatusBadge status={row.paymentStatus} />
                       </div>
                     </div>
-                    <div className="sm:col-span-2 xl:col-span-6">
-                      <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Lista de nomes</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {row.attendeeCount > 0 ? (
-                          row.attendeeNames.slice(0, 4).map((name) => (
-                            <span
-                              key={name}
-                              className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
-                            >
-                              {name}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-sm text-slate-500">Nenhum nome preenchido ainda.</span>
-                        )}
-                        {row.attendeeCount > 4 ? (
-                          <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700">
-                            +{row.attendeeCount - 4} nomes
-                          </span>
-                        ) : null}
-                        {row.missingAttendeeCount > 0 ? (
-                          <span className="rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700">
-                            Faltam {row.missingAttendeeCount}
-                          </span>
-                        ) : null}
+
+                    <div className="grid gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600 sm:grid-cols-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Quantidade</p>
+                        <p className="mt-1 font-semibold text-slate-900">{row.sold} ingressos</p>
                       </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Valor unitario</p>
+                        <p className="mt-1 font-semibold text-slate-900">{formatCurrency(row.unitPrice)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Data</p>
+                        <p className="mt-1 font-semibold text-slate-900">{row.soldAt}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                      <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        Recebidos: {row.received}
+                      </div>
+                      <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        Restantes: {row.remaining}
+                      </div>
+                      <details className="group">
+                        <summary className="flex cursor-pointer list-none items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          {row.attendeeCount} nomes cadastrados
+                          {row.missingAttendeeCount > 0 ? ` | faltam ${row.missingAttendeeCount}` : ""}
+                          <ChevronDown className="h-3 w-3 transition group-open:rotate-180" />
+                        </summary>
+                        <div className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                          {row.attendeeCount === 0 ? (
+                            <p className="text-sm text-slate-500">Nenhum nome preenchido ainda.</p>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              {row.attendeeNames.map((name) => (
+                                <span key={name} className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
+                                  {name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </details>
                     </div>
                   </div>
 
                   {canEdit && !compact ? (
-                    <SaleEditForm
-                      eventId={eventId}
-                      row={row}
-                      permissions={permissions}
-                      sellerOptions={sellerOptions}
-                    />
+                    <div className="flex w-full flex-col gap-3 lg:w-[26rem]">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            const details = (event.currentTarget.closest("[data-sale-card]") as HTMLElement | null)
+                              ?.querySelector("[data-sale-edit]") as HTMLDetailsElement | null;
+                            if (details) {
+                              details.open = !details.open;
+                            }
+                          }}
+                          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Editar
+                        </button>
+                        <SaleDeleteForm eventId={eventId} saleId={row.id} />
+                      </div>
+                      <SaleEditForm eventId={eventId} row={row} permissions={permissions} sellerOptions={sellerOptions} />
+                    </div>
                   ) : null}
                 </div>
               </div>

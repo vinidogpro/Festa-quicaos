@@ -154,12 +154,15 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
               <FinancePanel
                 eventId={event.id}
                 permissions={event.permissions}
+                ticketRevenue={event.ticketRevenue}
+                additionalRevenue={event.additionalRevenue}
                 totalRevenue={event.totalRevenue}
                 totalExpenses={event.totalExpenses}
                 estimatedProfit={event.estimatedProfit}
                 pendingPaymentsCount={event.pendingPaymentsCount}
                 confirmedPaymentsCount={event.confirmedPaymentsCount}
                 expenses={event.expenses}
+                additionalRevenues={event.additionalRevenues}
                 transfersPending={event.transfersPending}
               />
             )}
@@ -198,12 +201,15 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                   <FinancePanel
                     eventId={event.id}
                     permissions={event.permissions}
+                    ticketRevenue={event.ticketRevenue}
+                    additionalRevenue={event.additionalRevenue}
                     totalRevenue={event.totalRevenue}
                     totalExpenses={event.totalExpenses}
                     estimatedProfit={event.estimatedProfit}
                     pendingPaymentsCount={event.pendingPaymentsCount}
                     confirmedPaymentsCount={event.confirmedPaymentsCount}
                     expenses={event.expenses}
+                    additionalRevenues={event.additionalRevenues}
                     transfersPending={event.transfersPending}
                     compact
                   />

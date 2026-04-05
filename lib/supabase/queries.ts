@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/utils";
 import {
   ActivityLogItem,
+  AdditionalRevenue,
   Announcement,
   EventAttentionItem,
   EventComparisonSnapshot,
@@ -27,6 +28,7 @@ import {
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
 type EventMembershipRow = Database["public"]["Tables"]["event_memberships"]["Row"];
 type ExpenseRow = Database["public"]["Tables"]["expenses"]["Row"];
+type AdditionalRevenueRow = Database["public"]["Tables"]["additional_revenues"]["Row"];
 type SaleRow = Database["public"]["Tables"]["sales"]["Row"];
 type SaleAttendeeRow = Database["public"]["Tables"]["sale_attendees"]["Row"];
 type TaskRow = Database["public"]["Tables"]["tasks"]["Row"];
@@ -141,16 +143,20 @@ function buildSummaryFromRows({
   event,
   sales,
   expenses,
+  additionalRevenues,
   memberships,
   profilesMap
 }: {
   event: EventRow;
   sales: SaleRow[];
   expenses: ExpenseRow[];
+  additionalRevenues: AdditionalRevenueRow[];
   memberships: EventMembershipRow[];
   profilesMap: Map<string, ProfileRow>;
 }): EventSummary {
-  const totalRevenue = sales.reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0);
+  const ticketRevenue = sales.reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0);
+  const additionalRevenue = additionalRevenues.reduce((sum, revenue) => sum + revenue.amount, 0);
+  const totalRevenue = ticketRevenue + additionalRevenue;
   const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const totalTicketsSold = sales.reduce((sum, sale) => sum + sale.quantity, 0);
   const progress = event.goal_value > 0 ? Math.round((totalRevenue / event.goal_value) * 100) : 0;
@@ -207,14 +213,16 @@ export async function getEvents(): Promise<EventSummary[]> {
 
   const eventIds = events.map((event) => event.id);
 
-  const [{ data: sales }, { data: expenses }, { data: memberships }] = await Promise.all([
+  const [{ data: sales }, { data: expenses }, { data: additionalRevenues }, { data: memberships }] = await Promise.all([
     supabase.from("sales").select("*").in("event_id", eventIds),
     supabase.from("expenses").select("*").in("event_id", eventIds),
+    supabase.from("additional_revenues").select("*").in("event_id", eventIds),
     supabase.from("event_memberships").select("*").in("event_id", eventIds)
   ]);
 
   const salesRows = (sales ?? []) as SaleRow[];
   const expenseRows = (expenses ?? []) as ExpenseRow[];
+  const additionalRevenueRows = (additionalRevenues ?? []) as AdditionalRevenueRow[];
   const membershipRows = (memberships ?? []) as EventMembershipRow[];
   const profileIds = [...new Set(membershipRows.map((membership) => membership.user_id))];
   const profilesMap = await getProfilesMap(profileIds);
@@ -224,6 +232,7 @@ export async function getEvents(): Promise<EventSummary[]> {
       event,
       sales: salesRows.filter((sale) => sale.event_id === event.id),
       expenses: expenseRows.filter((expense) => expense.event_id === event.id),
+      additionalRevenues: additionalRevenueRows.filter((revenue) => revenue.event_id === event.id),
       memberships: membershipRows.filter((membership) => membership.event_id === event.id),
       profilesMap
     })
@@ -276,12 +285,22 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     return undefined;
   }
 
-  const [{ data: memberships }, { data: sales }, { data: saleAttendees }, { data: expenses }, { data: tasks }, { data: announcements }, { data: activityLogs }] =
+  const [
+    { data: memberships },
+    { data: sales },
+    { data: saleAttendees },
+    { data: expenses },
+    { data: additionalRevenues },
+    { data: tasks },
+    { data: announcements },
+    { data: activityLogs }
+  ] =
     await Promise.all([
       supabase.from("event_memberships").select("*").eq("event_id", event.id).order("created_at", { ascending: true }),
-      supabase.from("sales").select("*").eq("event_id", event.id).order("sold_at", { ascending: false }),
+      supabase.from("sales").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
       supabase.from("sale_attendees").select("*").eq("event_id", event.id).order("guest_name", { ascending: true }),
       supabase.from("expenses").select("*").eq("event_id", event.id).order("incurred_at", { ascending: false }),
+      supabase.from("additional_revenues").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
       supabase.from("tasks").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
       supabase.from("announcements").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
       supabase.from("activity_logs").select("*").eq("event_id", event.id).order("created_at", { ascending: false })
@@ -291,6 +310,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
   const salesRows = (sales ?? []) as SaleRow[];
   const saleAttendeeRows = (saleAttendees ?? []) as SaleAttendeeRow[];
   const expenseRows = (expenses ?? []) as ExpenseRow[];
+  const additionalRevenueRows = (additionalRevenues ?? []) as AdditionalRevenueRow[];
   const taskRows = (tasks ?? []) as TaskRow[];
   const announcementRows = (announcements ?? []) as AnnouncementRow[];
   const activityLogRows = (activityLogs ?? []) as ActivityLogRow[];
@@ -333,6 +353,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     event,
     sales: salesRows,
     expenses: expenseRows,
+    additionalRevenues: additionalRevenueRows,
     memberships: membershipRows,
     profilesMap
   });
@@ -422,6 +443,8 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     })
     .filter((item) => item.amount > 0);
 
+  const ticketRevenue = salesRows.reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0);
+  const additionalRevenue = additionalRevenueRows.reduce((sum, revenue) => sum + revenue.amount, 0);
   const totalExpenses = expenseRows.reduce((sum, expense) => sum + expense.amount, 0);
   const pendingPaymentsCount = salesRows.filter((sale) => sale.payment_status === "pending").length;
   const confirmedPaymentsCount = salesRows.filter((sale) => sale.payment_status === "paid").length;
@@ -433,6 +456,15 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     category: expense.category,
     incurredAt: expense.incurred_at,
     notes: expense.notes ?? undefined
+  }));
+
+  const additionalRevenueItems: AdditionalRevenue[] = additionalRevenueRows.map((revenue) => ({
+    id: revenue.id,
+    title: revenue.title,
+    amount: revenue.amount,
+    category: revenue.category ?? undefined,
+    date: revenue.date,
+    createdAt: revenue.created_at
   }));
 
   const taskItems: TaskItem[] = taskRows.map((task) => ({
@@ -585,6 +617,8 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     health,
     attentionItems,
     activeSellers: sellerMemberships.filter((membership) => membership.is_active).length,
+    ticketRevenue,
+    additionalRevenue,
     totalExpenses,
     pendingPaymentsCount,
     confirmedPaymentsCount,
@@ -618,6 +652,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     ranking,
     salesControl,
     expenses: expenseItems,
+    additionalRevenues: additionalRevenueItems,
     transfersPending,
     tasks: taskItems,
     announcements: announcementItems,
@@ -630,6 +665,36 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     teamMembers,
     availableUsers
   };
+}
+
+export async function getAdditionalRevenuesByEvent(eventId: string): Promise<AdditionalRevenue[]> {
+  const context = await getViewerContext();
+
+  if (!context) {
+    return [];
+  }
+
+  const supabase = createSupabaseServerClient() as any;
+  const { data, error } = await supabase
+    .from("additional_revenues")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = (data ?? []) as AdditionalRevenueRow[];
+
+  return rows.map((revenue) => ({
+    id: revenue.id,
+    title: revenue.title,
+    amount: revenue.amount,
+    category: revenue.category ?? undefined,
+    date: revenue.date,
+    createdAt: revenue.created_at
+  }));
 }
 
 export async function getEventComparison(): Promise<EventComparisonSnapshot> {

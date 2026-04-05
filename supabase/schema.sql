@@ -68,6 +68,17 @@ create table if not exists public.expenses (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+create table if not exists public.additional_revenues (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events (id) on delete cascade,
+  title text not null,
+  amount numeric(12,2) not null check (amount >= 0),
+  category text,
+  date date not null default current_date,
+  created_by uuid not null references public.profiles (id) on delete restrict,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events (id) on delete cascade,
@@ -133,6 +144,8 @@ create or replace function public.current_global_role()
 returns text
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select role from public.profiles where id = auth.uid()
 $$;
@@ -141,6 +154,8 @@ create or replace function public.membership_role(target_event_id uuid)
 returns text
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select role
   from public.event_memberships
@@ -153,6 +168,8 @@ create or replace function public.can_access_event(target_event_id uuid)
 returns boolean
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select
     public.current_global_role() = 'host'
@@ -168,6 +185,8 @@ create or replace function public.can_manage_event(target_event_id uuid)
 returns boolean
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select
     public.current_global_role() = 'host'
@@ -178,6 +197,8 @@ create or replace function public.can_manage_sale(target_event_id uuid, target_s
 returns boolean
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select
     public.current_global_role() = 'host'
@@ -194,6 +215,7 @@ alter table public.event_memberships enable row level security;
 alter table public.sales enable row level security;
 alter table public.sale_attendees enable row level security;
 alter table public.expenses enable row level security;
+alter table public.additional_revenues enable row level security;
 alter table public.tasks enable row level security;
 alter table public.announcements enable row level security;
 alter table public.activity_logs enable row level security;
@@ -336,6 +358,17 @@ create policy "expenses_select_accessible"
 drop policy if exists "expenses_write_host_or_event_host" on public.expenses;
 create policy "expenses_write_host_or_event_host"
   on public.expenses for all
+  using (public.current_global_role() = 'host' or public.membership_role(event_id) in ('host', 'organizer'))
+  with check (public.current_global_role() = 'host' or public.membership_role(event_id) in ('host', 'organizer'));
+
+drop policy if exists "additional_revenues_select_accessible" on public.additional_revenues;
+create policy "additional_revenues_select_accessible"
+  on public.additional_revenues for select
+  using (public.can_access_event(event_id));
+
+drop policy if exists "additional_revenues_write_host_or_event_host" on public.additional_revenues;
+create policy "additional_revenues_write_host_or_event_host"
+  on public.additional_revenues for all
   using (public.current_global_role() = 'host' or public.membership_role(event_id) in ('host', 'organizer'))
   with check (public.current_global_role() = 'host' or public.membership_role(event_id) in ('host', 'organizer'));
 

@@ -161,7 +161,9 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
   const sellerGoal = topPerformer?.goalTickets ?? 0;
 
   const totals = useMemo(() => {
-    const totalRevenue = visibleSales.reduce((sum, sale) => sum + sale.amount, 0);
+    const ticketRevenue = visibleSales.reduce((sum, sale) => sum + sale.amount, 0);
+    const additionalRevenue = isSellerView ? 0 : event.additionalRevenue;
+    const totalRevenue = ticketRevenue + additionalRevenue;
     const soldTickets = sumTickets(visibleSales);
     const receivedTickets = visibleSales.reduce((sum, sale) => sum + sale.received, 0);
     const remainingTickets = Math.max(receivedTickets - soldTickets, 0);
@@ -170,10 +172,15 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
     const pendingCount = visibleSales.filter((sale) => sale.paymentStatus === "pending").length;
     const paidCount = visibleSales.filter((sale) => sale.paymentStatus === "paid").length;
     const goalReference = isSellerView ? Math.max(sellerGoal, 0) : event.goalValue;
-    const metaProgress = goalReference > 0 ? Math.min(Math.round(((isSellerView ? soldTickets : totalRevenue) / goalReference) * 100), 999) : 0;
+    const metaProgress =
+      goalReference > 0
+        ? Math.min(Math.round(((isSellerView ? soldTickets : totalRevenue) / goalReference) * 100), 999)
+        : 0;
 
     return {
       totalRevenue,
+      ticketRevenue,
+      additionalRevenue,
       soldTickets,
       receivedTickets,
       remainingTickets,
@@ -184,7 +191,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
       goalReference,
       metaProgress
     };
-  }, [event.goalValue, isSellerView, sellerGoal, visibleSales]);
+  }, [event.additionalRevenue, event.goalValue, isSellerView, sellerGoal, visibleSales]);
 
   const sellerChartData = useMemo(() => {
     if (isSellerView) {
@@ -314,14 +321,18 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
               helper={
                 isSellerView
                   ? `${totals.soldTickets} ingressos vendidos no seu nome`
-                  : `${formatCurrency(Math.max(event.goalValue - event.totalRevenue, 0))} para chegar na meta`
+                  : `${formatCurrency(Math.max(event.goalValue - totals.totalRevenue, 0))} para chegar na meta`
               }
               icon={CircleDollarSign}
             />
             <MetricTile
               title={isSellerView ? "Sua meta individual" : "Meta atingida"}
               value={`${totals.metaProgress}%`}
-              helper={isSellerView ? `${totals.soldTickets} de ${totals.goalReference} ingressos na sua meta` : `${formatCurrency(event.totalRevenue)} de ${formatCurrency(event.goalValue)} esperados`}
+              helper={
+                isSellerView
+                  ? `${totals.soldTickets} de ${totals.goalReference} ingressos na sua meta`
+                  : `${formatCurrency(totals.totalRevenue)} de ${formatCurrency(event.goalValue)} esperados`
+              }
               icon={BadgePercent}
               tone="positive"
             />

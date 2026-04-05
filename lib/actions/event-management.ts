@@ -158,6 +158,20 @@ async function getExpenseRowById(supabase: any, expenseId: string) {
   return expense;
 }
 
+async function getAdditionalRevenueRowById(supabase: any, revenueId: string) {
+  const { data: revenue, error } = await supabase
+    .from("additional_revenues")
+    .select("*")
+    .eq("id", revenueId)
+    .single();
+
+  if (error || !revenue) {
+    throw new Error("Arrecadacao adicional nao encontrada.");
+  }
+
+  return revenue;
+}
+
 async function getTaskRowById(supabase: any, taskId: string) {
   const { data: task, error } = await supabase.from("tasks").select("*").eq("id", taskId).single();
 
@@ -746,6 +760,235 @@ export async function createExpenseAction(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "Nao foi possivel cadastrar a despesa."
+    };
+  }
+}
+
+export async function createAdditionalRevenueAction(
+  _prevState: FinanceActionState,
+  formData: FormData
+): Promise<FinanceActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const event = await getEventRowBySlug(eventSlug);
+    const membership = await getMembership(supabase, event.id, profile.id);
+
+    if (!(profile.role === "host" || membership?.role === "host" || membership?.role === "organizer")) {
+      return {
+        status: "error",
+        message: "Voce nao tem permissao para registrar arrecadacoes nesta festa."
+      };
+    }
+
+    const title = String(formData.get("title") ?? "").trim();
+    const category = String(formData.get("category") ?? "").trim();
+    const amount = Number(formData.get("amount") ?? 0);
+    const date = String(formData.get("date") ?? new Date().toISOString().slice(0, 10));
+
+    if (!title) {
+      return {
+        status: "error",
+        message: "Informe o titulo da arrecadacao."
+      };
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return {
+        status: "error",
+        message: "Informe um valor valido maior que zero."
+      };
+    }
+
+    if (Number.isNaN(new Date(date).getTime())) {
+      return {
+        status: "error",
+        message: "Informe uma data valida."
+      };
+    }
+
+    const { data: revenue, error } = await supabase
+      .from("additional_revenues")
+      .insert({
+        event_id: event.id,
+        title,
+        amount,
+        category: category || null,
+        date,
+        created_by: profile.id
+      })
+      .select("id")
+      .single();
+
+    if (error || !revenue) {
+      throw new Error(error?.message ?? "Nao foi possivel registrar a arrecadacao.");
+    }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: event.id,
+      action: "additional_revenue.created",
+      entityType: "additional_revenue",
+      entityId: revenue.id,
+      message: `${profile.full_name} registrou arrecadacao adicional "${title}".`,
+      metadata: {
+        title,
+        amount,
+        category: category || null,
+        date
+      }
+    });
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Arrecadacao registrada com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel registrar a arrecadacao."
+    };
+  }
+}
+
+export async function updateAdditionalRevenueAction(
+  _prevState: FinanceActionState,
+  formData: FormData
+): Promise<FinanceActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const revenueId = String(formData.get("revenueId") ?? "");
+    const revenue = await getAdditionalRevenueRowById(supabase, revenueId);
+    const membership = await getMembership(supabase, revenue.event_id, profile.id);
+
+    if (!(profile.role === "host" || membership?.role === "host" || membership?.role === "organizer")) {
+      return {
+        status: "error",
+        message: "Voce nao tem permissao para editar arrecadacoes nesta festa."
+      };
+    }
+
+    const title = String(formData.get("title") ?? "").trim();
+    const category = String(formData.get("category") ?? "").trim();
+    const amount = Number(formData.get("amount") ?? 0);
+    const date = String(formData.get("date") ?? revenue.date);
+
+    if (!title) {
+      return {
+        status: "error",
+        message: "Informe o titulo da arrecadacao."
+      };
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return {
+        status: "error",
+        message: "Informe um valor valido maior que zero."
+      };
+    }
+
+    if (Number.isNaN(new Date(date).getTime())) {
+      return {
+        status: "error",
+        message: "Informe uma data valida."
+      };
+    }
+
+    const { error } = await supabase
+      .from("additional_revenues")
+      .update({
+        title,
+        amount,
+        category: category || null,
+        date
+      })
+      .eq("id", revenueId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: revenue.event_id,
+      action: "additional_revenue.updated",
+      entityType: "additional_revenue",
+      entityId: revenueId,
+      message: `${profile.full_name} atualizou arrecadacao adicional "${title}".`,
+      metadata: {
+        title,
+        amount,
+        category: category || null,
+        date
+      }
+    });
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Arrecadacao atualizada com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel atualizar a arrecadacao."
+    };
+  }
+}
+
+export async function deleteAdditionalRevenueAction(
+  _prevState: FinanceActionState,
+  formData: FormData
+): Promise<FinanceActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const revenueId = String(formData.get("revenueId") ?? "");
+    const revenue = await getAdditionalRevenueRowById(supabase, revenueId);
+    const membership = await getMembership(supabase, revenue.event_id, profile.id);
+
+    if (!(profile.role === "host" || membership?.role === "host" || membership?.role === "organizer")) {
+      return {
+        status: "error",
+        message: "Voce nao tem permissao para excluir arrecadacoes nesta festa."
+      };
+    }
+
+    const { error } = await supabase.from("additional_revenues").delete().eq("id", revenueId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: revenue.event_id,
+      action: "additional_revenue.deleted",
+      entityType: "additional_revenue",
+      entityId: revenueId,
+      message: `${profile.full_name} excluiu arrecadacao adicional "${revenue.title}".`,
+      metadata: {
+        title: revenue.title,
+        amount: revenue.amount,
+        category: revenue.category ?? null,
+        date: revenue.date
+      }
+    });
+
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: "Arrecadacao removida com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel excluir a arrecadacao."
     };
   }
 }

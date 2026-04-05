@@ -132,6 +132,15 @@ export interface Expense {
   notes?: string;
 }
 
+export interface AdditionalRevenue {
+  id: string;
+  title: string;
+  amount: number;
+  category?: string;
+  date: string;
+  createdAt: string;
+}
+
 export interface TransferPending {
   id: string;
   name: string;
@@ -190,6 +199,8 @@ export interface PartyEventDetail extends EventSummary {
   health: EventHealthSnapshot;
   attentionItems: EventAttentionItem[];
   activeSellers: number;
+  ticketRevenue: number;
+  additionalRevenue: number;
   totalExpenses: number;
   pendingPaymentsCount: number;
   confirmedPaymentsCount: number;
@@ -197,6 +208,7 @@ export interface PartyEventDetail extends EventSummary {
   ranking: SellerRanking[];
   salesControl: SalesRecord[];
   expenses: Expense[];
+  additionalRevenues: AdditionalRevenue[];
   transfersPending: TransferPending[];
   tasks: TaskItem[];
   announcements: Announcement[];

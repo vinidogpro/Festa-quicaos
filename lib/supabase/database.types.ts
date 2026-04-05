@@ -204,6 +204,39 @@ export interface Database {
         };
         Relationships: [];
       };
+      additional_revenues: {
+        Row: {
+          id: string;
+          event_id: string;
+          title: string;
+          amount: number;
+          category: string | null;
+          date: string;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          title: string;
+          amount: number;
+          category?: string | null;
+          date?: string;
+          created_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          title?: string;
+          amount?: number;
+          category?: string | null;
+          date?: string;
+          created_by?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       tasks: {
         Row: {
           id: string;
