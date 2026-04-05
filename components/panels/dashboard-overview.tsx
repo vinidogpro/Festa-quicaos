@@ -6,7 +6,7 @@ import { formatCurrency } from "@/lib/utils";
 function SummaryValue({ value, isCurrency }: { value: number; isCurrency?: boolean }) {
   if (isCurrency === false) {
     return (
-      <p className="font-[var(--font-heading)] text-[clamp(1.8rem,2.6vw,2.35rem)] font-bold tracking-tight text-slate-950">
+      <p className="font-[var(--font-heading)] text-[clamp(2rem,3vw,2.7rem)] font-bold tracking-tight text-slate-950">
         {value}
       </p>
     );
@@ -16,9 +16,9 @@ function SummaryValue({ value, isCurrency }: { value: number; isCurrency?: boole
   const [currencyLabel, amountLabel] = formatted.split(/\s(.+)/);
 
   return (
-    <div className="min-w-0 space-y-2">
+    <div className="min-w-0 space-y-3">
       <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{currencyLabel}</span>
-      <span className="block overflow-x-auto pb-1 font-[var(--font-heading)] text-[clamp(1.45rem,2vw,2rem)] font-bold tracking-tight text-slate-950 [scrollbar-width:none]">
+      <span className="block whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.75rem,2.8vw,2.55rem)] font-bold tracking-tight text-slate-950">
         {amountLabel ?? formatted}
       </span>
     </div>
@@ -41,7 +41,7 @@ function SummaryIcon({ label }: { label: string }) {
 
 export function DashboardOverview({ data }: { data: PartyEventDetail }) {
   return (
-    <section className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
+    <section className="grid gap-6 lg:grid-cols-2">
       {data.summary.map((item) => (
         <SectionCard
           key={item.label}
@@ -50,14 +50,14 @@ export function DashboardOverview({ data }: { data: PartyEventDetail }) {
           action={<SummaryIcon label={item.label} />}
           className="min-w-0 overflow-hidden"
         >
-          <div className="flex min-h-[132px] flex-col justify-between">
-            <div className="min-w-0 pt-1">
+          <div className="flex min-h-[156px] flex-col justify-between">
+            <div className="min-w-0 pt-3">
               <SummaryValue value={item.value} isCurrency={item.isCurrency} />
             </div>
           </div>
 
           {typeof item.progress === "number" ? (
-            <div className="mt-6">
+            <div className="mt-7">
               <div className="h-2 rounded-full bg-slate-100">
                 <div
                   className="h-2 rounded-full bg-brand-600 transition-all"

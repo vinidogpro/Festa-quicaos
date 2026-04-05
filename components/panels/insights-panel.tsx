@@ -99,19 +99,21 @@ function MetricTile({
         : "bg-brand-50 text-brand-700";
 
   return (
-    <div className="min-w-0 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
+    <div className="min-w-0 rounded-[24px] border border-slate-200 bg-white/90 p-5 shadow-sm sm:p-6">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{title}</p>
-          <p className="mt-3 font-[var(--font-heading)] text-[clamp(1.5rem,2vw,2.1rem)] font-bold tracking-tight text-slate-950">
-            {value}
-          </p>
+          <div className="mt-4 min-h-[72px]">
+            <p className="whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.7rem,2.6vw,2.45rem)] font-bold tracking-tight text-slate-950">
+              {value}
+            </p>
+          </div>
         </div>
-        <div className={`rounded-2xl p-2.5 ${toneStyles}`}>
+        <div className={`shrink-0 rounded-2xl p-2.5 ${toneStyles}`}>
           <Icon className="h-4 w-4" />
         </div>
       </div>
-      <p className="mt-3 text-sm leading-6 text-slate-500">{helper}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-500">{helper}</p>
     </div>
   );
 }
@@ -220,7 +222,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
         />
       ) : (
         <div className="space-y-6">
-          <div className={`grid gap-4 ${compact ? "lg:grid-cols-2" : "md:grid-cols-2 2xl:grid-cols-4"}`}>
+          <div className={`grid gap-4 ${compact ? "xl:grid-cols-2" : "lg:grid-cols-2"}`}>
             <MetricTile
               title={isSellerView ? "Sua arrecadacao" : "Arrecadacao atual"}
               value={formatCurrency(totals.totalRevenue)}
