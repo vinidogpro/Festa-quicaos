@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowLeft, CalendarDays, Download, MapPin } from "lucide-react";
+import { ArrowLeft, CalendarDays, MapPin } from "lucide-react";
+import { ExportSummaryButton } from "@/components/export-summary-button";
 import { EventSettingsPanel } from "@/components/forms/event-settings-panel";
 import { EventStatusBadge } from "@/components/event-status-badge";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -59,10 +60,7 @@ export function EventHeader({ event }: { event: PartyEventDetail }) {
           >
             Navegar eventos
           </Link>
-          <button className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
-            <Download className="h-4 w-4" />
-            Exportar resumo
-          </button>
+          <ExportSummaryButton eventId={event.id} />
           <SignOutButton />
         </div>
       </div>

@@ -6,7 +6,7 @@ import { formatCurrency } from "@/lib/utils";
 function SummaryValue({ value, isCurrency }: { value: number; isCurrency?: boolean }) {
   if (isCurrency === false) {
     return (
-      <p className="font-[var(--font-heading)] text-[clamp(2rem,2.8vw,2.6rem)] font-bold tracking-tight text-slate-950">
+      <p className="font-[var(--font-heading)] text-[clamp(1.8rem,2.6vw,2.35rem)] font-bold tracking-tight text-slate-950">
         {value}
       </p>
     );
@@ -16,9 +16,9 @@ function SummaryValue({ value, isCurrency }: { value: number; isCurrency?: boole
   const [currencyLabel, amountLabel] = formatted.split(/\s(.+)/);
 
   return (
-    <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
-      <span className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">{currencyLabel}</span>
-      <span className="font-[var(--font-heading)] text-[clamp(1.65rem,2.4vw,2.15rem)] font-bold tracking-tight text-slate-950">
+    <div className="min-w-0 space-y-2">
+      <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{currencyLabel}</span>
+      <span className="block overflow-x-auto pb-1 font-[var(--font-heading)] text-[clamp(1.45rem,2vw,2rem)] font-bold tracking-tight text-slate-950 [scrollbar-width:none]">
         {amountLabel ?? formatted}
       </span>
     </div>
@@ -41,7 +41,7 @@ function SummaryIcon({ label }: { label: string }) {
 
 export function DashboardOverview({ data }: { data: PartyEventDetail }) {
   return (
-    <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-4">
+    <section className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
       {data.summary.map((item) => (
         <SectionCard
           key={item.label}
@@ -50,7 +50,7 @@ export function DashboardOverview({ data }: { data: PartyEventDetail }) {
           action={<SummaryIcon label={item.label} />}
           className="min-w-0 overflow-hidden"
         >
-          <div className="flex min-h-[118px] flex-col justify-between">
+          <div className="flex min-h-[132px] flex-col justify-between">
             <div className="min-w-0 pt-1">
               <SummaryValue value={item.value} isCurrency={item.isCurrency} />
             </div>

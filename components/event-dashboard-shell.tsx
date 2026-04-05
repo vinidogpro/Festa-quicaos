@@ -162,10 +162,7 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
               />
             )}
             {activeTab === "insights" && (
-              <InsightsPanel
-                salesSeries={event.salesSeries}
-                sellerContribution={event.sellerContribution}
-              />
+              <InsightsPanel event={event} />
             )}
 
             {activeTab === "overview" && (
@@ -206,8 +203,7 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                     compact
                   />
                   <InsightsPanel
-                    salesSeries={event.salesSeries}
-                    sellerContribution={event.sellerContribution}
+                    event={event}
                     compact
                   />
                 </div>
