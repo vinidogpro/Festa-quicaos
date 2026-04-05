@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import {
+  AlertTriangle,
   BarChart3,
   BadgePercent,
   CheckCircle2,
@@ -156,6 +157,8 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
   );
 
   const timeline = useMemo(() => groupSalesByDate(visibleSales), [visibleSales]);
+  const topPerformer = visibleRanking[0];
+  const sellerGoal = topPerformer?.goalTickets ?? 0;
 
   const totals = useMemo(() => {
     const totalRevenue = visibleSales.reduce((sum, sale) => sum + sale.amount, 0);
@@ -166,7 +169,8 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
     const pendingValue = sumValues(visibleSales, "pending");
     const pendingCount = visibleSales.filter((sale) => sale.paymentStatus === "pending").length;
     const paidCount = visibleSales.filter((sale) => sale.paymentStatus === "paid").length;
-    const metaProgress = event.goalValue > 0 ? Math.min(Math.round((totalRevenue / event.goalValue) * 100), 999) : 0;
+    const goalReference = isSellerView ? Math.max(sellerGoal, 0) : event.goalValue;
+    const metaProgress = goalReference > 0 ? Math.min(Math.round(((isSellerView ? soldTickets : totalRevenue) / goalReference) * 100), 999) : 0;
 
     return {
       totalRevenue,
@@ -177,9 +181,10 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
       pendingValue,
       pendingCount,
       paidCount,
+      goalReference,
       metaProgress
     };
-  }, [event.goalValue, visibleSales]);
+  }, [event.goalValue, isSellerView, sellerGoal, visibleSales]);
 
   const sellerChartData = useMemo(() => {
     if (isSellerView) {
@@ -200,10 +205,15 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
     [totals.paidValue, totals.pendingValue]
   );
 
-  const topPerformer = visibleRanking[0];
   const pendingTransfers = isSellerView
     ? event.transfersPending.filter((item) => item.id === event.permissions.sellerUserId)
     : event.transfersPending;
+  const healthToneStyles =
+    event.health.tone === "positive"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : event.health.tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : "border-rose-200 bg-rose-50 text-rose-800";
 
   return (
     <SectionCard
@@ -222,6 +232,81 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
         />
       ) : (
         <div className="space-y-6">
+          {!compact ? (
+            <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+              <div className={`rounded-[24px] border p-5 sm:p-6 ${healthToneStyles}`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] opacity-70">Estado da festa</p>
+                    <h3 className="mt-2 font-[var(--font-heading)] text-3xl font-bold tracking-tight">
+                      {event.health.label}
+                    </h3>
+                    <p className="mt-3 max-w-2xl text-sm leading-6">{event.health.summary}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/70 p-3">
+                    <AlertTriangle className="h-5 w-5" />
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-2xl bg-white/70 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] opacity-60">Meta atingida</p>
+                    <p className="mt-2 text-2xl font-semibold">{event.progress}%</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/70 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] opacity-60">Melhor vendedor</p>
+                    <p className="mt-2 text-lg font-semibold">{topPerformer?.name ?? "Sem vendas"}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/70 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] opacity-60">Principal problema</p>
+                    <p className="mt-2 text-sm font-semibold">
+                      {event.attentionItems[0]?.title ?? "Nenhuma pendencia critica"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-5 sm:p-6">
+                <p className="font-semibold text-slate-900">Pontos que exigem atencao</p>
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  Itens que ajudam a entender onde agir primeiro para melhorar o resultado da festa.
+                </p>
+                <div className="mt-5 space-y-3">
+                  {event.attentionItems.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 px-4 py-5 text-sm text-emerald-700">
+                      Nenhum ponto critico no momento. A operacao esta equilibrada.
+                    </div>
+                  ) : (
+                    event.attentionItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`rounded-2xl border px-4 py-4 ${
+                          item.tone === "critical"
+                            ? "border-rose-200 bg-rose-50"
+                            : "border-amber-200 bg-amber-50"
+                        }`}
+                      >
+                        <p
+                          className={`font-semibold ${
+                            item.tone === "critical" ? "text-rose-900" : "text-amber-900"
+                          }`}
+                        >
+                          {item.title}
+                        </p>
+                        <p
+                          className={`mt-1 text-sm leading-6 ${
+                            item.tone === "critical" ? "text-rose-800" : "text-amber-800"
+                          }`}
+                        >
+                          {item.description}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <div className={`grid gap-4 ${compact ? "xl:grid-cols-2" : "lg:grid-cols-2"}`}>
             <MetricTile
               title={isSellerView ? "Sua arrecadacao" : "Arrecadacao atual"}
@@ -234,13 +319,9 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
               icon={CircleDollarSign}
             />
             <MetricTile
-              title={isSellerView ? "Sua meta entregue" : "Meta atingida"}
+              title={isSellerView ? "Sua meta individual" : "Meta atingida"}
               value={`${totals.metaProgress}%`}
-              helper={
-                isSellerView
-                  ? "Sua contribuicao atual em relacao a meta geral do evento"
-                  : `${formatCurrency(event.totalRevenue)} de ${formatCurrency(event.goalValue)} esperados`
-              }
+              helper={isSellerView ? `${totals.soldTickets} de ${totals.goalReference} ingressos na sua meta` : `${formatCurrency(event.totalRevenue)} de ${formatCurrency(event.goalValue)} esperados`}
               icon={BadgePercent}
               tone="positive"
             />
@@ -255,17 +336,17 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
               icon={TrendingUp}
             />
             <MetricTile
-              title={isSellerView ? "Repasse pendente" : "Valores pagos x pendentes"}
+              title={isSellerView ? "Repasse pendente" : "Risco atual"}
               value={formatCurrency(isSellerView ? totals.pendingValue : totals.paidValue)}
               helper={
                 isSellerView
                   ? totals.pendingValue > 0
                     ? "Valor que ainda precisa ser acertado por voce"
                     : "Nenhum repasse pendente no momento"
-                  : `${formatCurrency(totals.pendingValue)} ainda estao pendentes`
+                  : event.attentionItems[0]?.description ?? `${formatCurrency(totals.pendingValue)} ainda estao pendentes`
               }
               icon={isSellerView ? Clock3 : CheckCircle2}
-              tone={isSellerView && totals.pendingValue > 0 ? "warning" : "default"}
+              tone={isSellerView ? (totals.pendingValue > 0 ? "warning" : "default") : event.health.tone === "critical" ? "warning" : "default"}
             />
           </div>
 
@@ -347,7 +428,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                     <p className="mt-1 text-sm leading-6 text-slate-500">
                       {isSellerView
                         ? "Seu desempenho dentro da festa e sua contribuicao total."
-                        : "Top vendedores ordenados por arrecadacao total no evento."}
+                        : "Top vendedores ordenados por arrecadacao total, meta individual e repasse pendente."}
                     </p>
                   </div>
                   <div className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm">
@@ -366,7 +447,10 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                             </div>
                             <div className="min-w-0">
                               <p className="truncate font-semibold text-slate-950">{seller.name}</p>
-                              <p className="mt-1 text-sm text-slate-500">{seller.ticketsSold} ingressos vendidos</p>
+                              <p className="mt-1 text-sm text-slate-500">
+                                {seller.ticketsSold} ingressos vendidos
+                                {seller.goalTickets > 0 ? ` | ${seller.goalProgress}% da meta` : ""}
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -378,6 +462,15 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                           <p className="mt-1 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
                             {formatCurrency(seller.revenue)}
                           </p>
+                          {seller.pendingTransferAmount > 0 ? (
+                            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                              Repasse pendente: {formatCurrency(seller.pendingTransferAmount)}
+                            </p>
+                          ) : (
+                            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                              Repasse em dia
+                            </p>
+                          )}
                         </div>
                         <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-emerald-700 shadow-sm">
                           {seller.delta}

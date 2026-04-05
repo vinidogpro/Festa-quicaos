@@ -21,6 +21,43 @@ interface SalesControlPanelProps {
   compact?: boolean;
 }
 
+function GuestNameFields({
+  quantity,
+  values = []
+}: {
+  quantity: number;
+  values?: string[];
+}) {
+  if (quantity <= 0) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">Lista de entrada</p>
+          <p className="mt-1 text-sm text-slate-500">Preencha os nomes ja confirmados para esta venda.</p>
+        </div>
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+          {values.filter(Boolean).length}/{quantity} nomes
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {Array.from({ length: quantity }).map((_, index) => (
+          <input
+            key={index}
+            name="guestNames"
+            defaultValue={values[index] ?? ""}
+            placeholder={`Nome ${index + 1}`}
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ActionFeedback({
   status,
   message
@@ -194,6 +231,8 @@ function SaleQuickForm({
               </div>
             </details>
 
+            <GuestNameFields quantity={Math.max(Number(quantity) || 0, 0)} />
+
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="rounded-2xl bg-slate-950 px-4 py-3 text-white">
                 <p className="text-xs uppercase tracking-[0.18em] text-white/60">Total desta venda</p>
@@ -282,6 +321,7 @@ function SaleEditForm({
 }) {
   const router = useRouter();
   const [state, action] = useFormState(updateSaleAction, initialSalesActionState);
+  const [quantity, setQuantity] = useState(String(row.sold));
 
   useEffect(() => {
     if (state.status === "success") {
@@ -321,6 +361,7 @@ function SaleEditForm({
           type="number"
           min="1"
           defaultValue={row.sold}
+          onChange={(event) => setQuantity(event.target.value)}
           className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
         />
         <input
@@ -351,6 +392,7 @@ function SaleEditForm({
           placeholder="Observacoes"
           className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
         />
+        <GuestNameFields quantity={Math.max(Number(quantity) || 0, 0)} values={row.attendeeNames} />
         <SubmitButton
           pendingLabel="Salvando..."
           className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
@@ -425,6 +467,33 @@ export function SalesControlPanel({
                       <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Pagamento</p>
                       <div className="mt-2">
                         <StatusBadge status={row.paymentStatus} />
+                      </div>
+                    </div>
+                    <div className="sm:col-span-2 xl:col-span-6">
+                      <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Lista de nomes</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {row.attendeeCount > 0 ? (
+                          row.attendeeNames.slice(0, 4).map((name) => (
+                            <span
+                              key={name}
+                              className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
+                            >
+                              {name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-slate-500">Nenhum nome preenchido ainda.</span>
+                        )}
+                        {row.attendeeCount > 4 ? (
+                          <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700">
+                            +{row.attendeeCount - 4} nomes
+                          </span>
+                        ) : null}
+                        {row.missingAttendeeCount > 0 ? (
+                          <span className="rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700">
+                            Faltam {row.missingAttendeeCount}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </div>

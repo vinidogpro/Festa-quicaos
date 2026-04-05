@@ -45,6 +45,17 @@ create table if not exists public.sales (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+create table if not exists public.sale_attendees (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events (id) on delete cascade,
+  sale_id uuid not null references public.sales (id) on delete cascade,
+  seller_user_id uuid not null references public.profiles (id) on delete cascade,
+  guest_name text not null,
+  checked_in_at timestamptz,
+  checked_in_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
 create table if not exists public.expenses (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events (id) on delete cascade,
@@ -75,6 +86,18 @@ create table if not exists public.announcements (
   body text not null,
   pinned boolean not null default false,
   created_by uuid not null references public.profiles (id) on delete restrict,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create table if not exists public.activity_logs (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid references public.events (id) on delete set null,
+  actor_user_id uuid not null references public.profiles (id) on delete restrict,
+  action text not null,
+  entity_type text not null,
+  entity_id text,
+  message text not null,
+  metadata jsonb,
   created_at timestamptz not null default timezone('utc', now())
 );
 
@@ -169,9 +192,11 @@ alter table public.profiles enable row level security;
 alter table public.events enable row level security;
 alter table public.event_memberships enable row level security;
 alter table public.sales enable row level security;
+alter table public.sale_attendees enable row level security;
 alter table public.expenses enable row level security;
 alter table public.tasks enable row level security;
 alter table public.announcements enable row level security;
+alter table public.activity_logs enable row level security;
 
 drop policy if exists "profiles_select_self_or_host" on public.profiles;
 create policy "profiles_select_self_or_host"
@@ -264,6 +289,45 @@ create policy "sales_delete_with_membership_rules"
   on public.sales for delete
   using (public.can_manage_sale(event_id, seller_user_id));
 
+drop policy if exists "sale_attendees_select_accessible" on public.sale_attendees;
+create policy "sale_attendees_select_accessible"
+  on public.sale_attendees for select
+  using (public.can_manage_sale(event_id, seller_user_id));
+
+drop policy if exists "sale_attendees_insert_accessible" on public.sale_attendees;
+create policy "sale_attendees_insert_accessible"
+  on public.sale_attendees for insert
+  with check (
+    public.can_manage_sale(event_id, seller_user_id)
+    and exists (
+      select 1
+      from public.sales
+      where sales.id = sale_attendees.sale_id
+        and sales.event_id = sale_attendees.event_id
+        and sales.seller_user_id = sale_attendees.seller_user_id
+    )
+  );
+
+drop policy if exists "sale_attendees_update_accessible" on public.sale_attendees;
+create policy "sale_attendees_update_accessible"
+  on public.sale_attendees for update
+  using (public.can_manage_sale(event_id, seller_user_id))
+  with check (
+    public.can_manage_sale(event_id, seller_user_id)
+    and exists (
+      select 1
+      from public.sales
+      where sales.id = sale_attendees.sale_id
+        and sales.event_id = sale_attendees.event_id
+        and sales.seller_user_id = sale_attendees.seller_user_id
+    )
+  );
+
+drop policy if exists "sale_attendees_delete_accessible" on public.sale_attendees;
+create policy "sale_attendees_delete_accessible"
+  on public.sale_attendees for delete
+  using (public.can_manage_sale(event_id, seller_user_id));
+
 drop policy if exists "expenses_select_accessible" on public.expenses;
 create policy "expenses_select_accessible"
   on public.expenses for select
@@ -296,3 +360,25 @@ create policy "announcements_write_managers"
   on public.announcements for all
   using (public.can_manage_event(event_id))
   with check (public.can_manage_event(event_id));
+
+drop policy if exists "activity_logs_select_hosts_only" on public.activity_logs;
+create policy "activity_logs_select_hosts_only"
+  on public.activity_logs for select
+  using (
+    public.current_global_role() = 'host'
+    or (
+      event_id is not null
+      and public.membership_role(event_id) = 'host'
+    )
+  );
+
+drop policy if exists "activity_logs_insert_authenticated_actor" on public.activity_logs;
+create policy "activity_logs_insert_authenticated_actor"
+  on public.activity_logs for insert
+  with check (
+    actor_user_id = auth.uid()
+    and (
+      event_id is null
+      or public.can_access_event(event_id)
+    )
+  );

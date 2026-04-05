@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import {
+  History,
   Bell,
   ChartSpline,
+  ClipboardList,
   Crown,
   DollarSign,
   LayoutDashboard,
@@ -15,8 +17,10 @@ import Link from "next/link";
 import { EventHeader } from "@/components/event-header";
 import { MobileTabBar } from "@/components/mobile-tab-bar";
 import { AnnouncementPanel } from "@/components/panels/announcement-panel";
+import { ActivityLogPanel } from "@/components/panels/activity-log-panel";
 import { DashboardOverview } from "@/components/panels/dashboard-overview";
 import { FinancePanel } from "@/components/panels/finance-panel";
+import { GuestListPanel } from "@/components/panels/guest-list-panel";
 import { InsightsPanel } from "@/components/panels/insights-panel";
 import { RankingPanel } from "@/components/panels/ranking-panel";
 import { SalesControlPanel } from "@/components/panels/sales-control-panel";
@@ -28,11 +32,13 @@ const baseNavItems = [
   { id: "overview", label: "Dashboard", icon: LayoutDashboard },
   { id: "ranking", label: "Ranking", icon: Crown },
   { id: "sales", label: "Vendas", icon: Ticket },
+  { id: "guest-list", label: "Lista", icon: ClipboardList },
   { id: "team", label: "Equipe", icon: Users },
   { id: "finance", label: "Financeiro", icon: DollarSign },
   { id: "tasks", label: "Tarefas", icon: ListTodo },
   { id: "announcements", label: "Comunicados", icon: Bell },
-  { id: "insights", label: "Insights", icon: ChartSpline }
+  { id: "insights", label: "Insights", icon: ChartSpline },
+  { id: "activity", label: "Atividades", icon: History }
 ] as const;
 
 type TabId = (typeof baseNavItems)[number]["id"];
@@ -40,9 +46,17 @@ type TabId = (typeof baseNavItems)[number]["id"];
 export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [period, setPeriod] = useState<"week" | "total">("week");
-  const navItems = event.permissions.canManageTeam
-    ? baseNavItems
-    : baseNavItems.filter((item) => item.id !== "team");
+  const navItems = baseNavItems.filter((item) => {
+    if (item.id === "team" && !event.permissions.canManageTeam) {
+      return false;
+    }
+
+    if (item.id === "activity" && !event.permissions.canViewActivityLog) {
+      return false;
+    }
+
+    return true;
+  });
 
   return (
     <main className="min-h-screen">
@@ -133,6 +147,9 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                 availableUsers={event.availableUsers}
               />
             )}
+            {activeTab === "guest-list" && (
+              <GuestListPanel eventId={event.id} entries={event.guestListEntries} permissions={event.permissions} />
+            )}
             {activeTab === "finance" && (
               <FinancePanel
                 eventId={event.id}
@@ -163,6 +180,9 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
             )}
             {activeTab === "insights" && (
               <InsightsPanel event={event} />
+            )}
+            {activeTab === "activity" && (
+              <ActivityLogPanel logs={event.activityLogs} permissions={event.permissions} />
             )}
 
             {activeTab === "overview" && (

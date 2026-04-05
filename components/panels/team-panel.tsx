@@ -13,6 +13,7 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
 import { EventRole, TeamMember, UserDirectoryOption, ViewerPermissions } from "@/lib/types";
+import { formatCurrency } from "@/lib/utils";
 
 interface TeamPanelProps {
   eventId: string;
@@ -54,6 +55,7 @@ function FeedbackMessage({
 function TeamMemberRow({ eventId, member }: { eventId: string; member: TeamMember }) {
   const [updateState, updateAction] = useFormState(updateEventMemberRoleAction, initialTeamActionState);
   const [removeState, removeAction] = useFormState(removeEventMemberAction, initialTeamActionState);
+  const sellerProgress = member.ticketQuota > 0 ? Math.min(member.goalProgress, 100) : 0;
 
   return (
     <article className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
@@ -82,10 +84,29 @@ function TeamMemberRow({ eventId, member }: { eventId: string; member: TeamMembe
             </span>
             {member.role === "seller" ? (
               <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">
-                Cota {member.ticketQuota}
+                Meta {member.ticketQuota}
               </span>
             ) : null}
           </div>
+          {member.role === "seller" ? (
+            <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Desempenho individual</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {member.ticketsSold}/{member.ticketQuota} ingressos | {member.pendingTransferAmount > 0 ? "Repasse em aberto" : "Repasse em dia"}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold text-slate-900">{member.goalProgress}%</p>
+                  <p className="text-sm text-slate-500">{formatCurrency(member.revenue)}</p>
+                </div>
+              </div>
+              <div className="mt-3 h-2 rounded-full bg-slate-100">
+                <div className="h-2 rounded-full bg-brand-600 transition-all" style={{ width: `${sellerProgress}%` }} />
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="grid gap-3 xl:min-w-[22rem]">
@@ -110,7 +131,7 @@ function TeamMemberRow({ eventId, member }: { eventId: string; member: TeamMembe
                 min="0"
                 defaultValue={member.ticketQuota}
                 className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                placeholder="Cota"
+                placeholder="Meta"
               />
               <SubmitButton className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
                 Salvar

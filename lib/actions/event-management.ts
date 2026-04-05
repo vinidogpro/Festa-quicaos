@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import {
   AnnouncementActionState,
   EventActionState,
@@ -15,6 +14,68 @@ import { createSupabaseActionClient } from "@/lib/supabase/server";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 type EventMembershipRow = Database["public"]["Tables"]["event_memberships"]["Row"];
+
+function slugifyEventName(value: string) {
+  const baseSlug = value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+  return baseSlug || "festa";
+}
+
+async function generateUniqueEventSlug(supabase: any, name: string, currentEventId?: string) {
+  const baseSlug = slugifyEventName(name);
+  const { data, error } = await supabase
+    .from("events")
+    .select("id, slug")
+    .ilike("slug", `${baseSlug}%`);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rows = ((data ?? []) as Array<{ id: string; slug: string }>).filter((row) => row.id !== currentEventId);
+  const existingSlugs = new Set(rows.map((row) => row.slug));
+
+  if (!existingSlugs.has(baseSlug)) {
+    return baseSlug;
+  }
+
+  let suffix = rows.length + 1;
+  while (existingSlugs.has(`${baseSlug}-${suffix}`)) {
+    suffix += 1;
+  }
+
+  return `${baseSlug}-${suffix}`;
+}
+
+function validateEventFields(input: {
+  name: string;
+  venue: string;
+  eventDate: string;
+  goalValue: number;
+}) {
+  if (!input.name || input.name.length < 3) {
+    return "Informe um nome de festa com pelo menos 3 caracteres.";
+  }
+
+  if (!input.venue || input.venue.length < 2) {
+    return "Informe um local valido para a festa.";
+  }
+
+  if (!input.eventDate || Number.isNaN(new Date(input.eventDate).getTime())) {
+    return "Informe uma data valida para a festa.";
+  }
+
+  if (!Number.isFinite(input.goalValue) || input.goalValue < 0) {
+    return "Informe uma meta valida maior ou igual a zero.";
+  }
+
+  return null;
+}
 
 async function getActionProfile() {
   const supabase = createSupabaseActionClient() as any;
@@ -121,54 +182,167 @@ async function getAnnouncementRowById(supabase: any, announcementId: string) {
   return announcement;
 }
 
-export async function createEventAction(formData: FormData) {
-  const { supabase, profile } = await getActionProfile();
-  assertHost(profile);
+function parseGuestNames(formData: FormData) {
+  return formData
+    .getAll("guestNames")
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+}
 
-  const name = String(formData.get("name") ?? "").trim();
-  const venue = String(formData.get("venue") ?? "").trim();
-  const eventDate = String(formData.get("eventDate") ?? "").trim();
-  const goalValue = Number(formData.get("goalValue") ?? 0);
-  const status = String(formData.get("status") ?? "upcoming") as Database["public"]["Tables"]["events"]["Row"]["status"];
+async function replaceSaleAttendees({
+  supabase,
+  eventId,
+  saleId,
+  sellerUserId,
+  guestNames
+}: {
+  supabase: any;
+  eventId: string;
+  saleId: string;
+  sellerUserId: string;
+  guestNames: string[];
+}) {
+  const { error: deleteError } = await supabase.from("sale_attendees").delete().eq("sale_id", saleId);
 
-  if (!name || !venue || !eventDate) {
-    throw new Error("Preencha nome, local e data da festa.");
+  if (deleteError) {
+    throw new Error(deleteError.message);
   }
 
-  const slug = name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-
-  const { data: event, error } = await supabase
-    .from("events")
-    .insert({
-      name,
-      slug,
-      venue,
-      event_date: eventDate,
-      goal_value: goalValue,
-      status,
-      created_by: profile.id
-    })
-    .select("id, slug")
-    .single();
-
-  if (error || !event) {
-    throw new Error(error?.message ?? "Nao foi possivel criar a festa.");
+  if (guestNames.length === 0) {
+    return;
   }
 
-  await supabase.from("event_memberships").insert({
-    event_id: event.id,
-    user_id: profile.id,
-    role: "host"
+  const { error: insertError } = await supabase.from("sale_attendees").insert(
+    guestNames.map((guestName) => ({
+      event_id: eventId,
+      sale_id: saleId,
+      seller_user_id: sellerUserId,
+      guest_name: guestName
+    }))
+  );
+
+  if (insertError) {
+    throw new Error(insertError.message);
+  }
+}
+
+async function logActivity(
+  supabase: any,
+  {
+    actorUserId,
+    eventId,
+    action,
+    entityType,
+    entityId,
+    message,
+    metadata
+  }: {
+    actorUserId: string;
+    eventId?: string | null;
+    action: string;
+    entityType: string;
+    entityId?: string | null;
+    message: string;
+    metadata?: Record<string, string | number | boolean | null>;
+  }
+) {
+  const { error } = await supabase.from("activity_logs").insert({
+    event_id: eventId ?? null,
+    actor_user_id: actorUserId,
+    action,
+    entity_type: entityType,
+    entity_id: entityId ?? null,
+    message,
+    metadata: metadata ?? null
   });
 
-  revalidatePath("/");
-  revalidatePath("/festas");
-  redirect(`/festas/${event.slug}`);
+  if (error) {
+    throw new Error(`Nao foi possivel registrar o log da atividade: ${error.message}`);
+  }
+}
+
+export async function createEventAction(
+  _prevState: EventActionState,
+  formData: FormData
+): Promise<EventActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    assertHost(profile);
+
+    const name = String(formData.get("name") ?? "").trim();
+    const venue = String(formData.get("venue") ?? "").trim();
+    const eventDate = String(formData.get("eventDate") ?? "").trim();
+    const goalValue = Number(formData.get("goalValue") ?? 0);
+    const description = String(formData.get("description") ?? "").trim();
+    const status = String(formData.get("status") ?? "upcoming") as Database["public"]["Tables"]["events"]["Row"]["status"];
+
+    const validationError = validateEventFields({ name, venue, eventDate, goalValue });
+    if (validationError) {
+      return {
+        status: "error",
+        message: validationError
+      };
+    }
+
+    const slug = await generateUniqueEventSlug(supabase, name);
+
+    const { data: event, error } = await supabase
+      .from("events")
+      .insert({
+        name,
+        slug,
+        venue,
+        description: description || null,
+        event_date: eventDate,
+        goal_value: goalValue,
+        status,
+        created_by: profile.id
+      })
+      .select("id, slug")
+      .single();
+
+    if (error || !event) {
+      throw new Error(error?.message ?? "Nao foi possivel criar a festa.");
+    }
+
+    const { error: membershipError } = await supabase.from("event_memberships").insert({
+      event_id: event.id,
+      user_id: profile.id,
+      role: "host"
+    });
+
+    if (membershipError) {
+      throw new Error(membershipError.message);
+    }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: event.id,
+      action: "event.created",
+      entityType: "event",
+      entityId: event.id,
+      message: `${profile.full_name} criou a festa "${name}".`,
+      metadata: {
+        eventName: name,
+        eventSlug: event.slug,
+        status
+      }
+    });
+
+    revalidatePath("/");
+    revalidatePath("/festas");
+
+    return {
+      status: "success",
+      message: "Festa criada com sucesso.",
+      redirectTo: `/festas/${event.slug}`
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel criar a festa."
+    };
+  }
 }
 
 export async function createSaleAction(
@@ -204,6 +378,7 @@ export async function createSaleAction(
     const paymentStatus = String(formData.get("paymentStatus") ?? "pending") as Database["public"]["Tables"]["sales"]["Row"]["payment_status"];
     const soldAt = String(formData.get("soldAt") ?? new Date().toISOString().slice(0, 10));
     const notes = String(formData.get("notes") ?? "").trim();
+    const guestNames = parseGuestNames(formData);
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
       return {
@@ -216,6 +391,13 @@ export async function createSaleAction(
       return {
         status: "error",
         message: "Informe um valor unitario valido maior que zero."
+      };
+    }
+
+    if (guestNames.length > quantity) {
+      return {
+        status: "error",
+        message: "Voce informou mais nomes do que a quantidade vendida."
       };
     }
 
@@ -233,20 +415,48 @@ export async function createSaleAction(
       };
     }
 
-    const { error } = await supabase.from("sales").insert({
-      event_id: event.id,
-      seller_user_id: sellerUserId,
-      quantity,
-      unit_price: unitPrice,
-      payment_status: paymentStatus,
-      sold_at: soldAt,
-      notes: notes || null,
-      created_by: profile.id
+    const { data: createdSale, error } = await supabase
+      .from("sales")
+      .insert({
+        event_id: event.id,
+        seller_user_id: sellerUserId,
+        quantity,
+        unit_price: unitPrice,
+        payment_status: paymentStatus,
+        sold_at: soldAt,
+        notes: notes || null,
+        created_by: profile.id
+      })
+      .select("id")
+      .single();
+
+    if (error || !createdSale) {
+      throw new Error(error?.message ?? "Nao foi possivel registrar a venda.");
+    }
+
+    await replaceSaleAttendees({
+      supabase,
+      eventId: event.id,
+      saleId: createdSale.id,
+      sellerUserId,
+      guestNames
     });
 
-    if (error) {
-      throw new Error(error.message);
-    }
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: event.id,
+      action: "sale.created",
+      entityType: "sale",
+      entityId: createdSale.id,
+      message: `${profile.full_name} registrou uma venda de ${quantity} ingresso(s).`,
+      metadata: {
+        sellerUserId,
+        quantity,
+        unitPrice,
+        paymentStatus,
+        attendeeCount: guestNames.length
+      }
+    });
 
     revalidatePath(`/festas/${eventSlug}`);
     revalidatePath("/");
@@ -301,6 +511,7 @@ export async function updateSaleAction(
     const soldAt = String(formData.get("soldAt") ?? sale.sold_at);
     const notes = String(formData.get("notes") ?? sale.notes ?? "").trim();
     const requestedSellerUserId = String(formData.get("sellerId") ?? sale.seller_user_id).trim();
+    const guestNames = parseGuestNames(formData);
 
     let sellerUserId = sale.seller_user_id;
 
@@ -321,6 +532,13 @@ export async function updateSaleAction(
       return {
         status: "error",
         message: "Informe um valor unitario valido maior que zero."
+      };
+    }
+
+    if (guestNames.length > quantity) {
+      return {
+        status: "error",
+        message: "Voce informou mais nomes do que a quantidade vendida."
       };
     }
 
@@ -353,6 +571,30 @@ export async function updateSaleAction(
     if (error) {
       throw new Error(error.message);
     }
+
+    await replaceSaleAttendees({
+      supabase,
+      eventId: sale.event_id,
+      saleId,
+      sellerUserId,
+      guestNames
+    });
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: sale.event_id,
+      action: "sale.updated",
+      entityType: "sale",
+      entityId: saleId,
+      message: `${profile.full_name} atualizou uma venda de ${quantity} ingresso(s).`,
+      metadata: {
+        sellerUserId,
+        quantity,
+        unitPrice,
+        paymentStatus,
+        attendeeCount: guestNames.length
+      }
+    });
 
     revalidatePath(`/festas/${eventSlug}`);
     revalidatePath("/");
@@ -406,6 +648,20 @@ export async function deleteSaleAction(
     if (error) {
       throw new Error(error.message);
     }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: sale.event_id,
+      action: "sale.deleted",
+      entityType: "sale",
+      entityId: saleId,
+      message: `${profile.full_name} excluiu uma venda de ${sale.quantity} ingresso(s).`,
+      metadata: {
+        sellerUserId: sale.seller_user_id,
+        quantity: sale.quantity,
+        unitPrice: sale.unit_price
+      }
+    });
 
     revalidatePath(`/festas/${eventSlug}`);
     revalidatePath("/");
@@ -467,6 +723,19 @@ export async function createExpenseAction(
       throw new Error(error.message);
     }
 
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: event.id,
+      action: "expense.created",
+      entityType: "expense",
+      message: `${profile.full_name} cadastrou a despesa "${title}".`,
+      metadata: {
+        title,
+        amount,
+        category
+      }
+    });
+
     revalidatePath(`/festas/${eventSlug}`);
 
     return {
@@ -505,6 +774,20 @@ export async function deleteExpenseAction(
       throw new Error(error.message);
     }
 
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: expense.event_id,
+      action: "expense.deleted",
+      entityType: "expense",
+      entityId: expenseId,
+      message: `${profile.full_name} excluiu a despesa "${expense.title}".`,
+      metadata: {
+        title: expense.title,
+        amount: expense.amount,
+        category: expense.category
+      }
+    });
+
     revalidatePath(`/festas/${eventSlug}`);
 
     return {
@@ -540,26 +823,24 @@ export async function updateEventAction(
     const venue = String(formData.get("venue") ?? "").trim();
     const eventDate = String(formData.get("eventDate") ?? "").trim();
     const goalValue = Number(formData.get("goalValue") ?? 0);
+    const description = String(formData.get("description") ?? "").trim();
+    const validationError = validateEventFields({ name, venue, eventDate, goalValue });
 
-    if (!name || !venue || !eventDate || !Number.isFinite(goalValue) || goalValue < 0) {
+    if (validationError) {
       return {
         status: "error",
-        message: "Preencha nome, local, data e meta corretamente."
+        message: validationError
       };
     }
 
-    const nextSlug = name
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
+    const nextSlug = await generateUniqueEventSlug(supabase, name, event.id);
 
     const { error } = await supabase
       .from("events")
       .update({
         name,
         venue,
+        description: description || null,
         event_date: eventDate,
         goal_value: goalValue,
         slug: nextSlug
@@ -569,6 +850,20 @@ export async function updateEventAction(
     if (error) {
       throw new Error(error.message);
     }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: event.id,
+      action: "event.updated",
+      entityType: "event",
+      entityId: event.id,
+      message: `${profile.full_name} atualizou os dados da festa "${name}".`,
+      metadata: {
+        previousSlug: currentSlug,
+        nextSlug,
+        goalValue
+      }
+    });
 
     revalidatePath("/");
     revalidatePath("/festas");
@@ -613,6 +908,19 @@ export async function deleteEventAction(
         message: "Digite o nome exato da festa para confirmar a exclusao."
       };
     }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: event.id,
+      action: "event.deleted",
+      entityType: "event",
+      entityId: event.id,
+      message: `${profile.full_name} excluiu a festa "${event.name}".`,
+      metadata: {
+        eventName: event.name,
+        eventSlug: event.slug
+      }
+    });
 
     const { error } = await supabase.from("events").delete().eq("id", event.id);
 
@@ -679,6 +987,18 @@ export async function createTaskAction(
       throw new Error(error.message);
     }
 
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: event.id,
+      action: "task.created",
+      entityType: "task",
+      message: `${profile.full_name} criou a tarefa "${title}".`,
+      metadata: {
+        title,
+        status
+      }
+    });
+
     revalidatePath(`/festas/${eventSlug}`);
 
     return {
@@ -737,6 +1057,19 @@ export async function updateTaskAction(
       throw new Error(error.message);
     }
 
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: task.event_id,
+      action: "task.updated",
+      entityType: "task",
+      entityId: taskId,
+      message: `${profile.full_name} atualizou a tarefa "${title}".`,
+      metadata: {
+        title,
+        status
+      }
+    });
+
     revalidatePath(`/festas/${eventSlug}`);
 
     return {
@@ -776,6 +1109,19 @@ export async function updateTaskStatusAction(
       throw new Error(error.message);
     }
 
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: task.event_id,
+      action: "task.status_updated",
+      entityType: "task",
+      entityId: taskId,
+      message: `${profile.full_name} atualizou o status da tarefa "${task.title}".`,
+      metadata: {
+        previousStatus: task.status,
+        nextStatus: status
+      }
+    });
+
     revalidatePath(`/festas/${eventSlug}`);
 
     return {
@@ -813,6 +1159,18 @@ export async function deleteTaskAction(
     if (error) {
       throw new Error(error.message);
     }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: task.event_id,
+      action: "task.deleted",
+      entityType: "task",
+      entityId: taskId,
+      message: `${profile.full_name} excluiu a tarefa "${task.title}".`,
+      metadata: {
+        title: task.title
+      }
+    });
 
     revalidatePath(`/festas/${eventSlug}`);
 
@@ -867,6 +1225,18 @@ export async function createAnnouncementAction(
     if (error) {
       throw new Error(error.message);
     }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: event.id,
+      action: "announcement.created",
+      entityType: "announcement",
+      message: `${profile.full_name} publicou o comunicado "${title}".`,
+      metadata: {
+        title,
+        pinned
+      }
+    });
 
     revalidatePath(`/festas/${eventSlug}`);
 
@@ -924,6 +1294,19 @@ export async function updateAnnouncementAction(
       throw new Error(error.message);
     }
 
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: announcement.event_id,
+      action: "announcement.updated",
+      entityType: "announcement",
+      entityId: announcementId,
+      message: `${profile.full_name} atualizou o comunicado "${title}".`,
+      metadata: {
+        title,
+        pinned
+      }
+    });
+
     revalidatePath(`/festas/${eventSlug}`);
 
     return {
@@ -961,6 +1344,18 @@ export async function deleteAnnouncementAction(
     if (error) {
       throw new Error(error.message);
     }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: announcement.event_id,
+      action: "announcement.deleted",
+      entityType: "announcement",
+      entityId: announcementId,
+      message: `${profile.full_name} excluiu o comunicado "${announcement.title}".`,
+      metadata: {
+        title: announcement.title
+      }
+    });
 
     revalidatePath(`/festas/${eventSlug}`);
 
@@ -1034,6 +1429,20 @@ export async function addEventMemberAction(
       throw new Error(error.message);
     }
 
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: event.id,
+      action: "membership.created",
+      entityType: "event_membership",
+      entityId: userId,
+      message: `${profile.full_name} adicionou um membro a esta festa.`,
+      metadata: {
+        userId,
+        role,
+        ticketQuota: Math.max(ticketQuota, 0)
+      }
+    });
+
     revalidatePath(`/festas/${eventSlug}`);
 
     return {
@@ -1101,6 +1510,21 @@ export async function updateEventMemberRoleAction(
       throw new Error(error.message);
     }
 
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: event.id,
+      action: "membership.role_updated",
+      entityType: "event_membership",
+      entityId: membershipId,
+      message: `${profile.full_name} alterou o cargo de um membro da equipe.`,
+      metadata: {
+        userId: targetMembership.user_id,
+        previousRole: targetMembership.role,
+        nextRole,
+        ticketQuota: Math.max(ticketQuota, 0)
+      }
+    });
+
     revalidatePath(`/festas/${eventSlug}`);
 
     return {
@@ -1159,6 +1583,19 @@ export async function removeEventMemberAction(
     if (error) {
       throw new Error(error.message);
     }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: event.id,
+      action: "membership.deleted",
+      entityType: "event_membership",
+      entityId: membershipId,
+      message: `${profile.full_name} removeu um membro da festa.`,
+      metadata: {
+        userId: targetMembership.user_id,
+        role: targetMembership.role
+      }
+    });
 
     revalidatePath(`/festas/${eventSlug}`);
 

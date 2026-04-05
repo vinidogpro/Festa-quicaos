@@ -37,13 +37,15 @@ export function EventSettingsPanel({
   name,
   venue,
   eventDate,
-  goalValue
+  goalValue,
+  description
 }: {
   eventId: string;
   name: string;
   venue: string;
   eventDate: string;
   goalValue: number;
+  description?: string;
 }) {
   const router = useRouter();
   const [updateState, updateAction] = useFormState(updateEventAction, initialEventActionState);
@@ -89,11 +91,18 @@ export function EventSettingsPanel({
               required
             />
           </div>
+          <textarea
+            name="description"
+            rows={3}
+            defaultValue={description ?? ""}
+            placeholder="Descricao da festa"
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             <input
               name="eventDate"
-              type="date"
-              defaultValue={eventDate.slice(0, 10)}
+              type="datetime-local"
+              defaultValue={eventDate.slice(0, 16)}
               className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
               required
             />

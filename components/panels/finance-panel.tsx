@@ -349,7 +349,7 @@ export function FinancePanel({
 
           {!compact && !permissions.canManageFinance ? (
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-              Voce pode visualizar o financeiro desta festa, mas o cadastro de despesas fica restrito ao host.
+              Voce pode visualizar o financeiro desta festa, mas o cadastro e a exclusao de despesas ficam restritos a hosts e organizadores.
             </div>
           ) : null}
         </div>

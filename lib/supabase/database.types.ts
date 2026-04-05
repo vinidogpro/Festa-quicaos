@@ -135,6 +135,39 @@ export interface Database {
         };
         Relationships: [];
       };
+      sale_attendees: {
+        Row: {
+          id: string;
+          event_id: string;
+          sale_id: string;
+          seller_user_id: string;
+          guest_name: string;
+          checked_in_at: string | null;
+          checked_in_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          sale_id: string;
+          seller_user_id: string;
+          guest_name: string;
+          checked_in_at?: string | null;
+          checked_in_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          sale_id?: string;
+          seller_user_id?: string;
+          guest_name?: string;
+          checked_in_at?: string | null;
+          checked_in_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       expenses: {
         Row: {
           id: string;
@@ -230,6 +263,42 @@ export interface Database {
           body?: string;
           pinned?: boolean;
           created_by?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      activity_logs: {
+        Row: {
+          id: string;
+          event_id: string | null;
+          actor_user_id: string;
+          action: string;
+          entity_type: string;
+          entity_id: string | null;
+          message: string;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id?: string | null;
+          actor_user_id: string;
+          action: string;
+          entity_type: string;
+          entity_id?: string | null;
+          message: string;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string | null;
+          actor_user_id?: string;
+          action?: string;
+          entity_type?: string;
+          entity_id?: string | null;
+          message?: string;
+          metadata?: Json | null;
           created_at?: string;
         };
         Relationships: [];

@@ -70,7 +70,10 @@ export function RankingPanel({
                 </div>
                 <div>
                   <p className="font-semibold text-slate-900">{seller.name}</p>
-                  <p className="text-sm text-slate-500">{seller.ticketsSold} ingressos vendidos</p>
+                  <p className="text-sm text-slate-500">
+                    {seller.ticketsSold} ingressos vendidos
+                    {seller.goalTickets > 0 ? ` | ${seller.goalProgress}% da meta` : ""}
+                  </p>
                 </div>
               </div>
               {index < 3 ? <Crown className="h-5 w-5 text-amber-500" /> : null}
@@ -82,10 +85,32 @@ export function RankingPanel({
                 <p className="font-[var(--font-heading)] text-2xl font-bold text-slate-950">
                   {formatCurrency(seller.revenue)}
                 </p>
+                {seller.goalTickets > 0 ? (
+                  <div className="mt-3">
+                    <div className="h-2 rounded-full bg-white/80">
+                      <div
+                        className="h-2 rounded-full bg-brand-600 transition-all"
+                        style={{ width: `${Math.min(seller.goalProgress, 100)}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-400">
+                      Meta individual: {seller.ticketsSold}/{seller.goalTickets}
+                    </p>
+                  </div>
+                ) : null}
               </div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm font-semibold text-emerald-700 shadow-sm">
-                <TrendingUp className="h-4 w-4" />
-                {seller.delta}
+              <div className="grid gap-2 text-right">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm font-semibold text-emerald-700 shadow-sm">
+                  <TrendingUp className="h-4 w-4" />
+                  {seller.delta}
+                </div>
+                {seller.pendingTransferAmount > 0 ? (
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">
+                    Repasse pendente: {formatCurrency(seller.pendingTransferAmount)}
+                  </p>
+                ) : (
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Repasse em dia</p>
+                )}
               </div>
             </div>
           </div>

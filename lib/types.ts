@@ -16,6 +16,7 @@ export interface ViewerPermissions {
   eventRole?: EventRole;
   canCreateEvents: boolean;
   canManageEvent: boolean;
+  canViewActivityLog: boolean;
   canManageTeam: boolean;
   canManageSales: boolean;
   canManageFinance: boolean;
@@ -45,6 +46,10 @@ export interface TeamMember {
   role: EventRole;
   isActive: boolean;
   ticketQuota: number;
+  ticketsSold: number;
+  revenue: number;
+  goalProgress: number;
+  pendingTransferAmount: number;
   isCurrentUser: boolean;
 }
 
@@ -59,7 +64,35 @@ export interface SellerRanking {
   name: string;
   ticketsSold: number;
   revenue: number;
+  goalTickets: number;
+  goalProgress: number;
+  pendingTransferAmount: number;
   delta: string;
+}
+
+export interface EventHealthSnapshot {
+  label: string;
+  tone: "positive" | "warning" | "critical";
+  summary: string;
+}
+
+export interface EventAttentionItem {
+  id: string;
+  title: string;
+  description: string;
+  tone: "warning" | "critical";
+}
+
+export interface ActivityLogItem {
+  id: string;
+  actorUserId: string;
+  actorName: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  message: string;
+  metadata?: Record<string, string | number | boolean | null>;
+  createdAt: string;
 }
 
 export interface SalesRecord {
@@ -74,7 +107,20 @@ export interface SalesRecord {
   soldAt: string;
   notes?: string;
   amount: number;
+  attendeeNames: string[];
+  attendeeCount: number;
+  missingAttendeeCount: number;
   isOwnedByViewer: boolean;
+}
+
+export interface GuestListEntry {
+  id: string;
+  saleId: string;
+  sellerUserId: string;
+  sellerName: string;
+  guestName: string;
+  checkedInAt?: string;
+  createdAt: string;
 }
 
 export interface Expense {
@@ -127,6 +173,7 @@ export interface EventSummary {
   name: string;
   eventDate: string;
   status: EventStatus;
+  description?: string;
   totalRevenue: number;
   goalValue: number;
   progress: number;
@@ -140,6 +187,8 @@ export interface PartyEventDetail extends EventSummary {
   viewer: ViewerProfile;
   viewerEventRole?: EventRole;
   permissions: ViewerPermissions;
+  health: EventHealthSnapshot;
+  attentionItems: EventAttentionItem[];
   activeSellers: number;
   totalExpenses: number;
   pendingPaymentsCount: number;
@@ -151,6 +200,8 @@ export interface PartyEventDetail extends EventSummary {
   transfersPending: TransferPending[];
   tasks: TaskItem[];
   announcements: Announcement[];
+  activityLogs: ActivityLogItem[];
+  guestListEntries: GuestListEntry[];
   salesSeries: SalesSeries[];
   sellerContribution: SellerContribution[];
   sellerOptions: SellerOption[];

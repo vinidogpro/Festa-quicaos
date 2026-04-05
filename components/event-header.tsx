@@ -8,7 +8,7 @@ import { PartyEventDetail } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
 export function EventHeader({ event }: { event: PartyEventDetail }) {
-  const viewerRoleLabel = event.viewerEventRole ?? "sem papel";
+  const viewerRoleLabel = event.viewerEventRole ?? (event.viewer.role === "host" ? "host global" : "sem papel");
 
   return (
     <header className="rounded-[28px] border border-white/60 bg-white/80 p-5 shadow-soft backdrop-blur sm:p-6">
@@ -51,6 +51,7 @@ export function EventHeader({ event }: { event: PartyEventDetail }) {
                 venue={event.venue}
                 eventDate={event.eventDate}
                 goalValue={event.goalValue}
+                description={event.description}
               />
             </div>
           ) : null}
