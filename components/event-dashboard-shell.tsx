@@ -61,8 +61,8 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
   return (
     <main className="min-h-screen">
       <div className="mx-auto flex max-w-7xl gap-6 px-4 pb-32 pt-4 sm:px-6 lg:px-8">
-        <aside className="sticky top-4 hidden h-[calc(100vh-2rem)] w-72 shrink-0 overflow-hidden rounded-[28px] border border-white/60 bg-white/75 p-4 shadow-soft backdrop-blur xl:block">
-          <div className="flex h-full flex-col">
+        <aside className="sticky top-4 hidden h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] w-72 shrink-0 overflow-hidden rounded-[28px] border border-white/60 bg-white/75 p-4 shadow-soft backdrop-blur xl:block">
+          <div className="flex h-full min-h-0 flex-col">
             <div className="mb-8 rounded-[24px] bg-hero p-5">
               <span className="mb-3 inline-flex rounded-full border border-brand-200 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-brand-700">
                 Gestao do evento
@@ -75,7 +75,7 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
               </p>
             </div>
 
-            <nav className="space-y-2">
+            <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 [scrollbar-gutter:stable]">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
@@ -97,7 +97,7 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
               })}
             </nav>
 
-            <div className="mt-auto rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+            <div className="mt-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
               <p className="text-sm text-slate-500">Atalhos</p>
               <div className="mt-4 space-y-2">
                 <Link

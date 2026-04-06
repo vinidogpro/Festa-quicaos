@@ -421,17 +421,25 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     };
   });
 
+  const salesById = new Map(salesRows.map((sale) => [sale.id, sale]));
+
   const guestListEntries: GuestListEntry[] = saleAttendeeRows
     .filter((entry) => !permissions.canManageOwnSalesOnly || entry.seller_user_id === context.viewer.id)
-    .map((entry) => ({
-      id: entry.id,
-      saleId: entry.sale_id,
-      sellerUserId: entry.seller_user_id,
-      sellerName: profilesMap.get(entry.seller_user_id)?.full_name ?? "Vendedor",
-      guestName: entry.guest_name,
-      checkedInAt: entry.checked_in_at ?? undefined,
-      createdAt: entry.created_at
-    }))
+    .map((entry) => {
+      const sale = salesById.get(entry.sale_id);
+
+      return {
+        id: entry.id,
+        saleId: entry.sale_id,
+        sellerUserId: entry.seller_user_id,
+        sellerName: profilesMap.get(entry.seller_user_id)?.full_name ?? "Vendedor",
+        guestName: entry.guest_name,
+        paymentStatus: sale?.payment_status ?? "pending",
+        unitPrice: sale?.unit_price ?? 0,
+        checkedInAt: entry.checked_in_at ?? undefined,
+        createdAt: entry.created_at
+      };
+    })
     .sort((left, right) => left.guestName.localeCompare(right.guestName));
 
   const transfersPending: TransferPending[] = sellerMemberships

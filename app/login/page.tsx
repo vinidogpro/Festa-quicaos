@@ -1,23 +1,12 @@
-import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth/auth-form";
 import { SetupCard } from "@/components/setup-card";
 import { isSupabaseConfigured } from "@/lib/env";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
   if (!isSupabaseConfigured()) {
     return <SetupCard />;
-  }
-
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { session }
-  } = await supabase.auth.getSession();
-
-  if (session) {
-    redirect("/");
   }
 
   return (

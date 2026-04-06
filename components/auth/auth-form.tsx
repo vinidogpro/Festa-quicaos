@@ -21,6 +21,10 @@ function getFriendlyErrorMessage(message: string) {
     return "Este usuario ainda nao confirmou o e-mail. Confirme pelo painel do Supabase ou desative essa exigencia para seu fluxo interno.";
   }
 
+  if (normalized.includes("over_request_rate_limit") || normalized.includes("request rate limit reached")) {
+    return "Muitas tentativas em pouco tempo. Aguarde alguns instantes antes de tentar entrar novamente.";
+  }
+
   return message;
 }
 
@@ -30,38 +34,49 @@ export function AuthForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const nextPath = useMemo(() => searchParams.get("next") || "/", [searchParams]);
   const safeNextPath = useMemo(() => (nextPath.startsWith("/") ? nextPath : "/"), [nextPath]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setFeedback(null);
 
-    const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (error) {
-      setFeedback({
-        type: "error",
-        message: getFriendlyErrorMessage(error.message)
-      });
+    if (isSubmitting) {
       return;
     }
 
-    setFeedback({
-      type: "success",
-      message: "Login realizado com sucesso. Redirecionando..."
-    });
+    setFeedback(null);
+    setIsSubmitting(true);
 
-    startTransition(() => {
-      router.replace(safeNextPath as any);
-      router.refresh();
-    });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        setFeedback({
+          type: "error",
+          message: getFriendlyErrorMessage(error.message)
+        });
+        return;
+      }
+
+      setFeedback({
+        type: "success",
+        message: "Login realizado com sucesso. Redirecionando..."
+      });
+
+      startTransition(() => {
+        router.replace(safeNextPath as any);
+        router.refresh();
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -108,10 +123,10 @@ export function AuthForm() {
       ) : null}
 
       <button
-        disabled={isPending}
+        disabled={isSubmitting || isPending}
         className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+        {isSubmitting || isPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
         Entrar
       </button>
     </form>

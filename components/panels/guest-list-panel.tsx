@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import { Download, ListChecks } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { GuestListEntry, ViewerPermissions } from "@/lib/types";
+import { formatCurrency } from "@/lib/utils";
 
 export function GuestListPanel({
   eventId,
@@ -88,13 +90,22 @@ export function GuestListPanel({
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="font-semibold text-slate-900">{entry.guestName}</p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {entry.sellerName} | Venda {entry.saleId.slice(0, 8)}
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-slate-500">
+                    <span>{entry.sellerName}</span>
+                    <span className="text-slate-300">•</span>
+                    <span>{formatCurrency(entry.unitPrice)}</span>
+                    <span className="text-slate-300">•</span>
+                    <StatusBadge status={entry.paymentStatus} />
+                  </div>
+                  <p className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-400">
+                    Venda {entry.saleId.slice(0, 8)}
                   </p>
                 </div>
-                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
-                  {entry.checkedInAt ? "Check-in feito" : "Pendente"}
-                </div>
+                {entry.checkedInAt ? (
+                  <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+                    Check-in feito
+                  </div>
+                ) : null}
               </div>
             </article>
           ))

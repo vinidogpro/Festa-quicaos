@@ -112,6 +112,8 @@ export interface GuestListEntry {
   sellerUserId: string;
   sellerName: string;
   guestName: string;
+  paymentStatus: PaymentStatus;
+  unitPrice: number;
   checkedInAt?: string;
   createdAt: string;
 }
