@@ -43,7 +43,7 @@ function SummaryIcon({ label }: { label: string }) {
 
 export function DashboardOverview({ data }: { data: PartyEventDetail }) {
   return (
-    <section className="grid gap-6 lg:grid-cols-2">
+    <section className="grid gap-4 sm:gap-6 lg:grid-cols-2">
       {data.summary.map((item) => (
         <SectionCard
           key={item.label}
@@ -52,14 +52,14 @@ export function DashboardOverview({ data }: { data: PartyEventDetail }) {
           action={<SummaryIcon label={item.label} />}
           className="min-w-0 overflow-hidden"
         >
-          <div className="flex min-h-[156px] min-w-0 flex-col justify-between overflow-hidden">
-            <div className="min-w-0 pt-3">
+          <div className="flex min-h-[136px] min-w-0 flex-col justify-between overflow-hidden sm:min-h-[156px]">
+            <div className="min-w-0 pt-2 sm:pt-3">
               <SummaryValue value={item.value} isCurrency={item.isCurrency} />
             </div>
           </div>
 
           {typeof item.progress === "number" ? (
-            <div className="mt-7 min-w-0 overflow-hidden">
+            <div className="mt-5 min-w-0 overflow-hidden sm:mt-7">
               <div className="h-2 rounded-full bg-slate-100">
                 <div
                   className="h-2 rounded-full bg-brand-600 transition-all"

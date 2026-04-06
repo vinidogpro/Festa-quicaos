@@ -60,7 +60,7 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
 
   return (
     <main className="min-h-screen">
-      <div className="mx-auto flex max-w-7xl gap-6 px-4 pb-28 pt-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl gap-6 px-4 pb-32 pt-4 sm:px-6 lg:px-8">
         <aside className="sticky top-4 hidden h-[calc(100vh-2rem)] w-72 shrink-0 overflow-hidden rounded-[28px] border border-white/60 bg-white/75 p-4 shadow-soft backdrop-blur xl:block">
           <div className="flex h-full flex-col">
             <div className="mb-8 rounded-[24px] bg-hero p-5">
@@ -119,6 +119,30 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
 
         <div className="min-w-0 flex-1">
           <EventHeader event={event} />
+
+          <div className="mt-4 xl:hidden">
+            <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition ${
+                      isActive
+                        ? "bg-slate-900 text-white shadow-sm"
+                        : "border border-slate-200 bg-white text-slate-600"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="mt-6 space-y-6">
             {(activeTab === "overview" || activeTab === "ranking") && (

@@ -120,7 +120,7 @@ function TeamMemberRow({
                 <select
                   name="role"
                   defaultValue={member.role}
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
+                  className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
                 >
                   {availableRoleOptions.map((role) => (
                     <option key={role.value} value={role.value}>
@@ -128,7 +128,7 @@ function TeamMemberRow({
                     </option>
                   ))}
                 </select>
-                <SubmitButton className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
+                <SubmitButton className="min-h-11 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
                   Salvar
                 </SubmitButton>
               </div>
@@ -148,7 +148,7 @@ function TeamMemberRow({
               <button
                 type="submit"
                 disabled={!canManageThisMemberRole}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Trash2 className="h-4 w-4" />
                 Remover
@@ -205,7 +205,7 @@ export function TeamPanel({ eventId, permissions, teamMembers, availableUsers }:
     >
       <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-100 text-brand-700">
               <UserPlus className="h-5 w-5" />
             </div>
@@ -221,12 +221,12 @@ export function TeamPanel({ eventId, permissions, teamMembers, availableUsers }:
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar usuario por nome"
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
+              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
             />
             <select
               name="userId"
               defaultValue=""
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
+              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
               required
             >
               <option value="" disabled>
@@ -242,7 +242,7 @@ export function TeamPanel({ eventId, permissions, teamMembers, availableUsers }:
               <select
                 name="role"
                 defaultValue="seller"
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
+                className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
               >
                 {availableRoleOptions.map((role) => (
                   <option key={role.value} value={role.value}>
@@ -251,7 +251,7 @@ export function TeamPanel({ eventId, permissions, teamMembers, availableUsers }:
               ))}
               </select>
             </div>
-            <SubmitButton className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60">
+            <SubmitButton className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60">
               <UserPlus className="h-4 w-4" />
               Adicionar a equipe
             </SubmitButton>

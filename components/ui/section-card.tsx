@@ -19,13 +19,13 @@ export function SectionCard({
   return (
     <section className={cn("rounded-[28px] border border-white/60 bg-white/85 p-5 shadow-soft backdrop-blur sm:p-6", className)}>
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <h2 className="font-[var(--font-heading)] text-xl font-bold tracking-tight text-slate-950">
             {title}
           </h2>
           {description ? <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p> : null}
         </div>
-        {action}
+        {action ? <div className="w-full sm:w-auto">{action}</div> : null}
       </div>
       {children}
     </section>

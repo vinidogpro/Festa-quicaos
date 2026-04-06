@@ -48,7 +48,7 @@ export function GuestListPanel({
       action={
         <a
           href={`/festas/${eventId}/guest-list/export`}
-          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:w-auto"
         >
           <Download className="h-4 w-4" />
           Exportar lista
@@ -60,17 +60,17 @@ export function GuestListPanel({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Buscar por nome ou vendedor"
-          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
+          className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
         />
         <select
           value={sortBy}
           onChange={(event) => setSortBy(event.target.value as "name" | "seller")}
-          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
+          className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
         >
           <option value="name">Ordenar por nome</option>
           <option value="seller">Ordenar por vendedor</option>
         </select>
-        <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-500">
+        <div className="min-h-11 rounded-2xl bg-white px-4 py-3 text-sm text-slate-500">
           {filteredEntries.length} nome(s)
         </div>
       </div>

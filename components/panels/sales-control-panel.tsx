@@ -113,7 +113,7 @@ function SaleQuickForm({
     }
   }, [router, state.status]);
 
-  return (
+    return (
     <div className="mb-5 overflow-hidden rounded-[28px] border border-brand-200 bg-gradient-to-br from-brand-50 via-white to-slate-50">
       <div className="grid gap-6 p-4 sm:p-5 xl:grid-cols-[1.1fr_0.9fr]">
         <div>
@@ -252,7 +252,7 @@ function SaleQuickForm({
           </form>
         </div>
 
-        <div className="rounded-[24px] bg-slate-950 p-5 text-white">
+        <div className="hidden rounded-[24px] bg-slate-950 p-5 text-white xl:block">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Fluxo otimizado</p>
           <div className="mt-4 space-y-3">
             <div className="rounded-2xl bg-white/10 px-4 py-3">
@@ -330,7 +330,7 @@ function SaleEditForm({
   }, [router, state.status]);
 
   return (
-    <details data-sale-edit className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 lg:w-[26rem]">
+    <details data-sale-edit className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3">
       <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
         <Pencil className="h-4 w-4" />
         Editar venda
@@ -471,9 +471,9 @@ export function SalesControlPanel({
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
-                      <details className="group">
-                        <summary className="flex cursor-pointer list-none items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+                      <details className="group w-full sm:w-auto">
+                        <summary className="flex w-full cursor-pointer list-none items-center justify-between gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 sm:w-auto sm:justify-start sm:rounded-full sm:py-1">
                           {row.attendeeCount} nomes cadastrados
                           {row.missingAttendeeCount > 0 ? ` | faltam ${row.missingAttendeeCount}` : ""}
                           <ChevronDown className="h-3 w-3 transition group-open:rotate-180" />
@@ -497,7 +497,7 @@ export function SalesControlPanel({
 
                   {canEdit && !compact ? (
                     <div className="flex w-full flex-col gap-3 lg:w-[26rem]">
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid gap-2 sm:grid-cols-2">
                         <button
                           type="button"
                           onClick={(event) => {
@@ -507,7 +507,7 @@ export function SalesControlPanel({
                               details.open = !details.open;
                             }
                           }}
-                          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                         >
                           <Pencil className="h-4 w-4" />
                           Editar

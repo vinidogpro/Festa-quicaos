@@ -51,13 +51,13 @@ function FinanceMetricCard({
   cardClassName: string;
 }) {
   return (
-    <div className={`min-w-0 rounded-[24px] p-5 sm:min-h-[176px] ${cardClassName}`}>
+    <div className={`min-w-0 rounded-[24px] p-4 sm:min-h-[176px] sm:p-5 ${cardClassName}`}>
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm leading-5">{label}</p>
         <div className="mt-0.5 shrink-0 opacity-80">{icon}</div>
       </div>
       <p
-        className={`mt-8 whitespace-nowrap font-[var(--font-heading)] font-bold tracking-tight ${valueClassName}`}
+        className={`mt-6 whitespace-nowrap font-[var(--font-heading)] font-bold tracking-tight sm:mt-8 ${valueClassName}`}
         title={String(value)}
       >
         {value}
@@ -122,13 +122,13 @@ function ExpenseForm({ eventId }: { eventId: string }) {
           <input
             name="title"
             placeholder="Titulo da despesa"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
             required
           />
           <input
             name="category"
             placeholder="Categoria"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
             required
           />
           <input
@@ -137,20 +137,20 @@ function ExpenseForm({ eventId }: { eventId: string }) {
             min="0.01"
             step="0.01"
             placeholder="Valor"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
             required
           />
           <input
             name="incurredAt"
             type="date"
             defaultValue={new Date().toISOString().slice(0, 10)}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
           />
         </div>
         <input
           name="notes"
           placeholder="Observacoes da despesa"
-          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+          className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
         />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-500">
@@ -158,7 +158,7 @@ function ExpenseForm({ eventId }: { eventId: string }) {
           </p>
           <SubmitButton
             pendingLabel="Salvando despesa..."
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Plus className="h-4 w-4" />
             Adicionar despesa
@@ -202,13 +202,13 @@ function AdditionalRevenueForm({ eventId }: { eventId: string }) {
           <input
             name="title"
             placeholder="Titulo da arrecadacao"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
             required
           />
           <input
             name="category"
             placeholder="Categoria (opcional)"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
           />
           <input
             name="amount"
@@ -216,14 +216,14 @@ function AdditionalRevenueForm({ eventId }: { eventId: string }) {
             min="0.01"
             step="0.01"
             placeholder="Valor"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
             required
           />
           <input
             name="date"
             type="date"
             defaultValue={new Date().toISOString().slice(0, 10)}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
           />
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -232,7 +232,7 @@ function AdditionalRevenueForm({ eventId }: { eventId: string }) {
           </p>
           <SubmitButton
             pendingLabel="Salvando arrecadacao..."
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Plus className="h-4 w-4" />
             Adicionar arrecadacao
@@ -268,7 +268,7 @@ function ExpenseDeleteForm({ eventId, expenseId }: { eventId: string; expenseId:
       <input type="hidden" name="expenseId" value={expenseId} />
       <SubmitButton
         pendingLabel="Excluindo..."
-        className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Trash2 className="h-4 w-4" />
         Excluir
@@ -309,7 +309,7 @@ function ExpenseEditForm({
         </div>
       ) : null}
       <details ref={detailsRef} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-        <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
           <Pencil className="h-4 w-4" />
           Editar
         </summary>
@@ -320,7 +320,7 @@ function ExpenseEditForm({
             name="title"
             defaultValue={expense.title}
             placeholder="Titulo"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
             required
           />
           <div className="grid gap-3 sm:grid-cols-3">
@@ -328,7 +328,7 @@ function ExpenseEditForm({
               name="category"
               defaultValue={expense.category}
               placeholder="Categoria"
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
               required
             />
             <input
@@ -338,14 +338,14 @@ function ExpenseEditForm({
               step="0.01"
               defaultValue={expense.amount}
               placeholder="Valor"
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
               required
             />
             <input
               name="incurredAt"
               type="date"
               defaultValue={expense.incurredAt}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
               required
             />
           </div>
@@ -353,12 +353,12 @@ function ExpenseEditForm({
             name="notes"
             defaultValue={expense.notes ?? ""}
             placeholder="Observacoes"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
           />
           <div className="flex flex-col gap-2 sm:flex-row">
             <SubmitButton
               pendingLabel="Salvando..."
-              className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Salvar alteracoes
             </SubmitButton>
@@ -367,7 +367,7 @@ function ExpenseEditForm({
               onClick={() => {
                 detailsRef.current?.removeAttribute("open");
               }}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
               Cancelar
             </button>
@@ -403,7 +403,7 @@ function AdditionalRevenueDeleteForm({ eventId, revenueId }: { eventId: string; 
       <input type="hidden" name="revenueId" value={revenueId} />
       <SubmitButton
         pendingLabel="Excluindo..."
-        className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Trash2 className="h-4 w-4" />
         Excluir
@@ -430,8 +430,8 @@ function AdditionalRevenueEditForm({
   }, [router, state.status]);
 
   return (
-    <details className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-      <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+      <details className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
         <Pencil className="h-4 w-4" />
         Editar
       </summary>
@@ -442,7 +442,7 @@ function AdditionalRevenueEditForm({
           name="title"
           defaultValue={revenue.title}
           placeholder="Titulo"
-          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+          className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
           required
         />
         <div className="grid gap-3 sm:grid-cols-3">
@@ -450,7 +450,7 @@ function AdditionalRevenueEditForm({
             name="category"
             defaultValue={revenue.category ?? ""}
             placeholder="Categoria"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
           />
           <input
             name="amount"
@@ -459,19 +459,19 @@ function AdditionalRevenueEditForm({
             step="0.01"
             defaultValue={revenue.amount}
             placeholder="Valor"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
             required
           />
           <input
             name="date"
             type="date"
             defaultValue={revenue.date}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500"
           />
         </div>
         <SubmitButton
           pendingLabel="Salvando..."
-          className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-11 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Salvar alteracoes
         </SubmitButton>

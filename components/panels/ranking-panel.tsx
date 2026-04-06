@@ -22,10 +22,10 @@ export function RankingPanel({
       title="Ranking de vendedores"
       description="Veja quem mais vendeu e acompanhe a performance por periodo."
       action={
-        <div className="inline-flex rounded-2xl bg-slate-100 p-1">
+        <div className="inline-flex w-full rounded-2xl bg-slate-100 p-1 sm:w-auto">
           <button
             onClick={() => onPeriodChange("week")}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+            className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${
               period === "week" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"
             }`}
           >
@@ -33,7 +33,7 @@ export function RankingPanel({
           </button>
           <button
             onClick={() => onPeriodChange("total")}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+            className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${
               period === "total" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"
             }`}
           >
@@ -63,27 +63,27 @@ export function RankingPanel({
                     : "border-slate-200 bg-slate-50/70"
             }`}
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white font-semibold text-slate-900 shadow-sm">
                   #{index + 1}
                 </div>
-                <div>
-                  <p className="font-semibold text-slate-900">{seller.name}</p>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-slate-900">{seller.name}</p>
                   <p className="text-sm text-slate-500">{seller.ticketsSold} ingressos vendidos</p>
                 </div>
               </div>
               {index < 3 ? <Crown className="h-5 w-5 text-amber-500" /> : null}
             </div>
 
-            <div className="mt-5 flex items-end justify-between gap-3">
-              <div>
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
                 <p className="text-sm text-slate-500">Arrecadacao</p>
                 <p className="font-[var(--font-heading)] text-2xl font-bold text-slate-950">
                   {formatCurrency(seller.revenue)}
                 </p>
               </div>
-              <div className="grid gap-2 text-right">
+              <div className="grid gap-2 sm:text-right">
                 {seller.pendingTransferAmount > 0 ? (
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">
                     Repasse pendente: {formatCurrency(seller.pendingTransferAmount)}

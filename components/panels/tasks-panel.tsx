@@ -86,12 +86,12 @@ function TaskCreateForm({
       <input
         name="title"
         placeholder="Titulo da tarefa"
-        className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
         required
       />
       <select
         name="ownerProfileId"
-        className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
         defaultValue=""
       >
         <option value="">Sem responsavel</option>
@@ -104,7 +104,7 @@ function TaskCreateForm({
       <select
         name="status"
         defaultValue="pending"
-        className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
       >
         <option value="pending">Pendente</option>
         <option value="in-progress">Em andamento</option>
@@ -113,11 +113,11 @@ function TaskCreateForm({
       <input
         name="dueAt"
         type="date"
-        className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
       />
       <SubmitButton
         pendingLabel="Criando..."
-        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Plus className="h-4 w-4" />
         Adicionar tarefa
@@ -146,7 +146,7 @@ function TaskStatusForm({ eventId, task }: { eventId: string; task: TaskItem }) 
       <select
         name="status"
         defaultValue={task.status}
-        className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm outline-none transition focus:border-brand-500"
+        className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm outline-none transition focus:border-brand-500"
       >
         <option value="pending">Pendente</option>
         <option value="in-progress">Em andamento</option>
@@ -154,7 +154,7 @@ function TaskStatusForm({ eventId, task }: { eventId: string; task: TaskItem }) 
       </select>
       <SubmitButton
         pendingLabel="Atualizando..."
-        className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+        className="min-h-11 rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
         Status
       </SubmitButton>
@@ -184,7 +184,7 @@ function TaskEditForm({
 
   return (
     <details className="rounded-2xl border border-slate-200 bg-white">
-      <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
         <Pencil className="h-4 w-4" />
         Editar
       </summary>
@@ -195,14 +195,14 @@ function TaskEditForm({
           <input
             name="title"
             defaultValue={task.title}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
             required
           />
           <div className="grid gap-3 sm:grid-cols-3">
             <select
               name="ownerProfileId"
               defaultValue={task.ownerProfileId ?? ""}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
             >
               <option value="">Sem responsavel</option>
               {participantOptions.map((participant) => (
@@ -214,7 +214,7 @@ function TaskEditForm({
             <select
               name="status"
               defaultValue={task.status}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
             >
               <option value="pending">Pendente</option>
               <option value="in-progress">Em andamento</option>
@@ -224,13 +224,13 @@ function TaskEditForm({
               name="dueAt"
               type="date"
               defaultValue={task.dueAt ?? ""}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
             />
           </div>
           <div className="flex justify-end">
             <SubmitButton
               pendingLabel="Salvando..."
-              className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Salvar tarefa
             </SubmitButton>
@@ -250,7 +250,7 @@ function TaskEditForm({
           <input type="hidden" name="taskId" value={task.id} />
           <SubmitButton
             pendingLabel="Excluindo..."
-            className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Trash2 className="h-4 w-4" />
             Excluir tarefa
@@ -299,7 +299,7 @@ export function TasksPanel({
                     <h3 className="font-semibold text-slate-900">{task.title}</h3>
                     {!permissions.canManageTasks || compact ? <StatusBadge status={task.status} /> : null}
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-500">
+                  <div className="mt-3 flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:flex-wrap sm:gap-3">
                     <span>Responsavel: {task.owner}</span>
                     <span>Prazo: {task.dueLabel}</span>
                     <span className="inline-flex items-center gap-1">

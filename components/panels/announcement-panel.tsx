@@ -73,7 +73,7 @@ function AnnouncementCreateForm({ eventId }: { eventId: string }) {
       <input
         name="title"
         placeholder="Titulo do comunicado"
-        className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
         required
       />
       <textarea
@@ -89,7 +89,7 @@ function AnnouncementCreateForm({ eventId }: { eventId: string }) {
       <div className="flex justify-end">
         <SubmitButton
           pendingLabel="Publicando..."
-          className="inline-flex w-fit items-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit"
         >
           <Plus className="h-4 w-4" />
           Publicar aviso
@@ -113,7 +113,7 @@ function AnnouncementEditForm({ eventId, announcement }: { eventId: string; anno
 
   return (
     <details className="rounded-2xl border border-slate-200 bg-white">
-      <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
         <Pencil className="h-4 w-4" />
         Editar
       </summary>
@@ -124,7 +124,7 @@ function AnnouncementEditForm({ eventId, announcement }: { eventId: string; anno
           <input
             name="title"
             defaultValue={announcement.title}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
             required
           />
           <textarea
@@ -145,7 +145,7 @@ function AnnouncementEditForm({ eventId, announcement }: { eventId: string; anno
           <div className="flex justify-end">
             <SubmitButton
               pendingLabel="Salvando..."
-              className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Salvar comunicado
             </SubmitButton>
@@ -165,7 +165,7 @@ function AnnouncementEditForm({ eventId, announcement }: { eventId: string; anno
           <input type="hidden" name="announcementId" value={announcement.id} />
           <SubmitButton
             pendingLabel="Excluindo..."
-            className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Trash2 className="h-4 w-4" />
             Excluir comunicado

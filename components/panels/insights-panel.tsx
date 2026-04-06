@@ -101,12 +101,12 @@ function MetricTile({
         : "bg-brand-50 text-brand-700";
 
   return (
-    <div className="min-w-0 rounded-[24px] border border-slate-200 bg-white/90 p-5 shadow-sm sm:p-6">
+    <div className="min-w-0 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{title}</p>
-          <div className="mt-4 min-h-[72px]">
-            <p className="whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.7rem,2.6vw,2.45rem)] font-bold tracking-tight text-slate-950">
+          <div className="mt-3 min-h-[64px] sm:mt-4 sm:min-h-[72px]">
+            <p className="whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.45rem,5vw,2.45rem)] font-bold tracking-tight text-slate-950">
               {value}
             </p>
           </div>
@@ -133,7 +133,7 @@ function InsightChart({
     <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
       <p className="font-semibold text-slate-900">{title}</p>
       <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
-      <div className="mt-5 h-72">{children}</div>
+      <div className="mt-5 h-64 sm:h-72">{children}</div>
     </div>
   );
 }
@@ -310,7 +310,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
             </div>
           ) : null}
 
-          <div className={`grid gap-4 ${compact ? "xl:grid-cols-2" : "lg:grid-cols-2"}`}>
+          <div className={`grid gap-4 ${compact ? "xl:grid-cols-2" : "md:grid-cols-2 xl:grid-cols-3"}`}>
             <MetricTile
               title={isSellerView ? "Sua arrecadacao" : "Arrecadacao atual"}
               value={formatCurrency(totals.totalRevenue)}
@@ -379,7 +379,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
             />
           </div>
 
-          <div className={`grid gap-6 ${compact ? "lg:grid-cols-1" : "xl:grid-cols-[1.1fr_0.9fr]"}`}>
+            <div className={`grid gap-6 ${compact ? "lg:grid-cols-1" : "xl:grid-cols-[1.1fr_0.9fr]"}`}>
             <InsightChart
               title="Evolucao de vendas"
               description="Veja como a receita avanca ao longo do tempo e identifique dias com melhor resposta."
@@ -482,7 +482,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                         </div>
                         {index < 3 ? <Medal className="h-5 w-5 shrink-0 text-amber-500" /> : null}
                       </div>
-                      <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
+                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
                         <div>
                           <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Total vendido</p>
                           <p className="mt-1 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">

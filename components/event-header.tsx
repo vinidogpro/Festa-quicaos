@@ -13,11 +13,11 @@ export function EventHeader({ event }: { event: PartyEventDetail }) {
   return (
     <header className="rounded-[28px] border border-white/60 bg-white/80 p-5 shadow-soft backdrop-blur sm:p-6">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-        <div>
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
             >
               <ArrowLeft className="h-4 w-4" />
               Voltar para festas
@@ -39,8 +39,8 @@ export function EventHeader({ event }: { event: PartyEventDetail }) {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="hidden rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600 sm:block">
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+          <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
             {event.viewer.name} | {viewerRoleLabel}
           </div>
           {event.permissions.canManageEvent ? (
@@ -57,7 +57,7 @@ export function EventHeader({ event }: { event: PartyEventDetail }) {
           ) : null}
           <Link
             href={event.status === "past" ? "/historico" : "/festas"}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             Navegar eventos
           </Link>
