@@ -149,6 +149,10 @@ function ensureCanManageEvent(profile: ProfileRow, membership: EventMembershipRo
   }
 }
 
+function canManageFinance(profile: ProfileRow, membership: EventMembershipRow | null) {
+  return canManageEvent(profile, membership);
+}
+
 function canAssignHostRole(profile: ProfileRow, membership: EventMembershipRow | null) {
   return profile.role === "host" || membership?.role === "host";
 }
@@ -240,6 +244,36 @@ function parseGuestNames(formData: FormData) {
     .getAll("guestNames")
     .map((value) => String(value ?? "").trim())
     .filter(Boolean);
+}
+
+function validateExpenseFields({
+  title,
+  category,
+  amount,
+  incurredAt
+}: {
+  title: string;
+  category: string;
+  amount: number;
+  incurredAt: string;
+}) {
+  if (!title) {
+    return "Informe o titulo da despesa.";
+  }
+
+  if (!category) {
+    return "Informe a categoria da despesa.";
+  }
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return "Informe um valor valido maior que zero.";
+  }
+
+  if (Number.isNaN(new Date(incurredAt).getTime())) {
+    return "Informe uma data valida para a despesa.";
+  }
+
+  return null;
 }
 
 async function replaceSaleAttendees({
@@ -718,7 +752,7 @@ export async function createExpenseAction(
     const event = await getEventRowBySlug(eventSlug);
     const membership = await getMembership(supabase, event.id, profile.id);
 
-    if (!(profile.role === "host" || membership?.role === "host" || membership?.role === "organizer")) {
+    if (!canManageFinance(profile, membership)) {
       return {
         status: "error",
         message: "Voce nao tem permissao para cadastrar despesas nesta festa."
@@ -731,10 +765,17 @@ export async function createExpenseAction(
     const incurredAt = String(formData.get("incurredAt") ?? new Date().toISOString().slice(0, 10));
     const notes = String(formData.get("notes") ?? "").trim();
 
-    if (!title || !category || !Number.isFinite(amount) || amount <= 0) {
+    const validationError = validateExpenseFields({
+      title,
+      category,
+      amount,
+      incurredAt
+    });
+
+    if (validationError) {
       return {
         status: "error",
-        message: "Preencha titulo, categoria e valor valido para a despesa."
+        message: validationError
       };
     }
 
@@ -781,6 +822,90 @@ export async function createExpenseAction(
   }
 }
 
+export async function updateExpenseAction(
+  _prevState: FinanceActionState,
+  formData: FormData
+): Promise<FinanceActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const expenseId = String(formData.get("expenseId") ?? "");
+    const expense = await getExpenseRowById(supabase, expenseId);
+    const membership = await getMembership(supabase, expense.event_id, profile.id);
+
+    if (!canManageFinance(profile, membership)) {
+      return {
+        status: "error",
+        message: "Voce nao tem permissao para editar despesas nesta festa."
+      };
+    }
+
+    const title = String(formData.get("title") ?? "").trim();
+    const category = String(formData.get("category") ?? "").trim();
+    const amount = Number(formData.get("amount") ?? 0);
+    const incurredAt = String(formData.get("incurredAt") ?? expense.incurred_at);
+    const notes = String(formData.get("notes") ?? "").trim();
+    const validationError = validateExpenseFields({
+      title,
+      category,
+      amount,
+      incurredAt
+    });
+
+    if (validationError) {
+      return {
+        status: "error",
+        message: validationError
+      };
+    }
+
+    const { error } = await supabase
+      .from("expenses")
+      .update({
+        title,
+        category,
+        amount,
+        incurred_at: incurredAt,
+        notes: notes || null
+      })
+      .eq("id", expenseId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: expense.event_id,
+      action: "expense.updated",
+      entityType: "expense",
+      entityId: expenseId,
+      message: `${profile.full_name} atualizou a despesa "${title}".`,
+      metadata: {
+        title,
+        category,
+        amount,
+        incurredAt,
+        notes: notes || null
+      }
+    });
+
+    revalidatePath(`/festas/${eventSlug}`);
+    revalidatePath("/");
+    revalidatePath("/festas");
+
+    return {
+      status: "success",
+      message: "Despesa atualizada com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel atualizar a despesa."
+    };
+  }
+}
+
 export async function createAdditionalRevenueAction(
   _prevState: FinanceActionState,
   formData: FormData
@@ -791,7 +916,7 @@ export async function createAdditionalRevenueAction(
     const event = await getEventRowBySlug(eventSlug);
     const membership = await getMembership(supabase, event.id, profile.id);
 
-    if (!(profile.role === "host" || membership?.role === "host" || membership?.role === "organizer")) {
+    if (!canManageFinance(profile, membership)) {
       return {
         status: "error",
         message: "Voce nao tem permissao para registrar arrecadacoes nesta festa."
@@ -883,7 +1008,7 @@ export async function updateAdditionalRevenueAction(
     const revenue = await getAdditionalRevenueRowById(supabase, revenueId);
     const membership = await getMembership(supabase, revenue.event_id, profile.id);
 
-    if (!(profile.role === "host" || membership?.role === "host" || membership?.role === "organizer")) {
+    if (!canManageFinance(profile, membership)) {
       return {
         status: "error",
         message: "Voce nao tem permissao para editar arrecadacoes nesta festa."
@@ -972,7 +1097,7 @@ export async function deleteAdditionalRevenueAction(
     const revenue = await getAdditionalRevenueRowById(supabase, revenueId);
     const membership = await getMembership(supabase, revenue.event_id, profile.id);
 
-    if (!(profile.role === "host" || membership?.role === "host" || membership?.role === "organizer")) {
+    if (!canManageFinance(profile, membership)) {
       return {
         status: "error",
         message: "Voce nao tem permissao para excluir arrecadacoes nesta festa."
@@ -1027,7 +1152,7 @@ export async function deleteExpenseAction(
     const expense = await getExpenseRowById(supabase, expenseId);
     const membership = await getMembership(supabase, expense.event_id, profile.id);
 
-    if (!(profile.role === "host" || membership?.role === "host" || membership?.role === "organizer")) {
+    if (!canManageFinance(profile, membership)) {
       return {
         status: "error",
         message: "Voce nao tem permissao para excluir esta despesa."

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
 import { CircleDollarSign, ClipboardList, Pencil, Plus, ReceiptText, Ticket, Trash2, Wallet } from "lucide-react";
@@ -10,6 +10,7 @@ import {
   createExpenseAction,
   deleteAdditionalRevenueAction,
   deleteExpenseAction,
+  updateExpenseAction,
   updateAdditionalRevenueAction
 } from "@/lib/actions/event-management";
 import { SubmitButton } from "@/components/forms/submit-button";
@@ -274,6 +275,107 @@ function ExpenseDeleteForm({ eventId, expenseId }: { eventId: string; expenseId:
       </SubmitButton>
       <ActionFeedback status={state.status} message={state.message} />
     </form>
+  );
+}
+
+function ExpenseEditForm({
+  eventId,
+  expense
+}: {
+  eventId: string;
+  expense: Expense;
+}) {
+  const router = useRouter();
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const [state, action] = useFormState(updateExpenseAction, initialFinanceActionState);
+  const [showToast, setShowToast] = useState(false);
+
+  useEffect(() => {
+    if (state.status === "success") {
+      setShowToast(true);
+      detailsRef.current?.removeAttribute("open");
+      router.refresh();
+
+      const timeout = window.setTimeout(() => setShowToast(false), 2400);
+      return () => window.clearTimeout(timeout);
+    }
+  }, [router, state.status]);
+
+  return (
+    <div className="space-y-2">
+      {showToast ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          Despesa atualizada com sucesso.
+        </div>
+      ) : null}
+      <details ref={detailsRef} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+          <Pencil className="h-4 w-4" />
+          Editar
+        </summary>
+        <form action={action} className="mt-3 grid gap-3">
+          <input type="hidden" name="eventId" value={eventId} />
+          <input type="hidden" name="expenseId" value={expense.id} />
+          <input
+            name="title"
+            defaultValue={expense.title}
+            placeholder="Titulo"
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            required
+          />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <input
+              name="category"
+              defaultValue={expense.category}
+              placeholder="Categoria"
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+              required
+            />
+            <input
+              name="amount"
+              type="number"
+              min="0.01"
+              step="0.01"
+              defaultValue={expense.amount}
+              placeholder="Valor"
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+              required
+            />
+            <input
+              name="incurredAt"
+              type="date"
+              defaultValue={expense.incurredAt}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+              required
+            />
+          </div>
+          <input
+            name="notes"
+            defaultValue={expense.notes ?? ""}
+            placeholder="Observacoes"
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+          />
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <SubmitButton
+              pendingLabel="Salvando..."
+              className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Salvar alteracoes
+            </SubmitButton>
+            <button
+              type="button"
+              onClick={() => {
+                detailsRef.current?.removeAttribute("open");
+              }}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+          </div>
+          <ActionFeedback status={state.status} message={state.message} />
+        </form>
+      </details>
+    </div>
   );
 }
 
@@ -612,7 +714,8 @@ export function FinancePanel({
                           <div className="text-right">
                             <p className="font-semibold text-slate-900">{formatCurrency(expense.amount)}</p>
                             {permissions.canManageFinance && !compact ? (
-                              <div className="mt-3">
+                              <div className="mt-3 space-y-2">
+                                <ExpenseEditForm eventId={eventId} expense={expense} />
                                 <ExpenseDeleteForm eventId={eventId} expenseId={expense.id} />
                               </div>
                             ) : null}
