@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -36,10 +36,32 @@ export function AuthForm() {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const renderCountRef = useRef(0);
+  const submitCountRef = useRef(0);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const nextPath = useMemo(() => searchParams.get("next") || "/", [searchParams]);
   const safeNextPath = useMemo(() => (nextPath.startsWith("/") ? nextPath : "/"), [nextPath]);
+
+  renderCountRef.current += 1;
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[auth-debug][auth-form] mounted", {
+        pathname: window.location.pathname
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[auth-debug][auth-form] render", {
+        renderCount: renderCountRef.current,
+        isSubmitting,
+        isPending
+      });
+    }
+  });
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -50,12 +72,29 @@ export function AuthForm() {
 
     setFeedback(null);
     setIsSubmitting(true);
+    submitCountRef.current += 1;
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[auth-debug][auth-form] signInWithPassword submit", {
+        submitCount: submitCountRef.current,
+        email,
+        safeNextPath
+      });
+    }
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[auth-debug][auth-form] signInWithPassword resolved", {
+          submitCount: submitCountRef.current,
+          hasError: Boolean(error),
+          errorMessage: error?.message ?? null
+        });
+      }
 
       if (error) {
         setFeedback({
