@@ -239,6 +239,20 @@ async function getAnnouncementRowById(supabase: any, announcementId: string) {
   return announcement;
 }
 
+async function getSaleAttendeeRowById(supabase: any, attendeeId: string) {
+  const { data: attendee, error } = await supabase
+    .from("sale_attendees")
+    .select("*")
+    .eq("id", attendeeId)
+    .single();
+
+  if (error || !attendee) {
+    throw new Error("Nome da lista nao encontrado.");
+  }
+
+  return attendee;
+}
+
 function parseGuestNames(formData: FormData) {
   return formData
     .getAll("guestNames")
@@ -738,6 +752,73 @@ export async function deleteSaleAction(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "Nao foi possivel excluir a venda."
+    };
+  }
+}
+
+export async function updateSaleAttendeeNameAction(
+  _prevState: SalesActionState,
+  formData: FormData
+): Promise<SalesActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "");
+    const attendeeId = String(formData.get("attendeeId") ?? "").trim();
+    const guestName = String(formData.get("guestName") ?? "").trim();
+
+    if (!guestName) {
+      return {
+        status: "error",
+        message: "Informe o nome da pessoa para salvar a alteracao."
+      };
+    }
+
+    const attendee = await getSaleAttendeeRowById(supabase, attendeeId);
+    const membership = await getMembership(supabase, attendee.event_id, profile.id);
+    const canEditAttendeeName =
+      profile.role === "host" ||
+      canManageEvent(profile, membership) ||
+      (membership?.role === "seller" && attendee.seller_user_id === profile.id);
+
+    if (!canEditAttendeeName) {
+      return {
+        status: "error",
+        message: "Voce nao pode editar este nome na lista."
+      };
+    }
+
+    const { error } = await supabase.from("sale_attendees").update({ guest_name: guestName }).eq("id", attendeeId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: attendee.event_id,
+      action: "sale_attendee.updated",
+      entityType: "sale_attendee",
+      entityId: attendeeId,
+      message: `${profile.full_name} atualizou um nome da lista de entrada.`,
+      metadata: {
+        saleId: attendee.sale_id,
+        previousGuestName: attendee.guest_name,
+        nextGuestName: guestName
+      }
+    });
+
+    revalidatePath(`/festas/${eventSlug}`);
+    revalidatePath("/");
+    revalidatePath("/festas");
+
+    return {
+      status: "success",
+      message: "Nome atualizado com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel atualizar o nome."
     };
   }
 }

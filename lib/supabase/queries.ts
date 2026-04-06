@@ -453,7 +453,8 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
         paymentStatus: sale?.payment_status ?? "pending",
         unitPrice: sale?.unit_price ?? 0,
         checkedInAt: entry.checked_in_at ?? undefined,
-        createdAt: entry.created_at
+        createdAt: entry.created_at,
+        isOwnedByViewer: entry.seller_user_id === context.viewer.id
       };
     })
     .sort((left, right) => left.guestName.localeCompare(right.guestName));

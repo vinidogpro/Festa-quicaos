@@ -118,6 +118,7 @@ export interface GuestListEntry {
   unitPrice: number;
   checkedInAt?: string;
   createdAt: string;
+  isOwnedByViewer: boolean;
 }
 
 export interface Expense {
