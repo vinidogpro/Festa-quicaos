@@ -472,12 +472,6 @@ export function SalesControlPanel({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
-                      <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        Recebidos: {row.received}
-                      </div>
-                      <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        Restantes: {row.remaining}
-                      </div>
                       <details className="group">
                         <summary className="flex cursor-pointer list-none items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                           {row.attendeeCount} nomes cadastrados

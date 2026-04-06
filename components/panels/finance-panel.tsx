@@ -23,6 +23,8 @@ interface FinancePanelProps {
   permissions: ViewerPermissions;
   ticketRevenue: number;
   additionalRevenue: number;
+  confirmedRevenue: number;
+  pendingRevenue: number;
   totalRevenue: number;
   totalExpenses: number;
   estimatedProfit: number;
@@ -382,6 +384,8 @@ export function FinancePanel({
   permissions,
   ticketRevenue,
   additionalRevenue,
+  confirmedRevenue,
+  pendingRevenue,
   totalRevenue,
   totalExpenses,
   estimatedProfit,
@@ -444,6 +448,22 @@ export function FinancePanel({
               icon={<CircleDollarSign className="h-5 w-5 text-white/60" />}
               cardClassName="bg-brand-700 text-white"
               valueClassName="text-[clamp(1.7rem,2.5vw,2.35rem)] leading-none text-white"
+            />
+
+            <FinanceMetricCard
+              label="Receita confirmada"
+              value={formatCurrency(confirmedRevenue)}
+              icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
+              cardClassName="border border-emerald-200 bg-emerald-50 text-emerald-800"
+              valueClassName="text-[clamp(1.6rem,2.4vw,2.2rem)] leading-none text-emerald-900"
+            />
+
+            <FinanceMetricCard
+              label="Receita pendente"
+              value={formatCurrency(pendingRevenue)}
+              icon={<ClipboardList className="h-5 w-5 text-amber-600" />}
+              cardClassName="border border-amber-200 bg-amber-50 text-amber-800"
+              valueClassName="text-[clamp(1.6rem,2.4vw,2.2rem)] leading-none text-amber-900"
             />
 
             <FinanceMetricCard

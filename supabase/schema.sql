@@ -5,7 +5,8 @@ create table if not exists public.profiles (
   full_name text not null,
   avatar_label text,
   role text not null default 'seller' check (role in ('host', 'organizer', 'seller')),
-  created_at timestamptz not null default timezone('utc', now())
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
 );
 
 create table if not exists public.events (
@@ -18,7 +19,8 @@ create table if not exists public.events (
   goal_value numeric(12,2) not null default 0,
   status text not null check (status in ('current', 'upcoming', 'past')),
   created_by uuid not null references public.profiles (id) on delete restrict,
-  created_at timestamptz not null default timezone('utc', now())
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
 );
 
 create table if not exists public.event_memberships (
@@ -26,9 +28,9 @@ create table if not exists public.event_memberships (
   event_id uuid not null references public.events (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
   role text not null check (role in ('host', 'organizer', 'seller')),
-  ticket_quota integer not null default 0,
   is_active boolean not null default true,
   created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
   unique (event_id, user_id)
 );
 
@@ -42,7 +44,8 @@ create table if not exists public.sales (
   sold_at date not null default current_date,
   notes text,
   created_by uuid not null references public.profiles (id) on delete restrict,
-  created_at timestamptz not null default timezone('utc', now())
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
 );
 
 create table if not exists public.sale_attendees (
@@ -53,7 +56,8 @@ create table if not exists public.sale_attendees (
   guest_name text not null,
   checked_in_at timestamptz,
   checked_in_by uuid references public.profiles (id) on delete set null,
-  created_at timestamptz not null default timezone('utc', now())
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
 );
 
 create table if not exists public.expenses (
@@ -65,7 +69,8 @@ create table if not exists public.expenses (
   incurred_at date not null default current_date,
   notes text,
   created_by uuid not null references public.profiles (id) on delete restrict,
-  created_at timestamptz not null default timezone('utc', now())
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
 );
 
 create table if not exists public.additional_revenues (
@@ -76,7 +81,8 @@ create table if not exists public.additional_revenues (
   category text,
   date date not null default current_date,
   created_by uuid not null references public.profiles (id) on delete restrict,
-  created_at timestamptz not null default timezone('utc', now())
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
 );
 
 create table if not exists public.tasks (
@@ -87,7 +93,8 @@ create table if not exists public.tasks (
   status text not null default 'pending' check (status in ('pending', 'in-progress', 'done')),
   due_at date,
   created_by uuid not null references public.profiles (id) on delete restrict,
-  created_at timestamptz not null default timezone('utc', now())
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
 );
 
 create table if not exists public.announcements (
@@ -97,7 +104,8 @@ create table if not exists public.announcements (
   body text not null,
   pinned boolean not null default false,
   created_by uuid not null references public.profiles (id) on delete restrict,
-  created_at timestamptz not null default timezone('utc', now())
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
 );
 
 create table if not exists public.activity_logs (
@@ -109,8 +117,21 @@ create table if not exists public.activity_logs (
   entity_id text,
   message text not null,
   metadata jsonb,
-  created_at timestamptz not null default timezone('utc', now())
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
 );
+
+alter table public.profiles add column if not exists updated_at timestamptz not null default timezone('utc', now());
+alter table public.events add column if not exists updated_at timestamptz not null default timezone('utc', now());
+alter table public.event_memberships add column if not exists updated_at timestamptz not null default timezone('utc', now());
+alter table public.event_memberships drop column if exists ticket_quota;
+alter table public.sales add column if not exists updated_at timestamptz not null default timezone('utc', now());
+alter table public.sale_attendees add column if not exists updated_at timestamptz not null default timezone('utc', now());
+alter table public.expenses add column if not exists updated_at timestamptz not null default timezone('utc', now());
+alter table public.additional_revenues add column if not exists updated_at timestamptz not null default timezone('utc', now());
+alter table public.tasks add column if not exists updated_at timestamptz not null default timezone('utc', now());
+alter table public.announcements add column if not exists updated_at timestamptz not null default timezone('utc', now());
+alter table public.activity_logs add column if not exists updated_at timestamptz not null default timezone('utc', now());
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -135,10 +156,85 @@ begin
 end;
 $$;
 
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = timezone('utc', now());
+  return new;
+end;
+$$;
+
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+drop trigger if exists set_profiles_updated_at on public.profiles;
+create trigger set_profiles_updated_at
+  before update on public.profiles
+  for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_events_updated_at on public.events;
+create trigger set_events_updated_at
+  before update on public.events
+  for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_event_memberships_updated_at on public.event_memberships;
+create trigger set_event_memberships_updated_at
+  before update on public.event_memberships
+  for each row execute procedure public.set_updated_at();
+
+drop trigger if exists enforce_event_membership_quota on public.event_memberships;
+
+drop trigger if exists set_sales_updated_at on public.sales;
+create trigger set_sales_updated_at
+  before update on public.sales
+  for each row execute procedure public.set_updated_at();
+
+drop trigger if exists enforce_sales_quota on public.sales;
+
+drop trigger if exists set_sale_attendees_updated_at on public.sale_attendees;
+create trigger set_sale_attendees_updated_at
+  before update on public.sale_attendees
+  for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_expenses_updated_at on public.expenses;
+create trigger set_expenses_updated_at
+  before update on public.expenses
+  for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_additional_revenues_updated_at on public.additional_revenues;
+create trigger set_additional_revenues_updated_at
+  before update on public.additional_revenues
+  for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_tasks_updated_at on public.tasks;
+create trigger set_tasks_updated_at
+  before update on public.tasks
+  for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_announcements_updated_at on public.announcements;
+create trigger set_announcements_updated_at
+  before update on public.announcements
+  for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_activity_logs_updated_at on public.activity_logs;
+create trigger set_activity_logs_updated_at
+  before update on public.activity_logs
+  for each row execute procedure public.set_updated_at();
+
+alter table public.sales drop constraint if exists sales_unit_price_positive;
+alter table public.sales add constraint sales_unit_price_positive check (unit_price > 0);
+alter table public.sales drop constraint if exists sales_quantity_positive;
+alter table public.sales add constraint sales_quantity_positive check (quantity > 0);
+alter table public.expenses drop constraint if exists expenses_amount_positive;
+alter table public.expenses add constraint expenses_amount_positive check (amount > 0);
+alter table public.additional_revenues drop constraint if exists additional_revenues_amount_positive;
+alter table public.additional_revenues add constraint additional_revenues_amount_positive check (amount > 0);
+drop function if exists public.enforce_sale_quota();
+drop function if exists public.enforce_membership_quota();
 
 create or replace function public.current_global_role()
 returns text
@@ -229,15 +325,11 @@ create policy "profiles_select_self_or_host"
     or exists (
       select 1
       from public.event_memberships as viewer_membership
-      where viewer_membership.user_id = auth.uid()
-        and viewer_membership.role in ('host', 'organizer')
-    )
-    or exists (
-      select 1
-      from public.event_memberships as viewer_membership
       join public.event_memberships as target_membership
         on target_membership.event_id = viewer_membership.event_id
       where viewer_membership.user_id = auth.uid()
+        and viewer_membership.is_active = true
+        and target_membership.is_active = true
         and target_membership.user_id = profiles.id
     )
   );
@@ -268,8 +360,20 @@ drop policy if exists "event_memberships_write_host_only" on public.event_member
 drop policy if exists "event_memberships_write_managers" on public.event_memberships;
 create policy "event_memberships_write_managers"
   on public.event_memberships for all
-  using (public.can_manage_event(event_id))
-  with check (public.can_manage_event(event_id));
+  using (
+    public.can_manage_event(event_id)
+    and (
+      public.membership_role(event_id) = 'host'
+      or role <> 'host'
+    )
+  )
+  with check (
+    public.can_manage_event(event_id)
+    and (
+      public.membership_role(event_id) = 'host'
+      or role <> 'host'
+    )
+  );
 
 drop policy if exists "sales_select_accessible" on public.sales;
 create policy "sales_select_accessible"

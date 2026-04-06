@@ -10,6 +10,7 @@ export interface Database {
           avatar_label: string | null;
           role: "host" | "organizer" | "seller";
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id: string;
@@ -17,6 +18,7 @@ export interface Database {
           avatar_label?: string | null;
           role?: "host" | "organizer" | "seller";
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -24,6 +26,7 @@ export interface Database {
           avatar_label?: string | null;
           role?: "host" | "organizer" | "seller";
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -39,6 +42,7 @@ export interface Database {
           status: "current" | "upcoming" | "past";
           created_by: string;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -51,6 +55,7 @@ export interface Database {
           status?: "current" | "upcoming" | "past";
           created_by: string;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -63,6 +68,7 @@ export interface Database {
           status?: "current" | "upcoming" | "past";
           created_by?: string;
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -72,27 +78,27 @@ export interface Database {
           event_id: string;
           user_id: string;
           role: "host" | "organizer" | "seller";
-          ticket_quota: number;
           is_active: boolean;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
           event_id: string;
           user_id: string;
           role?: "host" | "organizer" | "seller";
-          ticket_quota?: number;
           is_active?: boolean;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
           event_id?: string;
           user_id?: string;
           role?: "host" | "organizer" | "seller";
-          ticket_quota?: number;
           is_active?: boolean;
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -108,6 +114,7 @@ export interface Database {
           notes: string | null;
           created_by: string;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -120,6 +127,7 @@ export interface Database {
           notes?: string | null;
           created_by: string;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -132,6 +140,7 @@ export interface Database {
           notes?: string | null;
           created_by?: string;
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -145,6 +154,7 @@ export interface Database {
           checked_in_at: string | null;
           checked_in_by: string | null;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -155,6 +165,7 @@ export interface Database {
           checked_in_at?: string | null;
           checked_in_by?: string | null;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -165,6 +176,7 @@ export interface Database {
           checked_in_at?: string | null;
           checked_in_by?: string | null;
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -179,6 +191,7 @@ export interface Database {
           notes: string | null;
           created_by: string;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -190,6 +203,7 @@ export interface Database {
           notes?: string | null;
           created_by: string;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -201,6 +215,7 @@ export interface Database {
           notes?: string | null;
           created_by?: string;
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -214,6 +229,7 @@ export interface Database {
           date: string;
           created_by: string;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -224,6 +240,7 @@ export interface Database {
           date?: string;
           created_by: string;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -234,6 +251,7 @@ export interface Database {
           date?: string;
           created_by?: string;
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -247,6 +265,7 @@ export interface Database {
           due_at: string | null;
           created_by: string;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -257,6 +276,7 @@ export interface Database {
           due_at?: string | null;
           created_by: string;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -267,6 +287,7 @@ export interface Database {
           due_at?: string | null;
           created_by?: string;
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -279,6 +300,7 @@ export interface Database {
           pinned: boolean;
           created_by: string;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -288,6 +310,7 @@ export interface Database {
           pinned?: boolean;
           created_by: string;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -297,6 +320,7 @@ export interface Database {
           pinned?: boolean;
           created_by?: string;
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -311,6 +335,7 @@ export interface Database {
           message: string;
           metadata: Json | null;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -322,6 +347,7 @@ export interface Database {
           message: string;
           metadata?: Json | null;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -333,6 +359,7 @@ export interface Database {
           message?: string;
           metadata?: Json | null;
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };

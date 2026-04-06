@@ -156,6 +156,8 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                 permissions={event.permissions}
                 ticketRevenue={event.ticketRevenue}
                 additionalRevenue={event.additionalRevenue}
+                confirmedRevenue={event.confirmedRevenue}
+                pendingRevenue={event.pendingRevenue}
                 totalRevenue={event.totalRevenue}
                 totalExpenses={event.totalExpenses}
                 estimatedProfit={event.estimatedProfit}
@@ -203,6 +205,8 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                     permissions={event.permissions}
                     ticketRevenue={event.ticketRevenue}
                     additionalRevenue={event.additionalRevenue}
+                    confirmedRevenue={event.confirmedRevenue}
+                    pendingRevenue={event.pendingRevenue}
                     totalRevenue={event.totalRevenue}
                     totalExpenses={event.totalExpenses}
                     estimatedProfit={event.estimatedProfit}

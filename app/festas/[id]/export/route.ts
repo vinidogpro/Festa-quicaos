@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { calculateFinanceTotals, calculateGoalProgress } from "@/lib/event-metrics";
 import { createSupabaseRouteClient } from "@/lib/supabase/server";
 import { Database } from "@/lib/supabase/database.types";
 import { formatCurrency } from "@/lib/utils";
@@ -7,6 +8,7 @@ type EventRow = Database["public"]["Tables"]["events"]["Row"];
 type MembershipRow = Database["public"]["Tables"]["event_memberships"]["Row"];
 type SaleRow = Database["public"]["Tables"]["sales"]["Row"];
 type ExpenseRow = Database["public"]["Tables"]["expenses"]["Row"];
+type AdditionalRevenueRow = Database["public"]["Tables"]["additional_revenues"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
 function csvEscape(value: string | number) {
@@ -41,15 +43,17 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     return NextResponse.json({ error: "Perfil do usuario nao encontrado." }, { status: 403 });
   }
 
-  const [{ data: memberships }, { data: sales }, { data: expenses }] = await Promise.all([
+  const [{ data: memberships }, { data: sales }, { data: expenses }, { data: additionalRevenues }] = await Promise.all([
     supabase.from("event_memberships").select("*").eq("event_id", event.id),
     supabase.from("sales").select("*").eq("event_id", event.id).order("sold_at", { ascending: true }),
-    supabase.from("expenses").select("*").eq("event_id", event.id).order("incurred_at", { ascending: true })
+    supabase.from("expenses").select("*").eq("event_id", event.id).order("incurred_at", { ascending: true }),
+    supabase.from("additional_revenues").select("*").eq("event_id", event.id).order("date", { ascending: true })
   ]);
 
   const membershipRows = ((memberships ?? []) as MembershipRow[]) ?? [];
   const salesRows = ((sales ?? []) as SaleRow[]) ?? [];
   const expenseRows = ((expenses ?? []) as ExpenseRow[]) ?? [];
+  const additionalRevenueRows = ((additionalRevenues ?? []) as AdditionalRevenueRow[]) ?? [];
   const viewerMembership = membershipRows.find((membership) => membership.user_id === user.id);
 
   if (!viewerMembership && profile.role !== "host") {
@@ -57,21 +61,24 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   }
 
   const isManager = profile.role === "host" || viewerMembership?.role === "host" || viewerMembership?.role === "organizer";
-  const visibleSales = isManager ? salesRows : salesRows.filter((sale) => sale.seller_user_id === user.id);
+  const visibleSales = salesRows;
 
   const profileIds = [...new Set(membershipRows.map((membership) => membership.user_id))];
   const { data: relatedProfiles } = await supabase.from("profiles").select("*").in("id", profileIds);
   const profileMap = new Map(((relatedProfiles ?? []) as ProfileRow[]).map((item) => [item.id, item]));
 
-  const totalRevenue = visibleSales.reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0);
-  const totalExpenses = isManager ? expenseRows.reduce((sum, expense) => sum + expense.amount, 0) : 0;
-  const estimatedProfit = totalRevenue - totalExpenses;
+  const financeTotals = calculateFinanceTotals({
+    sales: visibleSales.map((sale) => ({
+      quantity: sale.quantity,
+      unitPrice: sale.unit_price,
+      paymentStatus: sale.payment_status
+    })),
+    expenses: expenseRows.map((expense) => ({ amount: expense.amount })),
+    additionalRevenues: additionalRevenueRows.map((revenue) => ({ amount: revenue.amount }))
+  });
   const pendingSales = visibleSales.filter((sale) => sale.payment_status === "pending");
   const paidSales = visibleSales.filter((sale) => sale.payment_status === "paid");
-  const pendingValue = pendingSales.reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0);
-  const paidValue = paidSales.reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0);
-  const totalTicketsSold = visibleSales.reduce((sum, sale) => sum + sale.quantity, 0);
-  const percentGoal = event.goal_value > 0 ? Math.round((totalRevenue / event.goal_value) * 100) : 0;
+  const percentGoal = calculateGoalProgress(financeTotals.totalRevenue, event.goal_value);
 
   const rankingSource = membershipRows.filter((membership) =>
     isManager ? membership.role === "seller" : membership.user_id === user.id
@@ -98,17 +105,21 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     ["Resumo do evento", event.name],
     ["Data do evento", event.event_date],
     ["Local", event.venue],
-    ["Escopo da exportacao", isManager ? "Visao completa do evento" : "Visao individual do vendedor"],
+    ["Escopo da exportacao", isManager ? "Visao completa do evento" : "Visao global em leitura"],
     [""],
     ["Resumo financeiro"],
-    ["Total arrecadado", formatCurrency(totalRevenue)],
-    ["Total de despesas", formatCurrency(totalExpenses)],
-    ["Lucro estimado", formatCurrency(estimatedProfit)],
+    ["Receita bruta vendida", formatCurrency(financeTotals.ticketRevenue)],
+    ["Receita adicional", formatCurrency(financeTotals.additionalRevenue)],
+    ["Receita confirmada", formatCurrency(financeTotals.paidValue)],
+    ["Receita pendente", formatCurrency(financeTotals.pendingValue)],
+    ["Total geral", formatCurrency(financeTotals.totalRevenue)],
+    ["Total de despesas", formatCurrency(financeTotals.totalExpenses)],
+    ["Lucro estimado", formatCurrency(financeTotals.estimatedProfit)],
     ["Meta de vendas", formatCurrency(event.goal_value)],
     ["Meta atingida", `${percentGoal}%`],
-    ["Ingressos vendidos", totalTicketsSold],
-    ["Valores pagos", formatCurrency(paidValue)],
-    ["Valores pendentes", formatCurrency(pendingValue)],
+    ["Ingressos vendidos", financeTotals.totalTicketsSold],
+    ["Valores pagos", formatCurrency(financeTotals.paidValue)],
+    ["Valores pendentes", formatCurrency(financeTotals.pendingValue)],
     ["Pagamentos confirmados", paidSales.length],
     ["Pagamentos pendentes", pendingSales.length],
     [""],
@@ -118,6 +129,18 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   rankingRows.forEach((row, index) => {
     csvRows.push([index + 1, row.name, row.tickets, formatCurrency(row.revenue), formatCurrency(row.pending)]);
   });
+
+  if (additionalRevenueRows.length > 0) {
+    csvRows.push([""], ["Arrecadacoes adicionais"]);
+    additionalRevenueRows.forEach((revenue) => {
+      csvRows.push([
+        revenue.title,
+        revenue.category ?? "",
+        formatCurrency(revenue.amount),
+        revenue.date
+      ]);
+    });
+  }
 
   if (isManager) {
     csvRows.push([""], ["Despesas"]);

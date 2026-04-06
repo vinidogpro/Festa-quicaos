@@ -45,10 +45,8 @@ export interface TeamMember {
   name: string;
   role: EventRole;
   isActive: boolean;
-  ticketQuota: number;
   ticketsSold: number;
   revenue: number;
-  goalProgress: number;
   pendingTransferAmount: number;
   isCurrentUser: boolean;
 }
@@ -64,10 +62,7 @@ export interface SellerRanking {
   name: string;
   ticketsSold: number;
   revenue: number;
-  goalTickets: number;
-  goalProgress: number;
   pendingTransferAmount: number;
-  delta: string;
 }
 
 export interface EventHealthSnapshot {
@@ -99,9 +94,7 @@ export interface SalesRecord {
   id: string;
   sellerUserId: string;
   seller: string;
-  received: number;
   sold: number;
-  remaining: number;
   paymentStatus: PaymentStatus;
   unitPrice: number;
   soldAt: string;
@@ -201,6 +194,8 @@ export interface PartyEventDetail extends EventSummary {
   activeSellers: number;
   ticketRevenue: number;
   additionalRevenue: number;
+  confirmedRevenue: number;
+  pendingRevenue: number;
   totalExpenses: number;
   pendingPaymentsCount: number;
   confirmedPaymentsCount: number;

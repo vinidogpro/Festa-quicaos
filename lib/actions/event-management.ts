@@ -118,6 +118,21 @@ async function getMembership(supabase: any, eventId: string, userId: string) {
   return (data ?? null) as EventMembershipRow | null;
 }
 
+async function getSellerMembershipOrThrow(supabase: any, eventId: string, sellerUserId: string) {
+  const { data: sellerMembership, error } = await supabase
+    .from("event_memberships")
+    .select("*")
+    .eq("event_id", eventId)
+    .eq("user_id", sellerUserId)
+    .single();
+
+  if (error || !sellerMembership || sellerMembership.role !== "seller") {
+    throw new Error("O vendedor selecionado precisa estar vinculado como seller nesta festa.");
+  }
+
+  return sellerMembership as EventMembershipRow;
+}
+
 function assertHost(profile: ProfileRow) {
   if (profile.role !== "host") {
     throw new Error("Apenas o host global pode executar esta acao.");
@@ -131,6 +146,30 @@ function canManageEvent(profile: ProfileRow, membership: EventMembershipRow | nu
 function ensureCanManageEvent(profile: ProfileRow, membership: EventMembershipRow | null) {
   if (!canManageEvent(profile, membership)) {
     throw new Error("Voce nao tem permissao para gerenciar a equipe desta festa.");
+  }
+}
+
+function canAssignHostRole(profile: ProfileRow, membership: EventMembershipRow | null) {
+  return profile.role === "host" || membership?.role === "host";
+}
+
+function ensureRoleTransitionAllowed({
+  actorProfile,
+  actorMembership,
+  targetMembership,
+  nextRole
+}: {
+  actorProfile: ProfileRow;
+  actorMembership: EventMembershipRow | null;
+  targetMembership?: EventMembershipRow | null;
+  nextRole: EventMembershipRow["role"];
+}) {
+  if (nextRole === "host" && !canAssignHostRole(actorProfile, actorMembership)) {
+    throw new Error("Somente host pode definir outro membro como host.");
+  }
+
+  if (targetMembership?.role === "host" && !canAssignHostRole(actorProfile, actorMembership)) {
+    throw new Error("Somente host pode alterar ou remover um host desta festa.");
   }
 }
 
@@ -408,26 +447,14 @@ export async function createSaleAction(
       };
     }
 
-    if (guestNames.length > quantity) {
+    if (guestNames.length !== quantity) {
       return {
         status: "error",
-        message: "Voce informou mais nomes do que a quantidade vendida."
+        message: "Preencha exatamente um nome por ingresso vendido."
       };
     }
 
-    const { data: sellerMembership } = await supabase
-      .from("event_memberships")
-      .select("role")
-      .eq("event_id", event.id)
-      .eq("user_id", sellerUserId)
-      .single();
-
-    if (!sellerMembership || sellerMembership.role !== "seller") {
-      return {
-        status: "error",
-        message: "O usuario selecionado precisa estar vinculado como vendedor nesta festa."
-      };
-    }
+    await getSellerMembershipOrThrow(supabase, event.id, sellerUserId);
 
     const { data: createdSale, error } = await supabase
       .from("sales")
@@ -549,26 +576,14 @@ export async function updateSaleAction(
       };
     }
 
-    if (guestNames.length > quantity) {
+    if (guestNames.length !== quantity) {
       return {
         status: "error",
-        message: "Voce informou mais nomes do que a quantidade vendida."
+        message: "Preencha exatamente um nome por ingresso vendido."
       };
     }
 
-    const { data: sellerMembership } = await supabase
-      .from("event_memberships")
-      .select("role")
-      .eq("event_id", sale.event_id)
-      .eq("user_id", sellerUserId)
-      .single();
-
-    if (!sellerMembership || sellerMembership.role !== "seller") {
-      return {
-        status: "error",
-        message: "O vendedor selecionado precisa estar vinculado como seller nesta festa."
-      };
-    }
+    await getSellerMembershipOrThrow(supabase, sale.event_id, sellerUserId);
 
     const { error } = await supabase
       .from("sales")
@@ -751,6 +766,8 @@ export async function createExpenseAction(
     });
 
     revalidatePath(`/festas/${eventSlug}`);
+    revalidatePath("/");
+    revalidatePath("/festas");
 
     return {
       status: "success",
@@ -840,6 +857,8 @@ export async function createAdditionalRevenueAction(
     });
 
     revalidatePath(`/festas/${eventSlug}`);
+    revalidatePath("/");
+    revalidatePath("/festas");
 
     return {
       status: "success",
@@ -927,6 +946,8 @@ export async function updateAdditionalRevenueAction(
     });
 
     revalidatePath(`/festas/${eventSlug}`);
+    revalidatePath("/");
+    revalidatePath("/festas");
 
     return {
       status: "success",
@@ -980,6 +1001,8 @@ export async function deleteAdditionalRevenueAction(
     });
 
     revalidatePath(`/festas/${eventSlug}`);
+    revalidatePath("/");
+    revalidatePath("/festas");
 
     return {
       status: "success",
@@ -1032,6 +1055,8 @@ export async function deleteExpenseAction(
     });
 
     revalidatePath(`/festas/${eventSlug}`);
+    revalidatePath("/");
+    revalidatePath("/festas");
 
     return {
       status: "success",
@@ -1628,8 +1653,6 @@ export async function addEventMemberAction(
 
     const userId = String(formData.get("userId") ?? "").trim();
     const role = String(formData.get("role") ?? "seller") as EventMembershipRow["role"];
-    const ticketQuota = Number(formData.get("ticketQuota") ?? 0);
-
     if (!userId) {
       return {
         status: "error",
@@ -1654,11 +1677,16 @@ export async function addEventMemberAction(
       };
     }
 
+    ensureRoleTransitionAllowed({
+      actorProfile: profile,
+      actorMembership: membership,
+      nextRole: role
+    });
+
     const { error } = await supabase.from("event_memberships").insert({
       event_id: event.id,
       user_id: userId,
-      role,
-      ticket_quota: Math.max(ticketQuota, 0)
+      role
     });
 
     if (error) {
@@ -1681,8 +1709,7 @@ export async function addEventMemberAction(
       message: `${profile.full_name} adicionou um membro a esta festa.`,
       metadata: {
         userId,
-        role,
-        ticketQuota: Math.max(ticketQuota, 0)
+        role
       }
     });
 
@@ -1714,8 +1741,6 @@ export async function updateEventMemberRoleAction(
 
     const membershipId = String(formData.get("membershipId") ?? "").trim();
     const nextRole = String(formData.get("role") ?? "seller") as EventMembershipRow["role"];
-    const ticketQuota = Number(formData.get("ticketQuota") ?? 0);
-
     const { data: targetMembership, error: targetError } = await supabase
       .from("event_memberships")
       .select("*")
@@ -1729,6 +1754,13 @@ export async function updateEventMemberRoleAction(
         message: "Membro da equipe nao encontrado."
       };
     }
+
+    ensureRoleTransitionAllowed({
+      actorProfile: profile,
+      actorMembership: membership,
+      targetMembership,
+      nextRole
+    });
 
     if (targetMembership.role === "host" && nextRole !== "host") {
       const totalHosts = await countEventHosts(supabase, event.id);
@@ -1744,8 +1776,7 @@ export async function updateEventMemberRoleAction(
     const { error } = await supabase
       .from("event_memberships")
       .update({
-        role: nextRole,
-        ticket_quota: Math.max(ticketQuota, 0)
+        role: nextRole
       })
       .eq("id", membershipId);
 
@@ -1763,8 +1794,7 @@ export async function updateEventMemberRoleAction(
       metadata: {
         userId: targetMembership.user_id,
         previousRole: targetMembership.role,
-        nextRole,
-        ticketQuota: Math.max(ticketQuota, 0)
+        nextRole
       }
     });
 
@@ -1809,6 +1839,13 @@ export async function removeEventMemberAction(
         message: "Membro da equipe nao encontrado."
       };
     }
+
+    ensureRoleTransitionAllowed({
+      actorProfile: profile,
+      actorMembership: membership,
+      targetMembership,
+      nextRole: targetMembership.role
+    });
 
     if (targetMembership.role === "host") {
       const totalHosts = await countEventHosts(supabase, event.id);

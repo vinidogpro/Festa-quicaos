@@ -27,6 +27,7 @@ import {
 } from "recharts";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
+import { calculateFinanceTotals, calculateGoalProgress, calculateGuestListStats } from "@/lib/event-metrics";
 import { PartyEventDetail, SalesRecord } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
@@ -138,7 +139,7 @@ function InsightChart({
 }
 
 export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
-  const isSellerView = event.permissions.canManageOwnSalesOnly && !!event.permissions.sellerUserId;
+  const isSellerView = false;
 
   const visibleSales = useMemo(
     () =>
@@ -158,40 +159,35 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
 
   const timeline = useMemo(() => groupSalesByDate(visibleSales), [visibleSales]);
   const topPerformer = visibleRanking[0];
-  const sellerGoal = topPerformer?.goalTickets ?? 0;
 
   const totals = useMemo(() => {
-    const ticketRevenue = visibleSales.reduce((sum, sale) => sum + sale.amount, 0);
-    const additionalRevenue = isSellerView ? 0 : event.additionalRevenue;
-    const totalRevenue = ticketRevenue + additionalRevenue;
+    const financeTotals = calculateFinanceTotals({
+      sales: visibleSales.map((sale) => ({
+        quantity: sale.sold,
+        unitPrice: sale.unitPrice,
+        paymentStatus: sale.paymentStatus
+      })),
+      expenses: [],
+      additionalRevenues: isSellerView ? [] : [{ amount: event.additionalRevenue }]
+    });
     const soldTickets = sumTickets(visibleSales);
-    const receivedTickets = visibleSales.reduce((sum, sale) => sum + sale.received, 0);
-    const remainingTickets = Math.max(receivedTickets - soldTickets, 0);
-    const paidValue = sumValues(visibleSales, "paid");
-    const pendingValue = sumValues(visibleSales, "pending");
-    const pendingCount = visibleSales.filter((sale) => sale.paymentStatus === "pending").length;
-    const paidCount = visibleSales.filter((sale) => sale.paymentStatus === "paid").length;
-    const goalReference = isSellerView ? Math.max(sellerGoal, 0) : event.goalValue;
-    const metaProgress =
-      goalReference > 0
-        ? Math.min(Math.round(((isSellerView ? soldTickets : totalRevenue) / goalReference) * 100), 999)
-        : 0;
+    const guestListStats = calculateGuestListStats(
+      visibleSales.map((sale) => ({
+        quantity: sale.sold,
+        attendeeCount: sale.attendeeCount
+      }))
+    );
+    const goalReference = event.goalValue;
+    const metaProgress = calculateGoalProgress(financeTotals.totalRevenue, goalReference);
 
     return {
-      totalRevenue,
-      ticketRevenue,
-      additionalRevenue,
+      ...financeTotals,
       soldTickets,
-      receivedTickets,
-      remainingTickets,
-      paidValue,
-      pendingValue,
-      pendingCount,
-      paidCount,
+      guestListStats,
       goalReference,
       metaProgress
     };
-  }, [event.additionalRevenue, event.goalValue, isSellerView, sellerGoal, visibleSales]);
+  }, [event.additionalRevenue, event.goalValue, isSellerView, visibleSales]);
 
   const sellerChartData = useMemo(() => {
     if (isSellerView) {
@@ -330,34 +326,56 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
               value={`${totals.metaProgress}%`}
               helper={
                 isSellerView
-                  ? `${totals.soldTickets} de ${totals.goalReference} ingressos na sua meta`
+                  ? `${formatCurrency(totals.totalRevenue)} do seu faturamento atual`
                   : `${formatCurrency(totals.totalRevenue)} de ${formatCurrency(event.goalValue)} esperados`
               }
               icon={BadgePercent}
               tone="positive"
             />
             <MetricTile
-              title={isSellerView ? "Ingressos vendidos" : "Ingressos vendidos x restantes"}
-              value={isSellerView ? `${totals.soldTickets}` : `${totals.soldTickets} / ${totals.remainingTickets}`}
+              title="Ingressos vendidos"
+              value={`${totals.soldTickets}`}
               helper={
                 isSellerView
-                  ? `${totals.remainingTickets} ainda disponiveis na sua cota`
-                  : `${totals.remainingTickets} ainda nao convertidos dentro das cotas distribuidas`
+                  ? "Volume de ingressos vendidos por voce ate agora"
+                  : "Total de ingressos vendidos pela equipe nesta festa"
               }
               icon={TrendingUp}
             />
             <MetricTile
-              title={isSellerView ? "Repasse pendente" : "Risco atual"}
+              title={isSellerView ? "Repasse pendente" : "Receita confirmada"}
               value={formatCurrency(isSellerView ? totals.pendingValue : totals.paidValue)}
               helper={
                 isSellerView
                   ? totals.pendingValue > 0
                     ? "Valor que ainda precisa ser acertado por voce"
                     : "Nenhum repasse pendente no momento"
-                  : event.attentionItems[0]?.description ?? `${formatCurrency(totals.pendingValue)} ainda estao pendentes`
+                  : `${formatCurrency(totals.paidValue)} das vendas ja foram marcadas como pagas`
               }
               icon={isSellerView ? Clock3 : CheckCircle2}
-              tone={isSellerView ? (totals.pendingValue > 0 ? "warning" : "default") : event.health.tone === "critical" ? "warning" : "default"}
+              tone={isSellerView ? (totals.pendingValue > 0 ? "warning" : "default") : "positive"}
+            />
+            <MetricTile
+              title={isSellerView ? "Sua meta de nomes" : "Receita pendente"}
+              value={formatCurrency(totals.pendingValue)}
+              helper={
+                isSellerView
+                  ? `${totals.guestListStats.missingNames} nome(s) ainda precisam ser preenchidos`
+                  : `${totals.pendingPaymentsCount} pagamento(s) aguardando confirmacao`
+              }
+              icon={Clock3}
+              tone={totals.pendingValue > 0 ? "warning" : "default"}
+            />
+            <MetricTile
+              title={isSellerView ? "Nomes cadastrados" : "Lista de entrada"}
+              value={`${totals.guestListStats.totalRegisteredNames}/${totals.guestListStats.totalExpectedNames}`}
+              helper={
+                totals.guestListStats.missingNames > 0
+                  ? `${totals.guestListStats.missingNames} nome(s) ainda faltam`
+                  : "Todos os nomes esperados ja foram preenchidos"
+              }
+              icon={CheckCircle2}
+              tone={totals.guestListStats.missingNames > 0 ? "warning" : "positive"}
             />
           </div>
 
@@ -439,7 +457,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                     <p className="mt-1 text-sm leading-6 text-slate-500">
                       {isSellerView
                         ? "Seu desempenho dentro da festa e sua contribuicao total."
-                        : "Top vendedores ordenados por arrecadacao total, meta individual e repasse pendente."}
+                        : "Top vendedores ordenados por arrecadacao total e repasse pendente."}
                     </p>
                   </div>
                   <div className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm">
@@ -458,10 +476,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                             </div>
                             <div className="min-w-0">
                               <p className="truncate font-semibold text-slate-950">{seller.name}</p>
-                              <p className="mt-1 text-sm text-slate-500">
-                                {seller.ticketsSold} ingressos vendidos
-                                {seller.goalTickets > 0 ? ` | ${seller.goalProgress}% da meta` : ""}
-                              </p>
+                              <p className="mt-1 text-sm text-slate-500">{seller.ticketsSold} ingressos vendidos</p>
                             </div>
                           </div>
                         </div>
@@ -482,9 +497,6 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                               Repasse em dia
                             </p>
                           )}
-                        </div>
-                        <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-emerald-700 shadow-sm">
-                          {seller.delta}
                         </div>
                       </div>
                     </div>

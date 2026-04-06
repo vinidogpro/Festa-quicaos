@@ -52,10 +52,20 @@ function FeedbackMessage({
   );
 }
 
-function TeamMemberRow({ eventId, member }: { eventId: string; member: TeamMember }) {
+function TeamMemberRow({
+  eventId,
+  member,
+  permissions
+}: {
+  eventId: string;
+  member: TeamMember;
+  permissions: ViewerPermissions;
+}) {
   const [updateState, updateAction] = useFormState(updateEventMemberRoleAction, initialTeamActionState);
   const [removeState, removeAction] = useFormState(removeEventMemberAction, initialTeamActionState);
-  const sellerProgress = member.ticketQuota > 0 ? Math.min(member.goalProgress, 100) : 0;
+  const canAssignHost = permissions.canCreateEvents || permissions.eventRole === "host";
+  const availableRoleOptions = canAssignHost ? roleOptions : roleOptions.filter((role) => role.value !== "host");
+  const canManageThisMemberRole = canAssignHost || member.role !== "host";
 
   return (
     <article className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
@@ -82,11 +92,6 @@ function TeamMemberRow({ eventId, member }: { eventId: string; member: TeamMembe
             >
               {member.isActive ? "Ativo" : "Inativo"}
             </span>
-            {member.role === "seller" ? (
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">
-                Meta {member.ticketQuota}
-              </span>
-            ) : null}
           </div>
           {member.role === "seller" ? (
             <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-4">
@@ -94,61 +99,60 @@ function TeamMemberRow({ eventId, member }: { eventId: string; member: TeamMembe
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Desempenho individual</p>
                   <p className="mt-1 text-sm text-slate-600">
-                    {member.ticketsSold}/{member.ticketQuota} ingressos | {member.pendingTransferAmount > 0 ? "Repasse em aberto" : "Repasse em dia"}
+                    {member.ticketsSold} ingressos vendidos | {member.pendingTransferAmount > 0 ? "Repasse em aberto" : "Repasse em dia"}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-slate-900">{member.goalProgress}%</p>
+                  <p className="font-semibold text-slate-900">{member.ticketsSold} ingressos</p>
                   <p className="text-sm text-slate-500">{formatCurrency(member.revenue)}</p>
                 </div>
-              </div>
-              <div className="mt-3 h-2 rounded-full bg-slate-100">
-                <div className="h-2 rounded-full bg-brand-600 transition-all" style={{ width: `${sellerProgress}%` }} />
               </div>
             </div>
           ) : null}
         </div>
 
         <div className="grid gap-3 xl:min-w-[22rem]">
-          <form action={updateAction} className="grid gap-3 rounded-[20px] border border-white/70 bg-white p-3">
-            <input type="hidden" name="eventId" value={eventId} />
-            <input type="hidden" name="membershipId" value={member.id} />
-            <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto]">
-              <select
-                name="role"
-                defaultValue={member.role}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-              >
-                {roleOptions.map((role) => (
-                  <option key={role.value} value={role.value}>
-                    {role.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                name="ticketQuota"
-                type="number"
-                min="0"
-                defaultValue={member.ticketQuota}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                placeholder="Meta"
-              />
-              <SubmitButton className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
-                Salvar
-              </SubmitButton>
+          {canManageThisMemberRole ? (
+            <form action={updateAction} className="grid gap-3 rounded-[20px] border border-white/70 bg-white p-3">
+              <input type="hidden" name="eventId" value={eventId} />
+              <input type="hidden" name="membershipId" value={member.id} />
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                <select
+                  name="role"
+                  defaultValue={member.role}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
+                >
+                  {availableRoleOptions.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+                <SubmitButton className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
+                  Salvar
+                </SubmitButton>
+              </div>
+              <FeedbackMessage status={updateState.status} message={updateState.message} />
+            </form>
+          ) : (
+            <div className="rounded-[20px] border border-white/70 bg-white p-3 text-sm text-slate-500">
+              Apenas hosts podem alterar o cargo ou remover outro host desta festa.
             </div>
-            <FeedbackMessage status={updateState.status} message={updateState.message} />
-          </form>
+          )}
 
           <form action={removeAction} className="rounded-[20px] border border-white/70 bg-white p-3">
             <input type="hidden" name="eventId" value={eventId} />
             <input type="hidden" name="membershipId" value={member.id} />
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-slate-500">Remova o membro quando ele nao fizer mais parte da operacao.</p>
-              <SubmitButton className="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60">
+              <button
+                type="submit"
+                disabled={!canManageThisMemberRole}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 <Trash2 className="h-4 w-4" />
                 Remover
-              </SubmitButton>
+              </button>
             </div>
             <FeedbackMessage status={removeState.status} message={removeState.message} />
           </form>
@@ -165,6 +169,8 @@ export function TeamPanel({ eventId, permissions, teamMembers, availableUsers }:
   const filteredUsers = !normalizedSearch
     ? availableUsers.slice(0, 12)
     : availableUsers.filter((user) => user.name.toLowerCase().includes(normalizedSearch)).slice(0, 12);
+  const canAssignHost = permissions.canCreateEvents || permissions.eventRole === "host";
+  const availableRoleOptions = canAssignHost ? roleOptions : roleOptions.filter((role) => role.value !== "host");
 
   const orderedMembers = [...teamMembers].sort((left, right) => {
     const roleWeight = { host: 0, organizer: 1, seller: 2 };
@@ -232,26 +238,18 @@ export function TeamPanel({ eventId, permissions, teamMembers, availableUsers }:
                 </option>
               ))}
             </select>
-            <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
+            <div className="grid gap-3">
               <select
                 name="role"
                 defaultValue="seller"
                 className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
               >
-                {roleOptions.map((role) => (
+                {availableRoleOptions.map((role) => (
                   <option key={role.value} value={role.value}>
-                    {role.label}
-                  </option>
-                ))}
+                  {role.label}
+                </option>
+              ))}
               </select>
-              <input
-                name="ticketQuota"
-                type="number"
-                min="0"
-                defaultValue="0"
-                placeholder="Cota"
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-              />
             </div>
             <SubmitButton className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60">
               <UserPlus className="h-4 w-4" />
@@ -317,7 +315,9 @@ export function TeamPanel({ eventId, permissions, teamMembers, availableUsers }:
             icon={Users}
           />
         ) : (
-          orderedMembers.map((member) => <TeamMemberRow key={member.id} eventId={eventId} member={member} />)
+          orderedMembers.map((member) => (
+            <TeamMemberRow key={member.id} eventId={eventId} member={member} permissions={permissions} />
+          ))
         )}
       </div>
     </SectionCard>
