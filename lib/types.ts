@@ -92,6 +92,7 @@ export interface ActivityLogItem {
 
 export interface SalesRecord {
   id: string;
+  saleNumber: number;
   sellerUserId: string;
   seller: string;
   sold: number;
@@ -109,6 +110,7 @@ export interface SalesRecord {
 export interface GuestListEntry {
   id: string;
   saleId: string;
+  saleNumber: number;
   sellerUserId: string;
   sellerName: string;
   guestName: string;

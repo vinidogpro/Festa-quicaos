@@ -440,7 +440,9 @@ export function SalesControlPanel({
                   <div className="flex-1 space-y-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Vendedor</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                          Venda #{row.saleNumber}
+                        </p>
                         <p className="mt-2 font-[var(--font-heading)] text-2xl font-bold text-slate-950">
                           {row.seller}
                         </p>

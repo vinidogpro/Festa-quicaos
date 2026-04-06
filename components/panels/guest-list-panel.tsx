@@ -93,13 +93,12 @@ export function GuestListPanel({
                   <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-slate-500">
                     <span>{entry.sellerName}</span>
                     <span className="text-slate-300">•</span>
+                    <span>Venda #{entry.saleNumber}</span>
+                    <span className="text-slate-300">•</span>
                     <span>{formatCurrency(entry.unitPrice)}</span>
                     <span className="text-slate-300">•</span>
                     <StatusBadge status={entry.paymentStatus} />
                   </div>
-                  <p className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-400">
-                    Venda {entry.saleId.slice(0, 8)}
-                  </p>
                 </div>
                 {entry.checkedInAt ? (
                   <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">

@@ -397,6 +397,20 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     })
     .sort((left, right) => right.revenue - left.revenue);
 
+  const saleSequenceMap = new Map(
+    [...salesRows]
+      .sort((left, right) => {
+        const createdDiff = new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
+
+        if (createdDiff !== 0) {
+          return createdDiff;
+        }
+
+        return left.id.localeCompare(right.id);
+      })
+      .map((sale, index) => [sale.id, index + 1] as const)
+  );
+
   const salesControl: SalesRecord[] = salesRows.map((sale) => {
     const profile = profilesMap.get(sale.seller_user_id);
 
@@ -406,6 +420,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
 
     return {
       id: sale.id,
+      saleNumber: saleSequenceMap.get(sale.id) ?? 0,
       sellerUserId: sale.seller_user_id,
       seller: profile?.full_name ?? "Vendedor",
       sold: sale.quantity,
@@ -431,6 +446,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
       return {
         id: entry.id,
         saleId: entry.sale_id,
+        saleNumber: saleSequenceMap.get(entry.sale_id) ?? 0,
         sellerUserId: entry.seller_user_id,
         sellerName: profilesMap.get(entry.seller_user_id)?.full_name ?? "Vendedor",
         guestName: entry.guest_name,
