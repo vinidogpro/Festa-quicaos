@@ -9,6 +9,10 @@ export default async function LoginPage() {
     return <SetupCard />;
   }
 
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[auth-debug][login-page] render");
+  }
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md items-center px-4 py-10">
       <section className="w-full rounded-[32px] border border-white/70 bg-white/85 p-6 shadow-soft backdrop-blur sm:p-8">
