@@ -65,17 +65,30 @@ async function getViewerContext(): Promise<ViewerContext | null> {
 
   const supabase = createSupabaseServerClient() as any;
   const {
-    data: { user }
+    data: { user },
+    error: userError
   } = await supabase.auth.getUser();
+
+  if (userError) {
+    throw new Error(`Nao foi possivel validar a sessao atual: ${userError.message}`);
+  }
 
   if (!user) {
     return null;
   }
 
-  const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, avatar_label, role")
+    .eq("id", user.id)
+    .single();
 
-  if (error || !profile) {
-    return null;
+  if (error) {
+    throw new Error(`Nao foi possivel carregar o perfil do usuario: ${error.message}`);
+  }
+
+  if (!profile) {
+    throw new Error("Perfil do usuario nao encontrado.");
   }
 
   return {
@@ -136,7 +149,10 @@ async function getProfilesMap(profileIds: string[]) {
   }
 
   const supabase = createSupabaseServerClient() as any;
-  const { data, error } = await supabase.from("profiles").select("*").in("id", profileIds);
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, avatar_label, role")
+    .in("id", profileIds);
 
   if (error) {
     throw error;
@@ -303,19 +319,16 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     { data: expenses },
     { data: additionalRevenues },
     { data: tasks },
-    { data: announcements },
-    { data: activityLogs }
-  ] =
-    await Promise.all([
-      supabase.from("event_memberships").select("*").eq("event_id", event.id).order("created_at", { ascending: true }),
-      supabase.from("sales").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
-      supabase.from("sale_attendees").select("*").eq("event_id", event.id).order("guest_name", { ascending: true }),
-      supabase.from("expenses").select("*").eq("event_id", event.id).order("incurred_at", { ascending: false }),
-      supabase.from("additional_revenues").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
-      supabase.from("tasks").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
-      supabase.from("announcements").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
-      supabase.from("activity_logs").select("*").eq("event_id", event.id).order("created_at", { ascending: false })
-    ]);
+    { data: announcements }
+  ] = await Promise.all([
+    supabase.from("event_memberships").select("*").eq("event_id", event.id).order("created_at", { ascending: true }),
+    supabase.from("sales").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
+    supabase.from("sale_attendees").select("*").eq("event_id", event.id).order("guest_name", { ascending: true }),
+    supabase.from("expenses").select("*").eq("event_id", event.id).order("incurred_at", { ascending: false }),
+    supabase.from("additional_revenues").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
+    supabase.from("tasks").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
+    supabase.from("announcements").select("*").eq("event_id", event.id).order("created_at", { ascending: false })
+  ]);
 
   const membershipRows = (memberships ?? []) as EventMembershipRow[];
   const salesRows = (sales ?? []) as SaleRow[];
@@ -324,13 +337,10 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
   const additionalRevenueRows = (additionalRevenues ?? []) as AdditionalRevenueRow[];
   const taskRows = (tasks ?? []) as TaskRow[];
   const announcementRows = (announcements ?? []) as AnnouncementRow[];
-  const activityLogRows = (activityLogs ?? []) as ActivityLogRow[];
-
   const profileIds = [
     ...new Set([
       ...membershipRows.map((membership) => membership.user_id),
-      ...taskRows.flatMap((task) => (task.owner_profile_id ? [task.owner_profile_id] : [])),
-      ...activityLogRows.map((log) => log.actor_user_id)
+      ...taskRows.flatMap((task) => (task.owner_profile_id ? [task.owner_profile_id] : []))
     ])
   ];
   const profilesMap = await getProfilesMap(profileIds);
@@ -344,7 +354,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
   if (permissions.canManageTeam) {
     const { data: allProfiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("*")
+      .select("id, full_name")
       .order("full_name", { ascending: true });
 
     if (profilesError) {
@@ -352,12 +362,41 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     }
 
     const memberIds = new Set(membershipRows.map((membership) => membership.user_id));
-    availableUsers = ((allProfiles ?? []) as ProfileRow[])
+    availableUsers = ((allProfiles ?? []) as Array<Pick<ProfileRow, "id" | "full_name">>)
       .filter((profile) => !memberIds.has(profile.id))
       .map((profile) => ({
         id: profile.id,
         name: profile.full_name
       }));
+  }
+
+  let activityLogRows: ActivityLogRow[] = [];
+  let activityLogProfilesMap = profilesMap;
+
+  if (permissions.canViewActivityLog) {
+    const { data: activityLogs, error: activityLogsError } = await supabase
+      .from("activity_logs")
+      .select("*")
+      .eq("event_id", event.id)
+      .order("created_at", { ascending: false })
+      .limit(120);
+
+    if (activityLogsError) {
+      throw activityLogsError;
+    }
+
+    activityLogRows = (activityLogs ?? []) as ActivityLogRow[];
+
+    const actorProfileIds = [
+      ...new Set(activityLogRows.map((log) => log.actor_user_id).filter((actorId) => !profilesMap.has(actorId)))
+    ];
+
+    if (actorProfileIds.length > 0) {
+      activityLogProfilesMap = new Map([
+        ...profilesMap,
+        ...Array.from((await getProfilesMap(actorProfileIds)).entries())
+      ]);
+    }
   }
 
   const summary = buildSummaryFromRows({
@@ -593,7 +632,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     ? activityLogRows.map((log) => ({
         id: log.id,
         actorUserId: log.actor_user_id,
-        actorName: profilesMap.get(log.actor_user_id)?.full_name ?? "Equipe",
+        actorName: activityLogProfilesMap.get(log.actor_user_id)?.full_name ?? "Equipe",
         action: log.action,
         entityType: log.entity_type,
         entityId: log.entity_id ?? undefined,

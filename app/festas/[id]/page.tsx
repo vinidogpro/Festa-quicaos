@@ -15,11 +15,25 @@ export default async function EventDetailsPage({
     return <SetupCard />;
   }
 
-  const event = await getEventById(params.id);
+  try {
+    const event = await getEventById(params.id);
 
-  if (!event) {
-    notFound();
+    if (!event) {
+      notFound();
+    }
+
+    return <EventDashboardShell event={event} />;
+  } catch (error) {
+    return (
+      <SetupCard
+        eyebrow="Falha ao carregar"
+        title="Nao foi possivel abrir esta festa"
+        description={
+          error instanceof Error
+            ? error.message
+            : "O carregamento do evento falhou. Isso costuma indicar erro de consulta, sessao ou conexao com o Supabase, nao falta de ambiente."
+        }
+      />
+    );
   }
-
-  return <EventDashboardShell event={event} />;
 }
