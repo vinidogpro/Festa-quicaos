@@ -704,10 +704,10 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     confirmedPaymentsCount,
     summary: [
       {
-        label: "Total geral",
+        label: "Total arrecadado",
         value: summary.totalRevenue,
         helper:
-          `${formatCurrency(grossSoldRevenue)} bruto vendido | ${formatCurrency(additionalRevenue)} adicional | ${formatCurrency(confirmedRevenue)} confirmado | ${formatCurrency(pendingRevenue)} pendente`,
+          `${formatCurrency(grossSoldRevenue)} em total vendido | ${formatCurrency(additionalRevenue)} em vendas extras | ${formatCurrency(confirmedRevenue)} confirmado | ${formatCurrency(pendingRevenue)} pendente`,
         isCurrency: true
       },
       {

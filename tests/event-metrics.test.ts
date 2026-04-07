@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  calculateAverageTicket,
   calculateFinanceTotals,
   calculateGoalProgress,
   calculateGuestListStats,
@@ -20,6 +21,7 @@ test("calculateFinanceTotals inclui ingressos, extras, despesas e pagamentos", (
   assert.deepEqual(totals, {
     grossSoldRevenue: 180,
     ticketRevenue: 180,
+    averageTicket: 60,
     additionalRevenue: 40,
     confirmedRevenue: 100,
     pendingRevenue: 80,
@@ -74,4 +76,10 @@ test("calculateGoalProgress usa a mesma regra em todos os contextos", () => {
   assert.equal(calculateGoalProgress(450, 1000), 45);
   assert.equal(calculateGoalProgress(1250, 1000), 125);
   assert.equal(calculateGoalProgress(50, 0), 0);
+});
+
+test("calculateAverageTicket evita divisao por zero e calcula o ticket medio corretamente", () => {
+  assert.equal(calculateAverageTicket(900, 20), 45);
+  assert.equal(calculateAverageTicket(0, 0), 0);
+  assert.equal(calculateAverageTicket(900, 0), 0);
 });

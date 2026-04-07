@@ -28,6 +28,14 @@ export function getSaleAmount(sale: Pick<MetricSale, "quantity" | "unitPrice">) 
   return sale.quantity * sale.unitPrice;
 }
 
+export function calculateAverageTicket(totalTicketRevenue: number, totalTicketsSold: number) {
+  if (!Number.isFinite(totalTicketRevenue) || !Number.isFinite(totalTicketsSold) || totalTicketsSold <= 0) {
+    return 0;
+  }
+
+  return totalTicketRevenue / totalTicketsSold;
+}
+
 export function calculateFinanceTotals({
   sales,
   expenses,
@@ -55,6 +63,7 @@ export function calculateFinanceTotals({
   return {
     grossSoldRevenue: ticketRevenue,
     ticketRevenue,
+    averageTicket: calculateAverageTicket(ticketRevenue, totalTicketsSold),
     additionalRevenue,
     confirmedRevenue: paidValue,
     pendingRevenue: pendingValue,

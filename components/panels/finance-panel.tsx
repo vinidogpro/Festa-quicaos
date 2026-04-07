@@ -228,7 +228,7 @@ function AdditionalRevenueForm({ eventId }: { eventId: string }) {
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-500">
-            Registre entradas como bar, copos ou extras para consolidar o total geral.
+            Registre entradas como bar, copos ou extras para consolidar o total arrecadado.
           </p>
           <SubmitButton
             pendingLabel="Salvando arrecadacao..."
@@ -529,7 +529,7 @@ export function FinancePanel({
             }`}
           >
             <FinanceMetricCard
-              label="Receita bruta vendida"
+              label="Total vendido"
               value={formatCurrency(ticketRevenue)}
               icon={<Ticket className="h-5 w-5 text-white/60" />}
               cardClassName="bg-slate-950 text-white"
@@ -537,7 +537,7 @@ export function FinancePanel({
             />
 
             <FinanceMetricCard
-              label="Receita adicional"
+              label="Vendas extras"
               value={formatCurrency(additionalRevenue)}
               icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
               cardClassName="border border-emerald-200 bg-emerald-50 text-emerald-800"
@@ -545,7 +545,7 @@ export function FinancePanel({
             />
 
             <FinanceMetricCard
-              label="Total geral"
+              label="Total arrecadado"
               value={formatCurrency(totalRevenue)}
               icon={<CircleDollarSign className="h-5 w-5 text-white/60" />}
               cardClassName="bg-brand-700 text-white"

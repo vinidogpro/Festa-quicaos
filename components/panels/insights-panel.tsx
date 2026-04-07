@@ -27,7 +27,7 @@ import {
 } from "recharts";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
-import { calculateGoalProgress, calculateGuestListStats } from "@/lib/event-metrics";
+import { calculateAverageTicket, calculateGoalProgress, calculateGuestListStats } from "@/lib/event-metrics";
 import { PartyEventDetail, SalesRecord } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
@@ -233,6 +233,10 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
     ],
     [totals.confirmedRevenue, totals.pendingRevenue]
   );
+  const averageTicket = useMemo(
+    () => calculateAverageTicket(totals.grossSoldRevenue, totals.soldTickets),
+    [totals.grossSoldRevenue, totals.soldTickets]
+  );
 
   const pendingTransfers = isSellerView
     ? event.transfersPending.filter((item) => item.id === event.permissions.sellerUserId)
@@ -338,12 +342,12 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
 
           <div className={`grid gap-4 ${compact ? "xl:grid-cols-2" : "md:grid-cols-2 xl:grid-cols-3"}`}>
             <MetricTile
-              title={isSellerView ? "Sua arrecadacao" : "Total geral"}
+              title={isSellerView ? "Sua arrecadacao" : "Total arrecadado"}
               value={formatCurrency(totals.generalRevenue)}
               helper={
                 isSellerView
                   ? `${totals.soldTickets} ingressos vendidos no seu nome`
-                  : `${formatCurrency(totals.grossSoldRevenue)} bruto vendido + ${formatCurrency(totals.additionalRevenue)} adicional`
+                  : `${formatCurrency(totals.grossSoldRevenue)} em total vendido + ${formatCurrency(totals.additionalRevenue)} em vendas extras`
               }
               icon={CircleDollarSign}
             />
@@ -367,6 +371,16 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                   : "Total de ingressos vendidos pela equipe nesta festa"
               }
               icon={TrendingUp}
+            />
+            <MetricTile
+              title="Ticket medio"
+              value={totals.soldTickets > 0 ? formatCurrency(averageTicket) : "—"}
+              helper={
+                totals.soldTickets > 0
+                  ? `${formatCurrency(totals.grossSoldRevenue)} divididos por ${totals.soldTickets} ingresso(s)`
+                  : "A metrica aparece assim que a festa registrar as primeiras vendas"
+              }
+              icon={CircleDollarSign}
             />
             <MetricTile
               title={isSellerView ? "Repasse pendente" : "Receita confirmada"}
