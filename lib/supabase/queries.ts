@@ -47,6 +47,13 @@ interface ViewerContext {
   viewer: ViewerProfile;
 }
 
+function logServerIssue(scope: string, error: unknown, metadata?: Record<string, unknown>) {
+  console.error(`[queries][${scope}]`, {
+    message: error instanceof Error ? error.message : String(error),
+    metadata
+  });
+}
+
 function toAvatarLabel(name: string, avatarLabel?: string | null) {
   if (avatarLabel) {
     return avatarLabel;
@@ -226,45 +233,50 @@ export async function getCurrentViewer() {
 }
 
 export async function getEvents(): Promise<EventSummary[]> {
-  const context = await getViewerContext();
+  try {
+    const context = await getViewerContext();
 
-  if (!context) {
-    return [];
+    if (!context) {
+      return [];
+    }
+
+    const supabase = createSupabaseServerClient() as any;
+    const events = await getAccessibleEvents(context.viewer);
+
+    if (events.length === 0) {
+      return [];
+    }
+
+    const eventIds = events.map((event) => event.id);
+
+    const [{ data: sales }, { data: expenses }, { data: additionalRevenues }, { data: memberships }] = await Promise.all([
+      supabase.from("sales").select("*").in("event_id", eventIds),
+      supabase.from("expenses").select("*").in("event_id", eventIds),
+      supabase.from("additional_revenues").select("*").in("event_id", eventIds),
+      supabase.from("event_memberships").select("*").in("event_id", eventIds)
+    ]);
+
+    const salesRows = (sales ?? []) as SaleRow[];
+    const expenseRows = (expenses ?? []) as ExpenseRow[];
+    const additionalRevenueRows = (additionalRevenues ?? []) as AdditionalRevenueRow[];
+    const membershipRows = (memberships ?? []) as EventMembershipRow[];
+    const profileIds = [...new Set(membershipRows.map((membership) => membership.user_id))];
+    const profilesMap = await getProfilesMap(profileIds);
+
+    return events.map((event) =>
+      buildSummaryFromRows({
+        event,
+        sales: salesRows.filter((sale) => sale.event_id === event.id),
+        expenses: expenseRows.filter((expense) => expense.event_id === event.id),
+        additionalRevenues: additionalRevenueRows.filter((revenue) => revenue.event_id === event.id),
+        memberships: membershipRows.filter((membership) => membership.event_id === event.id),
+        profilesMap
+      })
+    );
+  } catch (error) {
+    logServerIssue("getEvents", error);
+    throw error;
   }
-
-  const supabase = createSupabaseServerClient() as any;
-  const events = await getAccessibleEvents(context.viewer);
-
-  if (events.length === 0) {
-    return [];
-  }
-
-  const eventIds = events.map((event) => event.id);
-
-  const [{ data: sales }, { data: expenses }, { data: additionalRevenues }, { data: memberships }] = await Promise.all([
-    supabase.from("sales").select("*").in("event_id", eventIds),
-    supabase.from("expenses").select("*").in("event_id", eventIds),
-    supabase.from("additional_revenues").select("*").in("event_id", eventIds),
-    supabase.from("event_memberships").select("*").in("event_id", eventIds)
-  ]);
-
-  const salesRows = (sales ?? []) as SaleRow[];
-  const expenseRows = (expenses ?? []) as ExpenseRow[];
-  const additionalRevenueRows = (additionalRevenues ?? []) as AdditionalRevenueRow[];
-  const membershipRows = (memberships ?? []) as EventMembershipRow[];
-  const profileIds = [...new Set(membershipRows.map((membership) => membership.user_id))];
-  const profilesMap = await getProfilesMap(profileIds);
-
-  return events.map((event) =>
-    buildSummaryFromRows({
-      event,
-      sales: salesRows.filter((sale) => sale.event_id === event.id),
-      expenses: expenseRows.filter((expense) => expense.event_id === event.id),
-      additionalRevenues: additionalRevenueRows.filter((revenue) => revenue.event_id === event.id),
-      memberships: membershipRows.filter((membership) => membership.event_id === event.id),
-      profilesMap
-    })
-  );
 }
 
 function buildHealthSnapshot({
@@ -300,18 +312,22 @@ function buildHealthSnapshot({
 }
 
 export async function getEventById(id: string): Promise<PartyEventDetail | undefined> {
-  const context = await getViewerContext();
+  try {
+    const context = await getViewerContext();
 
-  if (!context) {
-    return undefined;
-  }
+    if (!context) {
+      return undefined;
+    }
 
-  const supabase = createSupabaseServerClient() as any;
-  const { data: event, error } = await supabase.from("events").select("*").eq("slug", id).single();
+    const supabase = createSupabaseServerClient() as any;
+    const { data: event, error } = await supabase.from("events").select("*").eq("slug", id).single();
 
-  if (error || !event) {
-    return undefined;
-  }
+    if (error || !event) {
+      if (error) {
+        logServerIssue("getEventById.event", error, { slug: id });
+      }
+      return undefined;
+    }
 
   const [
     { data: memberships },
@@ -350,55 +366,8 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
   const eventRole = viewerMembership?.role;
   const permissions = buildPermissions(context.viewer.role, eventRole, context.viewer.id);
 
-  let availableUsers: UserDirectoryOption[] = [];
-
-  if (permissions.canManageTeam) {
-    const { data: allProfiles, error: profilesError } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .order("full_name", { ascending: true });
-
-    if (profilesError) {
-      throw profilesError;
-    }
-
-    const memberIds = new Set(membershipRows.map((membership) => membership.user_id));
-    availableUsers = ((allProfiles ?? []) as Array<Pick<ProfileRow, "id" | "full_name">>)
-      .filter((profile) => !memberIds.has(profile.id))
-      .map((profile) => ({
-        id: profile.id,
-        name: profile.full_name
-      }));
-  }
-
-  let activityLogRows: ActivityLogRow[] = [];
-  let activityLogProfilesMap = profilesMap;
-
-  if (permissions.canViewActivityLog) {
-    const { data: activityLogs, error: activityLogsError } = await supabase
-      .from("activity_logs")
-      .select("*")
-      .eq("event_id", event.id)
-      .order("created_at", { ascending: false })
-      .limit(120);
-
-    if (activityLogsError) {
-      throw activityLogsError;
-    }
-
-    activityLogRows = (activityLogs ?? []) as ActivityLogRow[];
-
-    const actorProfileIds = [
-      ...new Set(activityLogRows.map((log) => log.actor_user_id).filter((actorId) => !profilesMap.has(actorId)))
-    ];
-
-    if (actorProfileIds.length > 0) {
-      activityLogProfilesMap = new Map([
-        ...profilesMap,
-        ...Array.from((await getProfilesMap(actorProfileIds)).entries())
-      ]);
-    }
-  }
+  const availableUsers: UserDirectoryOption[] = [];
+  const activityItems: ActivityLogItem[] = [];
 
   const summary = buildSummaryFromRows({
     event,
@@ -630,20 +599,6 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     isCurrentUser: membership.user_id === context.viewer.id
   }));
 
-  const activityItems: ActivityLogItem[] = permissions.canViewActivityLog
-    ? activityLogRows.map((log) => ({
-        id: log.id,
-        actorUserId: log.actor_user_id,
-        actorName: activityLogProfilesMap.get(log.actor_user_id)?.full_name ?? "Equipe",
-        action: log.action,
-        entityType: log.entity_type,
-        entityId: log.entity_id ?? undefined,
-        message: log.message,
-        metadata: (log.metadata as Record<string, string | number | boolean | null> | null) ?? undefined,
-        createdAt: log.created_at
-      }))
-    : [];
-
   const attentionItems: EventAttentionItem[] = [];
   const topPerformer = ranking[0];
   const guestListStats = calculateGuestListStats(
@@ -746,6 +701,10 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     teamMembers,
     availableUsers
   };
+  } catch (error) {
+    logServerIssue("getEventById", error, { slug: id });
+    throw error;
+  }
 }
 
 export async function getEventTeamSectionById(id: string): Promise<
@@ -756,18 +715,22 @@ export async function getEventTeamSectionById(id: string): Promise<
     }
   | undefined
 > {
-  const context = await getViewerContext();
+  try {
+    const context = await getViewerContext();
 
-  if (!context) {
-    return undefined;
-  }
+    if (!context) {
+      return undefined;
+    }
 
-  const supabase = createSupabaseServerClient() as any;
-  const { data: event, error } = await supabase.from("events").select("id").eq("slug", id).single();
+    const supabase = createSupabaseServerClient() as any;
+    const { data: event, error } = await supabase.from("events").select("id").eq("slug", id).single();
 
-  if (error || !event) {
-    return undefined;
-  }
+    if (error || !event) {
+      if (error) {
+        logServerIssue("getEventTeamSectionById.event", error, { slug: id });
+      }
+      return undefined;
+    }
 
   const [{ data: memberships }, { data: sales }] = await Promise.all([
     supabase.from("event_memberships").select("*").eq("event_id", event.id).order("created_at", { ascending: true }),
@@ -829,6 +792,10 @@ export async function getEventTeamSectionById(id: string): Promise<
     teamMembers,
     availableUsers
   };
+  } catch (error) {
+    logServerIssue("getEventTeamSectionById", error, { slug: id });
+    throw error;
+  }
 }
 
 export async function getEventActivitySectionById(id: string): Promise<
@@ -838,18 +805,22 @@ export async function getEventActivitySectionById(id: string): Promise<
     }
   | undefined
 > {
-  const context = await getViewerContext();
+  try {
+    const context = await getViewerContext();
 
-  if (!context) {
-    return undefined;
-  }
+    if (!context) {
+      return undefined;
+    }
 
-  const supabase = createSupabaseServerClient() as any;
-  const { data: event, error } = await supabase.from("events").select("id").eq("slug", id).single();
+    const supabase = createSupabaseServerClient() as any;
+    const { data: event, error } = await supabase.from("events").select("id").eq("slug", id).single();
 
-  if (error || !event) {
-    return undefined;
-  }
+    if (error || !event) {
+      if (error) {
+        logServerIssue("getEventActivitySectionById.event", error, { slug: id });
+      }
+      return undefined;
+    }
 
   const { data: viewerMembership } = await supabase
     .from("event_memberships")
@@ -896,6 +867,10 @@ export async function getEventActivitySectionById(id: string): Promise<
       createdAt: log.created_at
     }))
   };
+  } catch (error) {
+    logServerIssue("getEventActivitySectionById", error, { slug: id });
+    throw error;
+  }
 }
 
 export async function getAdditionalRevenuesByEvent(eventId: string): Promise<AdditionalRevenue[]> {
@@ -928,47 +903,80 @@ export async function getAdditionalRevenuesByEvent(eventId: string): Promise<Add
   }));
 }
 
-export async function getEventComparison(): Promise<EventComparisonSnapshot> {
-  const events = await getEvents();
-  const eventDetails = await Promise.all(events.map((event) => getEventById(event.id)));
-  const validDetails = eventDetails.filter(Boolean) as PartyEventDetail[];
-
-  if (events.length === 0 || validDetails.length === 0) {
-    return {
-      bestRevenueEvent: { eventName: "Sem dados", value: 0 },
-      bestProfitEvent: { eventName: "Sem dados", value: 0 },
-      topSellerOverall: { sellerName: "Sem dados", value: 0 },
-      averageSalesPerEvent: 0
-    };
-  }
-
-  const bestRevenueEvent = [...events].sort((left, right) => right.totalRevenue - left.totalRevenue)[0];
-  const bestProfitEvent = [...events].sort((left, right) => right.estimatedProfit - left.estimatedProfit)[0];
-
-  const sellerTotals = new Map<string, number>();
-  for (const detail of validDetails) {
-    for (const item of detail.ranking) {
-      sellerTotals.set(item.name, (sellerTotals.get(item.name) ?? 0) + item.revenue);
-    }
-  }
-
-  const topSellerEntry = Array.from(sellerTotals.entries()).sort((left, right) => right[1] - left[1])[0];
-
+function emptyEventComparison(): EventComparisonSnapshot {
   return {
-    bestRevenueEvent: {
-      eventName: bestRevenueEvent.name,
-      value: bestRevenueEvent.totalRevenue
-    },
-    bestProfitEvent: {
-      eventName: bestProfitEvent.name,
-      value: bestProfitEvent.estimatedProfit
-    },
-    topSellerOverall: {
-      sellerName: topSellerEntry?.[0] ?? "Sem dados",
-      value: topSellerEntry?.[1] ?? 0
-    },
-    averageSalesPerEvent: Math.round(
-      events.reduce((sum, event) => sum + event.totalRevenue, 0) / Math.max(events.length, 1)
-    )
+    bestRevenueEvent: { eventName: "Sem dados", value: 0 },
+    bestProfitEvent: { eventName: "Sem dados", value: 0 },
+    topSellerOverall: { sellerName: "Sem dados", value: 0 },
+    averageSalesPerEvent: 0
   };
+}
+
+export async function getEventComparison(preloadedEvents?: EventSummary[]): Promise<EventComparisonSnapshot> {
+  try {
+    const events = preloadedEvents ?? (await getEvents());
+
+    if (events.length === 0) {
+      return emptyEventComparison();
+    }
+
+    const context = await getViewerContext();
+
+    if (!context) {
+      return emptyEventComparison();
+    }
+
+    const supabase = createSupabaseServerClient() as any;
+    const accessibleEvents = await getAccessibleEvents(context.viewer);
+    const eventIds = accessibleEvents.map((event) => event.id);
+
+    if (eventIds.length === 0) {
+      return emptyEventComparison();
+    }
+
+    const [{ data: memberships }, { data: sales }] = await Promise.all([
+      supabase.from("event_memberships").select("event_id, user_id, role").in("event_id", eventIds).eq("role", "seller"),
+      supabase.from("sales").select("event_id, seller_user_id, quantity, unit_price").in("event_id", eventIds)
+    ]);
+
+    const membershipRows = (memberships ?? []) as Array<Pick<EventMembershipRow, "event_id" | "user_id" | "role">>;
+    const salesRows = (sales ?? []) as Array<Pick<SaleRow, "event_id" | "seller_user_id" | "quantity" | "unit_price">>;
+    const profileIds = [...new Set(membershipRows.map((membership) => membership.user_id))];
+    const profilesMap = await getProfilesMap(profileIds);
+
+    const sellerTotals = new Map<string, number>();
+    for (const membership of membershipRows) {
+      const sellerName = profilesMap.get(membership.user_id)?.full_name ?? "Sem dados";
+      const sellerRevenue = salesRows
+        .filter((sale) => sale.seller_user_id === membership.user_id && sale.event_id === membership.event_id)
+        .reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0);
+
+      sellerTotals.set(sellerName, (sellerTotals.get(sellerName) ?? 0) + sellerRevenue);
+    }
+
+    const bestRevenueEvent = [...events].sort((left, right) => right.totalRevenue - left.totalRevenue)[0];
+    const bestProfitEvent = [...events].sort((left, right) => right.estimatedProfit - left.estimatedProfit)[0];
+    const topSellerEntry = Array.from(sellerTotals.entries()).sort((left, right) => right[1] - left[1])[0];
+
+    return {
+      bestRevenueEvent: {
+        eventName: bestRevenueEvent.name,
+        value: bestRevenueEvent.totalRevenue
+      },
+      bestProfitEvent: {
+        eventName: bestProfitEvent.name,
+        value: bestProfitEvent.estimatedProfit
+      },
+      topSellerOverall: {
+        sellerName: topSellerEntry?.[0] ?? "Sem dados",
+        value: topSellerEntry?.[1] ?? 0
+      },
+      averageSalesPerEvent: Math.round(
+        events.reduce((sum, event) => sum + event.totalRevenue, 0) / Math.max(events.length, 1)
+      )
+    };
+  } catch (error) {
+    logServerIssue("getEventComparison", error, { preloadedCount: preloadedEvents?.length ?? 0 });
+    throw error;
+  }
 }

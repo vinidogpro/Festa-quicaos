@@ -12,15 +12,14 @@ export default async function HomePage() {
   }
 
   try {
-    const [viewer, events, comparison] = await Promise.all([
-      getCurrentViewer(),
-      getEvents(),
-      getEventComparison()
-    ]);
+    const viewer = await getCurrentViewer();
 
     if (!viewer) {
       redirect("/login");
     }
+
+    const events = await getEvents();
+    const comparison = await getEventComparison(events);
 
     return (
       <EventsOverviewPage
