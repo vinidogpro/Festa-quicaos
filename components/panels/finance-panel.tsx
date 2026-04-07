@@ -529,7 +529,7 @@ export function FinancePanel({
             }`}
           >
             <FinanceMetricCard
-              label="Receita de ingressos"
+              label="Receita bruta vendida"
               value={formatCurrency(ticketRevenue)}
               icon={<Ticket className="h-5 w-5 text-white/60" />}
               cardClassName="bg-slate-950 text-white"

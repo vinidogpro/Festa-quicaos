@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   History,
   Bell,
@@ -43,9 +43,52 @@ const baseNavItems = [
 
 type TabId = (typeof baseNavItems)[number]["id"];
 
+function AsyncSectionState({
+  tone,
+  message,
+  onRetry
+}: {
+  tone: "loading" | "error";
+  message: string;
+  onRetry?: () => void;
+}) {
+  const palette =
+    tone === "error"
+      ? "border border-rose-200 bg-rose-50 text-rose-700"
+      : "border border-white/60 bg-white/85 text-slate-500 backdrop-blur";
+
+  return (
+    <div className={`rounded-[28px] p-5 text-sm shadow-soft sm:p-6 ${palette}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p>{message}</p>
+        {tone === "error" && onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-current/15 bg-white px-4 py-3 text-sm font-semibold transition hover:bg-white/80"
+          >
+            Tentar novamente
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [period, setPeriod] = useState<"week" | "total">("week");
+  const [teamSection, setTeamSection] = useState<{
+    teamMembers: PartyEventDetail["teamMembers"];
+    availableUsers: PartyEventDetail["availableUsers"];
+  } | null>(null);
+  const [teamStatus, setTeamStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
+  const [teamError, setTeamError] = useState("");
+  const [activitySection, setActivitySection] = useState<{
+    activityLogs: PartyEventDetail["activityLogs"];
+  } | null>(null);
+  const [activityStatus, setActivityStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
+  const [activityError, setActivityError] = useState("");
   const navItems = baseNavItems.filter((item) => {
     if (item.id === "team" && !event.permissions.canManageTeam) {
       return false;
@@ -57,6 +100,55 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
 
     return true;
   });
+
+  useEffect(() => {
+    if (activeTab === "team" && event.permissions.canManageTeam && teamStatus === "idle") {
+      setTeamStatus("loading");
+      setTeamError("");
+
+      fetch(`/api/events/${event.id}/sections?section=team`, { cache: "no-store" })
+        .then(async (response) => {
+          const payload = await response.json();
+
+          if (!response.ok) {
+            throw new Error(payload.message ?? "Nao foi possivel carregar a equipe.");
+          }
+
+          setTeamSection({
+            teamMembers: payload.teamMembers ?? [],
+            availableUsers: payload.availableUsers ?? []
+          });
+          setTeamStatus("loaded");
+        })
+        .catch((error) => {
+          setTeamError(error instanceof Error ? error.message : "Nao foi possivel carregar a equipe.");
+          setTeamStatus("error");
+        });
+    }
+
+    if (activeTab === "activity" && event.permissions.canViewActivityLog && activityStatus === "idle") {
+      setActivityStatus("loading");
+      setActivityError("");
+
+      fetch(`/api/events/${event.id}/sections?section=activity`, { cache: "no-store" })
+        .then(async (response) => {
+          const payload = await response.json();
+
+          if (!response.ok) {
+            throw new Error(payload.message ?? "Nao foi possivel carregar as atividades.");
+          }
+
+          setActivitySection({
+            activityLogs: payload.activityLogs ?? []
+          });
+          setActivityStatus("loaded");
+        })
+        .catch((error) => {
+          setActivityError(error instanceof Error ? error.message : "Nao foi possivel carregar as atividades.");
+          setActivityStatus("error");
+        });
+    }
+  }, [activeTab, activityStatus, event.id, event.permissions.canManageTeam, event.permissions.canViewActivityLog, teamStatus]);
 
   return (
     <main className="min-h-screen">
@@ -164,12 +256,28 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
               />
             )}
             {activeTab === "team" && (
-              <TeamPanel
-                eventId={event.id}
-                permissions={event.permissions}
-                teamMembers={event.teamMembers}
-                availableUsers={event.availableUsers}
-              />
+              teamStatus === "loading" ? (
+                <AsyncSectionState
+                  tone="loading"
+                  message="Carregando equipe e usuarios disponiveis desta festa..."
+                />
+              ) : teamStatus === "error" ? (
+                <AsyncSectionState
+                  tone="error"
+                  message={teamError || "Nao foi possivel carregar a equipe agora."}
+                  onRetry={() => {
+                    setTeamSection(null);
+                    setTeamStatus("idle");
+                  }}
+                />
+              ) : (
+                <TeamPanel
+                  eventId={event.id}
+                  permissions={event.permissions}
+                  teamMembers={teamSection?.teamMembers ?? event.teamMembers}
+                  availableUsers={teamSection?.availableUsers ?? event.availableUsers}
+                />
+              )
             )}
             {activeTab === "guest-list" && (
               <GuestListPanel eventId={event.id} entries={event.guestListEntries} permissions={event.permissions} />
@@ -211,7 +319,20 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
               <InsightsPanel event={event} />
             )}
             {activeTab === "activity" && (
-              <ActivityLogPanel logs={event.activityLogs} permissions={event.permissions} />
+              activityStatus === "loading" ? (
+                <AsyncSectionState tone="loading" message="Carregando historico de atividades..." />
+              ) : activityStatus === "error" ? (
+                <AsyncSectionState
+                  tone="error"
+                  message={activityError || "Nao foi possivel carregar as atividades agora."}
+                  onRetry={() => {
+                    setActivitySection(null);
+                    setActivityStatus("idle");
+                  }}
+                />
+              ) : (
+                <ActivityLogPanel logs={activitySection?.activityLogs ?? event.activityLogs} permissions={event.permissions} />
+              )
             )}
 
             {activeTab === "overview" && (

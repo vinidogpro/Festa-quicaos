@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Download, ListChecks, Pencil } from "lucide-react";
+import { ListChecks, Pencil } from "lucide-react";
+import { ExportGuestListButton } from "@/components/export-summary-button";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
@@ -144,15 +145,7 @@ export function GuestListPanel({
           ? "Veja os nomes vinculados as suas vendas, corrija o que precisar e deixe tudo pronto para a festa."
           : "Centralize todos os nomes da festa, pesquise rapidamente e corrija a lista final antes do dia do evento."
       }
-      action={
-        <a
-          href={`/festas/${eventId}/guest-list/export`}
-          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:w-auto"
-        >
-          <Download className="h-4 w-4" />
-          Exportar lista
-        </a>
-      }
+      action={<ExportGuestListButton eventId={eventId} />}
     >
       <div className="grid gap-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4 lg:grid-cols-[1fr_240px_auto]">
         <input

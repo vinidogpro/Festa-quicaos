@@ -30,25 +30,56 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     return NextResponse.json({ error: "Sessao expirada. Entre novamente para exportar." }, { status: 401 });
   }
 
-  const [{ data: event }, { data: profile }] = await Promise.all([
-    supabase.from("events").select("*").eq("slug", params.id).single(),
-    supabase.from("profiles").select("*").eq("id", user.id).single()
+  const [{ data: event, error: eventError }, { data: profile, error: profileError }] = await Promise.all([
+    supabase.from("events").select("id, name, slug, venue, event_date, goal_value").eq("slug", params.id).single(),
+    supabase.from("profiles").select("id, role").eq("id", user.id).single()
   ]);
 
-  if (!event) {
+  if (eventError || !event) {
     return NextResponse.json({ error: "Evento nao encontrado." }, { status: 404 });
   }
 
-  if (!profile) {
+  if (profileError || !profile) {
     return NextResponse.json({ error: "Perfil do usuario nao encontrado." }, { status: 403 });
   }
 
-  const [{ data: memberships }, { data: sales }, { data: expenses }, { data: additionalRevenues }] = await Promise.all([
-    supabase.from("event_memberships").select("*").eq("event_id", event.id),
-    supabase.from("sales").select("*").eq("event_id", event.id).order("sold_at", { ascending: true }),
-    supabase.from("expenses").select("*").eq("event_id", event.id).order("incurred_at", { ascending: true }),
-    supabase.from("additional_revenues").select("*").eq("event_id", event.id).order("date", { ascending: true })
+  const [
+    { data: memberships, error: membershipsError },
+    { data: sales, error: salesError },
+    { data: expenses, error: expensesError },
+    { data: additionalRevenues, error: additionalRevenuesError }
+  ] = await Promise.all([
+    supabase.from("event_memberships").select("id, user_id, role").eq("event_id", event.id),
+    supabase
+      .from("sales")
+      .select("id, seller_user_id, quantity, unit_price, payment_status")
+      .eq("event_id", event.id)
+      .order("sold_at", { ascending: true }),
+    supabase
+      .from("expenses")
+      .select("id, title, category, amount, incurred_at, notes")
+      .eq("event_id", event.id)
+      .order("incurred_at", { ascending: true }),
+    supabase
+      .from("additional_revenues")
+      .select("id, title, category, amount, date")
+      .eq("event_id", event.id)
+      .order("date", { ascending: true })
   ]);
+
+  if (membershipsError || salesError || expensesError || additionalRevenuesError) {
+    return NextResponse.json(
+      {
+        error:
+          membershipsError?.message ||
+          salesError?.message ||
+          expensesError?.message ||
+          additionalRevenuesError?.message ||
+          "Nao foi possivel carregar os dados da exportacao."
+      },
+      { status: 500 }
+    );
+  }
 
   const membershipRows = ((memberships ?? []) as MembershipRow[]) ?? [];
   const salesRows = ((sales ?? []) as SaleRow[]) ?? [];
@@ -64,7 +95,15 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   const visibleSales = salesRows;
 
   const profileIds = [...new Set(membershipRows.map((membership) => membership.user_id))];
-  const { data: relatedProfiles } = await supabase.from("profiles").select("*").in("id", profileIds);
+  const { data: relatedProfiles, error: relatedProfilesError } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", profileIds);
+
+  if (relatedProfilesError) {
+    return NextResponse.json({ error: relatedProfilesError.message }, { status: 500 });
+  }
+
   const profileMap = new Map(((relatedProfiles ?? []) as ProfileRow[]).map((item) => [item.id, item]));
 
   const financeTotals = calculateFinanceTotals({
@@ -78,7 +117,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   });
   const pendingSales = visibleSales.filter((sale) => sale.payment_status === "pending");
   const paidSales = visibleSales.filter((sale) => sale.payment_status === "paid");
-  const percentGoal = calculateGoalProgress(financeTotals.totalRevenue, event.goal_value);
+  const percentGoal = calculateGoalProgress(financeTotals.generalRevenue, event.goal_value);
 
   const rankingSource = membershipRows.filter((membership) =>
     isManager ? membership.role === "seller" : membership.user_id === user.id
@@ -108,18 +147,18 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     ["Escopo da exportacao", isManager ? "Visao completa do evento" : "Visao global em leitura"],
     [""],
     ["Resumo financeiro"],
-    ["Receita bruta vendida", formatCurrency(financeTotals.ticketRevenue)],
+    ["Receita bruta vendida", formatCurrency(financeTotals.grossSoldRevenue)],
     ["Receita adicional", formatCurrency(financeTotals.additionalRevenue)],
-    ["Receita confirmada", formatCurrency(financeTotals.paidValue)],
-    ["Receita pendente", formatCurrency(financeTotals.pendingValue)],
-    ["Total geral", formatCurrency(financeTotals.totalRevenue)],
+    ["Receita confirmada", formatCurrency(financeTotals.confirmedRevenue)],
+    ["Receita pendente", formatCurrency(financeTotals.pendingRevenue)],
+    ["Total geral", formatCurrency(financeTotals.generalRevenue)],
     ["Total de despesas", formatCurrency(financeTotals.totalExpenses)],
     ["Lucro estimado", formatCurrency(financeTotals.estimatedProfit)],
     ["Meta de vendas", formatCurrency(event.goal_value)],
     ["Meta atingida", `${percentGoal}%`],
     ["Ingressos vendidos", financeTotals.totalTicketsSold],
-    ["Valores pagos", formatCurrency(financeTotals.paidValue)],
-    ["Valores pendentes", formatCurrency(financeTotals.pendingValue)],
+    ["Valores pagos", formatCurrency(financeTotals.confirmedRevenue)],
+    ["Valores pendentes", formatCurrency(financeTotals.pendingRevenue)],
     ["Pagamentos confirmados", paidSales.length],
     ["Pagamentos pendentes", pendingSales.length],
     [""],

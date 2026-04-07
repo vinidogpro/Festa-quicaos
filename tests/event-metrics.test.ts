@@ -18,8 +18,12 @@ test("calculateFinanceTotals inclui ingressos, extras, despesas e pagamentos", (
   });
 
   assert.deepEqual(totals, {
+    grossSoldRevenue: 180,
     ticketRevenue: 180,
     additionalRevenue: 40,
+    confirmedRevenue: 100,
+    pendingRevenue: 80,
+    generalRevenue: 220,
     totalRevenue: 220,
     totalExpenses: 60,
     estimatedProfit: 160,

@@ -53,8 +53,12 @@ export function calculateFinanceTotals({
     .reduce((sum, sale) => sum + getSaleAmount(sale), 0);
 
   return {
+    grossSoldRevenue: ticketRevenue,
     ticketRevenue,
     additionalRevenue,
+    confirmedRevenue: paidValue,
+    pendingRevenue: pendingValue,
+    generalRevenue: totalRevenue,
     totalRevenue,
     totalExpenses,
     estimatedProfit,

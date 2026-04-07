@@ -3,11 +3,19 @@
 import { useState } from "react";
 import { Download, LoaderCircle } from "lucide-react";
 
-export function ExportSummaryButton({
-  eventId,
+function ExportCsvButton({
+  href,
+  label,
+  pendingLabel,
+  successMessage,
+  fallbackFileName,
   disabled = false
 }: {
-  eventId: string;
+  href: string;
+  label: string;
+  pendingLabel: string;
+  successMessage: string;
+  fallbackFileName: string;
   disabled?: boolean;
 }) {
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
@@ -20,7 +28,7 @@ export function ExportSummaryButton({
       setStatus("idle");
       setMessage("");
 
-      const response = await fetch(`/festas/${eventId}/export`, {
+      const response = await fetch(href, {
         method: "GET",
         credentials: "include"
       });
@@ -44,7 +52,7 @@ export function ExportSummaryButton({
       const downloadUrl = URL.createObjectURL(blob);
       const contentDisposition = response.headers.get("Content-Disposition");
       const fileNameMatch = contentDisposition?.match(/filename=\"?([^\"]+)\"?/i);
-      const fileName = fileNameMatch?.[1] ?? `resumo-evento-${eventId}.csv`;
+      const fileName = fileNameMatch?.[1] ?? fallbackFileName;
 
       const anchor = document.createElement("a");
       anchor.href = downloadUrl;
@@ -53,7 +61,7 @@ export function ExportSummaryButton({
       URL.revokeObjectURL(downloadUrl);
 
       setStatus("success");
-      setMessage("Resumo exportado com sucesso.");
+      setMessage(successMessage);
     } catch {
       setStatus("error");
       setMessage("Nao foi possivel baixar o arquivo agora. Tente novamente em instantes.");
@@ -71,7 +79,7 @@ export function ExportSummaryButton({
         className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-        {isLoading ? "Gerando resumo..." : "Exportar resumo"}
+        {isLoading ? pendingLabel : label}
       </button>
 
       {message ? (
@@ -84,5 +92,43 @@ export function ExportSummaryButton({
         </p>
       ) : null}
     </div>
+  );
+}
+
+export function ExportSummaryButton({
+  eventId,
+  disabled = false
+}: {
+  eventId: string;
+  disabled?: boolean;
+}) {
+  return (
+    <ExportCsvButton
+      href={`/festas/${eventId}/export`}
+      label="Exportar resumo"
+      pendingLabel="Gerando resumo..."
+      successMessage="Resumo exportado com sucesso."
+      fallbackFileName={`resumo-evento-${eventId}.csv`}
+      disabled={disabled}
+    />
+  );
+}
+
+export function ExportGuestListButton({
+  eventId,
+  disabled = false
+}: {
+  eventId: string;
+  disabled?: boolean;
+}) {
+  return (
+    <ExportCsvButton
+      href={`/festas/${eventId}/guest-list/export`}
+      label="Exportar lista"
+      pendingLabel="Gerando lista..."
+      successMessage="Lista exportada com sucesso."
+      fallbackFileName={`lista-evento-${eventId}.csv`}
+      disabled={disabled}
+    />
   );
 }

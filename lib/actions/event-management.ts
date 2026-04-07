@@ -342,9 +342,9 @@ async function logActivity(
     eventId?: string | null;
     action: string;
     entityType: string;
-    entityId?: string | null;
-    message: string;
-    metadata?: Record<string, string | number | boolean | null>;
+      entityId?: string | null;
+      message: string;
+      metadata?: Record<string, string | number | boolean | null>;
   }
 ) {
   const { error } = await supabase.from("activity_logs").insert({
@@ -358,7 +358,14 @@ async function logActivity(
   });
 
   if (error) {
-    throw new Error(`Nao foi possivel registrar o log da atividade: ${error.message}`);
+    console.error("[activity-log] Falha ao registrar atividade", {
+      actorUserId,
+      eventId,
+      action,
+      entityType,
+      entityId,
+      error: error.message
+    });
   }
 }
 

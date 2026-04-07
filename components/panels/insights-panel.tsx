@@ -27,7 +27,7 @@ import {
 } from "recharts";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
-import { calculateFinanceTotals, calculateGoalProgress, calculateGuestListStats } from "@/lib/event-metrics";
+import { calculateGoalProgress, calculateGuestListStats } from "@/lib/event-metrics";
 import { PartyEventDetail, SalesRecord } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
@@ -161,33 +161,59 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
   const topPerformer = visibleRanking[0];
 
   const totals = useMemo(() => {
-    const financeTotals = calculateFinanceTotals({
-      sales: visibleSales.map((sale) => ({
-        quantity: sale.sold,
-        unitPrice: sale.unitPrice,
-        paymentStatus: sale.paymentStatus
-      })),
-      expenses: [],
-      additionalRevenues: isSellerView ? [] : [{ amount: event.additionalRevenue }]
-    });
-    const soldTickets = sumTickets(visibleSales);
     const guestListStats = calculateGuestListStats(
       visibleSales.map((sale) => ({
         quantity: sale.sold,
         attendeeCount: sale.attendeeCount
       }))
     );
-    const goalReference = event.goalValue;
-    const metaProgress = calculateGoalProgress(financeTotals.totalRevenue, goalReference);
+    const soldTickets = sumTickets(visibleSales);
+
+    if (!isSellerView) {
+      return {
+        grossSoldRevenue: event.ticketRevenue,
+        additionalRevenue: event.additionalRevenue,
+        confirmedRevenue: event.confirmedRevenue,
+        pendingRevenue: event.pendingRevenue,
+        generalRevenue: event.totalRevenue,
+        soldTickets: event.totalTicketsSold,
+        guestListStats,
+        goalReference: event.goalValue,
+        metaProgress: event.progress,
+        pendingPaymentsCount: event.pendingPaymentsCount
+      };
+    }
+
+    const grossSoldRevenue = visibleSales.reduce((total, sale) => total + sale.amount, 0);
+    const confirmedRevenue = sumValues(visibleSales, "paid");
+    const pendingRevenue = sumValues(visibleSales, "pending");
+    const generalRevenue = grossSoldRevenue;
 
     return {
-      ...financeTotals,
+      grossSoldRevenue,
+      additionalRevenue: 0,
+      confirmedRevenue,
+      pendingRevenue,
+      generalRevenue,
       soldTickets,
       guestListStats,
-      goalReference,
-      metaProgress
+      goalReference: event.goalValue,
+      metaProgress: calculateGoalProgress(generalRevenue, event.goalValue),
+      pendingPaymentsCount: visibleSales.filter((sale) => sale.paymentStatus === "pending").length
     };
-  }, [event.additionalRevenue, event.goalValue, isSellerView, visibleSales]);
+  }, [
+    event.additionalRevenue,
+    event.confirmedRevenue,
+    event.goalValue,
+    event.pendingPaymentsCount,
+    event.pendingRevenue,
+    event.progress,
+    event.ticketRevenue,
+    event.totalRevenue,
+    event.totalTicketsSold,
+    isSellerView,
+    visibleSales
+  ]);
 
   const sellerChartData = useMemo(() => {
     if (isSellerView) {
@@ -202,10 +228,10 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
 
   const paymentChartData = useMemo(
     () => [
-      { name: "Pago", value: totals.paidValue, color: "#16a34a" },
-      { name: "Pendente", value: totals.pendingValue, color: "#f59e0b" }
+      { name: "Pago", value: totals.confirmedRevenue, color: "#16a34a" },
+      { name: "Pendente", value: totals.pendingRevenue, color: "#f59e0b" }
     ],
-    [totals.paidValue, totals.pendingValue]
+    [totals.confirmedRevenue, totals.pendingRevenue]
   );
 
   const pendingTransfers = isSellerView
@@ -312,12 +338,12 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
 
           <div className={`grid gap-4 ${compact ? "xl:grid-cols-2" : "md:grid-cols-2 xl:grid-cols-3"}`}>
             <MetricTile
-              title={isSellerView ? "Sua arrecadacao" : "Arrecadacao atual"}
-              value={formatCurrency(totals.totalRevenue)}
+              title={isSellerView ? "Sua arrecadacao" : "Total geral"}
+              value={formatCurrency(totals.generalRevenue)}
               helper={
                 isSellerView
                   ? `${totals.soldTickets} ingressos vendidos no seu nome`
-                  : `${formatCurrency(Math.max(event.goalValue - totals.totalRevenue, 0))} para chegar na meta`
+                  : `${formatCurrency(totals.grossSoldRevenue)} bruto vendido + ${formatCurrency(totals.additionalRevenue)} adicional`
               }
               icon={CircleDollarSign}
             />
@@ -326,8 +352,8 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
               value={`${totals.metaProgress}%`}
               helper={
                 isSellerView
-                  ? `${formatCurrency(totals.totalRevenue)} do seu faturamento atual`
-                  : `${formatCurrency(totals.totalRevenue)} de ${formatCurrency(event.goalValue)} esperados`
+                  ? `${formatCurrency(totals.generalRevenue)} do seu faturamento atual`
+                  : `${formatCurrency(totals.generalRevenue)} de ${formatCurrency(event.goalValue)} esperados`
               }
               icon={BadgePercent}
               tone="positive"
@@ -344,27 +370,27 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
             />
             <MetricTile
               title={isSellerView ? "Repasse pendente" : "Receita confirmada"}
-              value={formatCurrency(isSellerView ? totals.pendingValue : totals.paidValue)}
+              value={formatCurrency(isSellerView ? totals.pendingRevenue : totals.confirmedRevenue)}
               helper={
                 isSellerView
-                  ? totals.pendingValue > 0
+                  ? totals.pendingRevenue > 0
                     ? "Valor que ainda precisa ser acertado por voce"
                     : "Nenhum repasse pendente no momento"
-                  : `${formatCurrency(totals.paidValue)} das vendas ja foram marcadas como pagas`
+                  : `${formatCurrency(totals.confirmedRevenue)} das vendas ja foram marcadas como pagas`
               }
               icon={isSellerView ? Clock3 : CheckCircle2}
-              tone={isSellerView ? (totals.pendingValue > 0 ? "warning" : "default") : "positive"}
+              tone={isSellerView ? (totals.pendingRevenue > 0 ? "warning" : "default") : "positive"}
             />
             <MetricTile
               title={isSellerView ? "Sua meta de nomes" : "Receita pendente"}
-              value={formatCurrency(totals.pendingValue)}
+              value={formatCurrency(totals.pendingRevenue)}
               helper={
                 isSellerView
                   ? `${totals.guestListStats.missingNames} nome(s) ainda precisam ser preenchidos`
                   : `${totals.pendingPaymentsCount} pagamento(s) aguardando confirmacao`
               }
               icon={Clock3}
-              tone={totals.pendingValue > 0 ? "warning" : "default"}
+              tone={totals.pendingRevenue > 0 ? "warning" : "default"}
             />
             <MetricTile
               title={isSellerView ? "Nomes cadastrados" : "Lista de entrada"}

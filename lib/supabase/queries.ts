@@ -28,6 +28,7 @@ import {
   TeamMember,
   TransferPending,
   UserDirectoryOption,
+  ViewerPermissions,
   ViewerProfile
 } from "@/lib/types";
 
@@ -520,10 +521,11 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     additionalRevenues: additionalRevenueRows.map((revenue) => ({ amount: revenue.amount }))
   });
   const {
+    grossSoldRevenue,
     ticketRevenue,
     additionalRevenue,
-    paidValue,
-    pendingValue,
+    confirmedRevenue,
+    pendingRevenue,
     totalExpenses,
     pendingPaymentsCount,
     confirmedPaymentsCount
@@ -695,8 +697,8 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     activeSellers: sellerMemberships.filter((membership) => membership.is_active).length,
     ticketRevenue,
     additionalRevenue,
-    confirmedRevenue: paidValue,
-    pendingRevenue: pendingValue,
+    confirmedRevenue,
+    pendingRevenue,
     totalExpenses,
     pendingPaymentsCount,
     confirmedPaymentsCount,
@@ -705,11 +707,11 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
         label: "Total geral",
         value: summary.totalRevenue,
         helper:
-          `${formatCurrency(ticketRevenue)} em ingressos | ${formatCurrency(paidValue)} confirmado | ${formatCurrency(pendingValue)} pendente`,
+          `${formatCurrency(grossSoldRevenue)} bruto vendido | ${formatCurrency(additionalRevenue)} adicional | ${formatCurrency(confirmedRevenue)} confirmado | ${formatCurrency(pendingRevenue)} pendente`,
         isCurrency: true
       },
       {
-        label: "Meta de vendas",
+        label: "Meta da festa",
         value: summary.goalValue,
         helper: `${summary.progress}% da meta`,
         progress: summary.progress,
@@ -743,6 +745,156 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     participantOptions,
     teamMembers,
     availableUsers
+  };
+}
+
+export async function getEventTeamSectionById(id: string): Promise<
+  | {
+      permissions: ViewerPermissions;
+      teamMembers: TeamMember[];
+      availableUsers: UserDirectoryOption[];
+    }
+  | undefined
+> {
+  const context = await getViewerContext();
+
+  if (!context) {
+    return undefined;
+  }
+
+  const supabase = createSupabaseServerClient() as any;
+  const { data: event, error } = await supabase.from("events").select("id").eq("slug", id).single();
+
+  if (error || !event) {
+    return undefined;
+  }
+
+  const [{ data: memberships }, { data: sales }] = await Promise.all([
+    supabase.from("event_memberships").select("*").eq("event_id", event.id).order("created_at", { ascending: true }),
+    supabase.from("sales").select("*").eq("event_id", event.id)
+  ]);
+
+  const membershipRows = (memberships ?? []) as EventMembershipRow[];
+  const salesRows = (sales ?? []) as SaleRow[];
+  const profileIds = [...new Set(membershipRows.map((membership) => membership.user_id))];
+  const profilesMap = await getProfilesMap(profileIds);
+  const viewerMembership = membershipRows.find((membership) => membership.user_id === context.viewer.id);
+  const permissions = buildPermissions(context.viewer.role, viewerMembership?.role, context.viewer.id);
+
+  if (!permissions.canManageTeam) {
+    return {
+      permissions,
+      teamMembers: [],
+      availableUsers: []
+    };
+  }
+
+  const { data: allProfiles, error: profilesError } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .order("full_name", { ascending: true });
+
+  if (profilesError) {
+    throw profilesError;
+  }
+
+  const memberIds = new Set(membershipRows.map((membership) => membership.user_id));
+  const availableUsers = ((allProfiles ?? []) as Array<Pick<ProfileRow, "id" | "full_name">>)
+    .filter((profile) => !memberIds.has(profile.id))
+    .map((profile) => ({
+      id: profile.id,
+      name: profile.full_name
+    }));
+
+  const teamMembers: TeamMember[] = membershipRows.map((membership) => ({
+    id: membership.id,
+    userId: membership.user_id,
+    name: profilesMap.get(membership.user_id)?.full_name ?? "Membro",
+    role: membership.role,
+    isActive: membership.is_active,
+    ticketsSold: salesRows
+      .filter((sale) => sale.seller_user_id === membership.user_id)
+      .reduce((sum, sale) => sum + sale.quantity, 0),
+    revenue: salesRows
+      .filter((sale) => sale.seller_user_id === membership.user_id)
+      .reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0),
+    pendingTransferAmount: salesRows
+      .filter((sale) => sale.seller_user_id === membership.user_id && sale.payment_status === "pending")
+      .reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0),
+    isCurrentUser: membership.user_id === context.viewer.id
+  }));
+
+  return {
+    permissions,
+    teamMembers,
+    availableUsers
+  };
+}
+
+export async function getEventActivitySectionById(id: string): Promise<
+  | {
+      permissions: ViewerPermissions;
+      activityLogs: ActivityLogItem[];
+    }
+  | undefined
+> {
+  const context = await getViewerContext();
+
+  if (!context) {
+    return undefined;
+  }
+
+  const supabase = createSupabaseServerClient() as any;
+  const { data: event, error } = await supabase.from("events").select("id").eq("slug", id).single();
+
+  if (error || !event) {
+    return undefined;
+  }
+
+  const { data: viewerMembership } = await supabase
+    .from("event_memberships")
+    .select("role")
+    .eq("event_id", event.id)
+    .eq("user_id", context.viewer.id)
+    .maybeSingle();
+
+  const permissions = buildPermissions(context.viewer.role, viewerMembership?.role, context.viewer.id);
+
+  if (!permissions.canViewActivityLog) {
+    return {
+      permissions,
+      activityLogs: []
+    };
+  }
+
+  const { data: activityLogs, error: activityLogsError } = await supabase
+    .from("activity_logs")
+    .select("*")
+    .eq("event_id", event.id)
+    .order("created_at", { ascending: false })
+    .limit(120);
+
+  if (activityLogsError) {
+    throw activityLogsError;
+  }
+
+  const activityLogRows = (activityLogs ?? []) as ActivityLogRow[];
+  const actorIds = [...new Set(activityLogRows.map((log) => log.actor_user_id))];
+  const profilesMap = await getProfilesMap(actorIds);
+
+  return {
+    permissions,
+    activityLogs: activityLogRows.map((log) => ({
+      id: log.id,
+      actorUserId: log.actor_user_id,
+      actorName: profilesMap.get(log.actor_user_id)?.full_name ?? "Equipe",
+      action: log.action,
+      entityType: log.entity_type,
+      entityId: log.entity_id ?? undefined,
+      message: log.message,
+      metadata: (log.metadata as Record<string, string | number | boolean | null> | null) ?? undefined,
+      createdAt: log.created_at
+    }))
   };
 }
 
