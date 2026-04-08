@@ -5,6 +5,7 @@ import {
   calculateFinanceTotals,
   calculateGoalProgress,
   calculateGuestListStats,
+  calculateSalePriceMode,
   calculateSellerMetrics
 } from "../lib/event-metrics.ts";
 
@@ -22,6 +23,8 @@ test("calculateFinanceTotals inclui ingressos, extras, despesas e pagamentos", (
     grossSoldRevenue: 180,
     ticketRevenue: 180,
     averageTicket: 60,
+    modeTicketPrice: 50,
+    modeTicketPriceCount: 2,
     additionalRevenue: 40,
     confirmedRevenue: 100,
     pendingRevenue: 80,
@@ -82,4 +85,23 @@ test("calculateAverageTicket evita divisao por zero e calcula o ticket medio cor
   assert.equal(calculateAverageTicket(900, 20), 45);
   assert.equal(calculateAverageTicket(0, 0), 0);
   assert.equal(calculateAverageTicket(900, 0), 0);
+});
+
+test("calculateSalePriceMode considera o peso da quantidade vendida", () => {
+  assert.deepEqual(
+    calculateSalePriceMode([
+      { quantity: 5, unitPrice: 40 },
+      { quantity: 1, unitPrice: 50 },
+      { quantity: 2, unitPrice: 45 }
+    ]),
+    {
+      modePrice: 40,
+      modeCount: 5
+    }
+  );
+
+  assert.deepEqual(calculateSalePriceMode([]), {
+    modePrice: 0,
+    modeCount: 0
+  });
 });

@@ -27,7 +27,12 @@ import {
 } from "recharts";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
-import { calculateAverageTicket, calculateGoalProgress, calculateGuestListStats } from "@/lib/event-metrics";
+import {
+  calculateAverageTicket,
+  calculateGoalProgress,
+  calculateGuestListStats,
+  calculateSalePriceMode
+} from "@/lib/event-metrics";
 import { PartyEventDetail, SalesRecord } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
@@ -233,9 +238,21 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
     ],
     [totals.confirmedRevenue, totals.pendingRevenue]
   );
+
   const averageTicket = useMemo(
     () => calculateAverageTicket(totals.grossSoldRevenue, totals.soldTickets),
     [totals.grossSoldRevenue, totals.soldTickets]
+  );
+
+  const salePriceMode = useMemo(
+    () =>
+      calculateSalePriceMode(
+        visibleSales.map((sale) => ({
+          quantity: sale.sold,
+          unitPrice: sale.unitPrice
+        }))
+      ),
+    [visibleSales]
   );
 
   const pendingTransfers = isSellerView
@@ -374,11 +391,21 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
             />
             <MetricTile
               title="Ticket medio"
-              value={totals.soldTickets > 0 ? formatCurrency(averageTicket) : "—"}
+              value={totals.soldTickets > 0 ? formatCurrency(averageTicket) : "-"}
               helper={
                 totals.soldTickets > 0
                   ? `${formatCurrency(totals.grossSoldRevenue)} divididos por ${totals.soldTickets} ingresso(s)`
                   : "A metrica aparece assim que a festa registrar as primeiras vendas"
+              }
+              icon={CircleDollarSign}
+            />
+            <MetricTile
+              title="Valor mais vendido"
+              value={salePriceMode.modeCount > 0 ? formatCurrency(salePriceMode.modePrice) : "-"}
+              helper={
+                salePriceMode.modeCount > 0
+                  ? `${salePriceMode.modeCount} ingresso(s) foram vendidos nesse valor`
+                  : "A moda aparece assim que a festa registrar as primeiras vendas"
               }
               icon={CircleDollarSign}
             />
@@ -419,7 +446,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
             />
           </div>
 
-            <div className={`grid gap-6 ${compact ? "lg:grid-cols-1" : "xl:grid-cols-[1.1fr_0.9fr]"}`}>
+          <div className={`grid gap-6 ${compact ? "lg:grid-cols-1" : "xl:grid-cols-[1.1fr_0.9fr]"}`}>
             <InsightChart
               title="Evolucao de vendas"
               description="Veja como a receita avanca ao longo do tempo e identifique dias com melhor resposta."

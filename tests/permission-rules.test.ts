@@ -9,6 +9,7 @@ test("host global mantem acesso total", () => {
   assert.equal(permissions.canManageEvent, true);
   assert.equal(permissions.canManageSales, true);
   assert.equal(permissions.canManageFinance, true);
+  assert.equal(permissions.canManageManualGuests, true);
   assert.equal(permissions.canManageOwnSalesOnly, false);
   assert.equal(permissions.sellerUserId, undefined);
 });
@@ -21,6 +22,7 @@ test("organizer gerencia a operacao da festa sem virar host global", () => {
   assert.equal(permissions.canManageTeam, true);
   assert.equal(permissions.canManageSales, true);
   assert.equal(permissions.canManageFinance, true);
+  assert.equal(permissions.canManageManualGuests, false);
   assert.equal(permissions.canViewActivityLog, false);
 });
 
@@ -31,6 +33,7 @@ test("seller fica restrito ao proprio escopo local", () => {
   assert.equal(permissions.canManageFinance, false);
   assert.equal(permissions.canManageTasks, false);
   assert.equal(permissions.canManageAnnouncements, false);
+  assert.equal(permissions.canManageManualGuests, false);
   assert.equal(permissions.canManageOwnSalesOnly, true);
   assert.equal(permissions.sellerUserId, "seller-user");
 });

@@ -36,6 +36,35 @@ export function calculateAverageTicket(totalTicketRevenue: number, totalTicketsS
   return totalTicketRevenue / totalTicketsSold;
 }
 
+export function calculateSalePriceMode(
+  sales: Array<Pick<MetricSale, "quantity" | "unitPrice">>
+) {
+  const occurrences = new Map<number, number>();
+
+  for (const sale of sales) {
+    if (!Number.isFinite(sale.unitPrice) || !Number.isFinite(sale.quantity) || sale.quantity <= 0) {
+      continue;
+    }
+
+    occurrences.set(sale.unitPrice, (occurrences.get(sale.unitPrice) ?? 0) + sale.quantity);
+  }
+
+  let modePrice = 0;
+  let modeCount = 0;
+
+  for (const [unitPrice, count] of occurrences.entries()) {
+    if (count > modeCount || (count === modeCount && count > 0 && unitPrice < modePrice)) {
+      modePrice = unitPrice;
+      modeCount = count;
+    }
+  }
+
+  return {
+    modePrice,
+    modeCount
+  };
+}
+
 export function calculateFinanceTotals({
   sales,
   expenses,
@@ -59,11 +88,14 @@ export function calculateFinanceTotals({
   const pendingValue = sales
     .filter((sale) => sale.paymentStatus === "pending")
     .reduce((sum, sale) => sum + getSaleAmount(sale), 0);
+  const { modePrice, modeCount } = calculateSalePriceMode(sales);
 
   return {
     grossSoldRevenue: ticketRevenue,
     ticketRevenue,
     averageTicket: calculateAverageTicket(ticketRevenue, totalTicketsSold),
+    modeTicketPrice: modePrice,
+    modeTicketPriceCount: modeCount,
     additionalRevenue,
     confirmedRevenue: paidValue,
     pendingRevenue: pendingValue,

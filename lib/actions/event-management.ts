@@ -153,6 +153,10 @@ function canManageFinance(profile: ProfileRow, membership: EventMembershipRow | 
   return canManageEvent(profile, membership);
 }
 
+function canManageManualGuests(profile: ProfileRow, membership: EventMembershipRow | null) {
+  return profile.role === "host" || membership?.role === "host";
+}
+
 function canAssignHostRole(profile: ProfileRow, membership: EventMembershipRow | null) {
   return profile.role === "host" || membership?.role === "host";
 }
@@ -251,6 +255,20 @@ async function getSaleAttendeeRowById(supabase: any, attendeeId: string) {
   }
 
   return attendee;
+}
+
+async function getManualGuestEntryRowById(supabase: any, entryId: string) {
+  const { data: entry, error } = await supabase
+    .from("manual_guest_entries")
+    .select("*")
+    .eq("id", entryId)
+    .single();
+
+  if (error || !entry) {
+    throw new Error("Nome manual nao encontrado.");
+  }
+
+  return entry;
 }
 
 function parseGuestNames(formData: FormData) {
@@ -826,6 +844,195 @@ export async function updateSaleAttendeeNameAction(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "Nao foi possivel atualizar o nome."
+    };
+  }
+}
+
+export async function createManualGuestEntryAction(
+  _prevState: SalesActionState,
+  formData: FormData
+): Promise<SalesActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "").trim();
+    const guestName = String(formData.get("guestName") ?? "").trim();
+    const notes = String(formData.get("notes") ?? "").trim();
+    const event = await getEventRowBySlug(eventSlug);
+    const membership = await getMembership(supabase, event.id, profile.id);
+
+    if (!canManageManualGuests(profile, membership)) {
+      return {
+        status: "error",
+        message: "Apenas host pode adicionar nomes manuais nesta festa."
+      };
+    }
+
+    if (!guestName) {
+      return {
+        status: "error",
+        message: "Informe o nome que deve entrar na lista."
+      };
+    }
+
+    const { data: entry, error } = await supabase
+      .from("manual_guest_entries")
+      .insert({
+        event_id: event.id,
+        guest_name: guestName,
+        notes: notes || null,
+        created_by: profile.id
+      })
+      .select("id")
+      .single();
+
+    if (error || !entry) {
+      throw new Error(error?.message ?? "Nao foi possivel adicionar o nome manual.");
+    }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: event.id,
+      action: "manual_guest_entry.created",
+      entityType: "manual_guest_entry",
+      entityId: entry.id,
+      message: `${profile.full_name} adicionou um nome manual a lista de entrada.`,
+      metadata: {
+        guestName
+      }
+    });
+
+    revalidatePath(`/festas/${eventSlug}`);
+    revalidatePath("/");
+    revalidatePath("/festas");
+
+    return {
+      status: "success",
+      message: "Nome manual adicionado com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel adicionar o nome manual."
+    };
+  }
+}
+
+export async function updateManualGuestEntryAction(
+  _prevState: SalesActionState,
+  formData: FormData
+): Promise<SalesActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "").trim();
+    const entryId = String(formData.get("entryId") ?? "").trim();
+    const guestName = String(formData.get("guestName") ?? "").trim();
+    const notes = String(formData.get("notes") ?? "").trim();
+    const entry = await getManualGuestEntryRowById(supabase, entryId);
+    const membership = await getMembership(supabase, entry.event_id, profile.id);
+
+    if (!canManageManualGuests(profile, membership)) {
+      return {
+        status: "error",
+        message: "Apenas host pode editar nomes manuais nesta festa."
+      };
+    }
+
+    if (!guestName) {
+      return {
+        status: "error",
+        message: "Informe o nome que deve permanecer na lista."
+      };
+    }
+
+    const { error } = await supabase
+      .from("manual_guest_entries")
+      .update({
+        guest_name: guestName,
+        notes: notes || null
+      })
+      .eq("id", entryId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: entry.event_id,
+      action: "manual_guest_entry.updated",
+      entityType: "manual_guest_entry",
+      entityId: entryId,
+      message: `${profile.full_name} atualizou um nome manual da lista de entrada.`,
+      metadata: {
+        previousGuestName: entry.guest_name,
+        nextGuestName: guestName
+      }
+    });
+
+    revalidatePath(`/festas/${eventSlug}`);
+    revalidatePath("/");
+    revalidatePath("/festas");
+
+    return {
+      status: "success",
+      message: "Nome manual atualizado com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel atualizar o nome manual."
+    };
+  }
+}
+
+export async function deleteManualGuestEntryAction(
+  _prevState: SalesActionState,
+  formData: FormData
+): Promise<SalesActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "").trim();
+    const entryId = String(formData.get("entryId") ?? "").trim();
+    const entry = await getManualGuestEntryRowById(supabase, entryId);
+    const membership = await getMembership(supabase, entry.event_id, profile.id);
+
+    if (!canManageManualGuests(profile, membership)) {
+      return {
+        status: "error",
+        message: "Apenas host pode remover nomes manuais nesta festa."
+      };
+    }
+
+    const { error } = await supabase.from("manual_guest_entries").delete().eq("id", entryId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: entry.event_id,
+      action: "manual_guest_entry.deleted",
+      entityType: "manual_guest_entry",
+      entityId: entryId,
+      message: `${profile.full_name} removeu um nome manual da lista de entrada.`,
+      metadata: {
+        guestName: entry.guest_name
+      }
+    });
+
+    revalidatePath(`/festas/${eventSlug}`);
+    revalidatePath("/");
+    revalidatePath("/festas");
+
+    return {
+      status: "success",
+      message: "Nome manual removido com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel remover o nome manual."
     };
   }
 }

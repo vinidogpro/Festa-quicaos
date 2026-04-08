@@ -144,10 +144,10 @@ export interface Database {
         };
         Relationships: [];
       };
-      sale_attendees: {
-        Row: {
-          id: string;
-          event_id: string;
+        sale_attendees: {
+          Row: {
+            id: string;
+            event_id: string;
           sale_id: string;
           seller_user_id: string;
           guest_name: string;
@@ -177,13 +177,46 @@ export interface Database {
           checked_in_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          };
+          Relationships: [];
         };
-        Relationships: [];
-      };
-      expenses: {
-        Row: {
-          id: string;
-          event_id: string;
+        manual_guest_entries: {
+          Row: {
+            id: string;
+            event_id: string;
+            guest_name: string;
+            notes: string | null;
+            source_type: string;
+            created_by: string;
+            created_at: string;
+            updated_at: string;
+          };
+          Insert: {
+            id?: string;
+            event_id: string;
+            guest_name: string;
+            notes?: string | null;
+            source_type?: string;
+            created_by: string;
+            created_at?: string;
+            updated_at?: string;
+          };
+          Update: {
+            id?: string;
+            event_id?: string;
+            guest_name?: string;
+            notes?: string | null;
+            source_type?: string;
+            created_by?: string;
+            created_at?: string;
+            updated_at?: string;
+          };
+          Relationships: [];
+        };
+        expenses: {
+          Row: {
+            id: string;
+            event_id: string;
           title: string;
           category: string;
           amount: number;

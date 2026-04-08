@@ -38,6 +38,7 @@ type ExpenseRow = Database["public"]["Tables"]["expenses"]["Row"];
 type AdditionalRevenueRow = Database["public"]["Tables"]["additional_revenues"]["Row"];
 type SaleRow = Database["public"]["Tables"]["sales"]["Row"];
 type SaleAttendeeRow = Database["public"]["Tables"]["sale_attendees"]["Row"];
+type ManualGuestEntryRow = Database["public"]["Tables"]["manual_guest_entries"]["Row"];
 type TaskRow = Database["public"]["Tables"]["tasks"]["Row"];
 type AnnouncementRow = Database["public"]["Tables"]["announcements"]["Row"];
 type ActivityLogRow = Database["public"]["Tables"]["activity_logs"]["Row"];
@@ -329,28 +330,31 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
       return undefined;
     }
 
-  const [
-    { data: memberships },
-    { data: sales },
-    { data: saleAttendees },
-    { data: expenses },
-    { data: additionalRevenues },
-    { data: tasks },
-    { data: announcements }
-  ] = await Promise.all([
-    supabase.from("event_memberships").select("*").eq("event_id", event.id).order("created_at", { ascending: true }),
-    supabase.from("sales").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
-    supabase.from("sale_attendees").select("*").eq("event_id", event.id).order("guest_name", { ascending: true }),
-    supabase.from("expenses").select("*").eq("event_id", event.id).order("incurred_at", { ascending: false }),
-    supabase.from("additional_revenues").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
-    supabase.from("tasks").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
-    supabase.from("announcements").select("*").eq("event_id", event.id).order("created_at", { ascending: false })
-  ]);
+    const [
+      { data: memberships },
+      { data: sales },
+      { data: saleAttendees },
+      { data: manualGuestEntries },
+      { data: expenses },
+      { data: additionalRevenues },
+      { data: tasks },
+      { data: announcements }
+    ] = await Promise.all([
+      supabase.from("event_memberships").select("*").eq("event_id", event.id).order("created_at", { ascending: true }),
+      supabase.from("sales").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
+      supabase.from("sale_attendees").select("*").eq("event_id", event.id).order("guest_name", { ascending: true }),
+      supabase.from("manual_guest_entries").select("*").eq("event_id", event.id).order("guest_name", { ascending: true }),
+      supabase.from("expenses").select("*").eq("event_id", event.id).order("incurred_at", { ascending: false }),
+      supabase.from("additional_revenues").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
+      supabase.from("tasks").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
+      supabase.from("announcements").select("*").eq("event_id", event.id).order("created_at", { ascending: false })
+    ]);
 
-  const membershipRows = (memberships ?? []) as EventMembershipRow[];
-  const salesRows = (sales ?? []) as SaleRow[];
-  const saleAttendeeRows = (saleAttendees ?? []) as SaleAttendeeRow[];
-  const expenseRows = (expenses ?? []) as ExpenseRow[];
+    const membershipRows = (memberships ?? []) as EventMembershipRow[];
+    const salesRows = (sales ?? []) as SaleRow[];
+    const saleAttendeeRows = (saleAttendees ?? []) as SaleAttendeeRow[];
+    const manualGuestEntryRows = (manualGuestEntries ?? []) as ManualGuestEntryRow[];
+    const expenseRows = (expenses ?? []) as ExpenseRow[];
   const additionalRevenueRows = (additionalRevenues ?? []) as AdditionalRevenueRow[];
   const taskRows = (tasks ?? []) as TaskRow[];
   const announcementRows = (announcements ?? []) as AnnouncementRow[];
@@ -447,7 +451,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
 
   const salesById = new Map(salesRows.map((sale) => [sale.id, sale]));
 
-  const guestListEntries: GuestListEntry[] = saleAttendeeRows
+  const saleGuestEntries: GuestListEntry[] = saleAttendeeRows
     .filter((entry) => !permissions.canManageOwnSalesOnly || entry.seller_user_id === context.viewer.id)
     .map((entry) => {
       const sale = salesById.get(entry.sale_id);
@@ -463,10 +467,24 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
         unitPrice: sale?.unit_price ?? 0,
         checkedInAt: entry.checked_in_at ?? undefined,
         createdAt: entry.created_at,
-        isOwnedByViewer: entry.seller_user_id === context.viewer.id
+        isOwnedByViewer: entry.seller_user_id === context.viewer.id,
+        sourceType: "sale"
       };
-    })
-    .sort((left, right) => left.guestName.localeCompare(right.guestName));
+    });
+
+  const manualGuestListEntries: GuestListEntry[] = manualGuestEntryRows.map((entry) => ({
+    id: entry.id,
+    sellerName: "Entrada manual",
+    guestName: entry.guest_name,
+    createdAt: entry.created_at,
+    isOwnedByViewer: false,
+    notes: entry.notes ?? undefined,
+    sourceType: "manual"
+  }));
+
+  const guestListEntries: GuestListEntry[] = [...saleGuestEntries, ...manualGuestListEntries].sort((left, right) =>
+    left.guestName.localeCompare(right.guestName)
+  );
 
   const transfersPending: TransferPending[] = sellerMemberships
     .map((membership) => {

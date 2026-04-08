@@ -7,6 +7,7 @@ export interface PermissionSnapshot {
   canManageEvent: boolean;
   canViewActivityLog: boolean;
   canManageTeam: boolean;
+  canManageManualGuests: boolean;
   canManageSales: boolean;
   canManageFinance: boolean;
   canManageTasks: boolean;
@@ -31,6 +32,7 @@ export function buildPermissionSnapshot(
     canManageEvent: isHost || isEventHost,
     canViewActivityLog: isHost || isEventHost,
     canManageTeam: isHost || isEventHost || isOrganizer,
+    canManageManualGuests: isHost || isEventHost,
     canManageSales: isHost || isEventHost || isOrganizer || isSeller,
     canManageFinance: isHost || isEventHost || isOrganizer,
     canManageTasks: isHost || isEventHost || isOrganizer,

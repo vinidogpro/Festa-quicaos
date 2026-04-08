@@ -5,6 +5,7 @@ import { Database } from "@/lib/supabase/database.types";
 type MembershipRow = Database["public"]["Tables"]["event_memberships"]["Row"];
 type SaleAttendeeRow = Database["public"]["Tables"]["sale_attendees"]["Row"];
 type SaleRow = Database["public"]["Tables"]["sales"]["Row"];
+type ManualGuestEntryRow = Database["public"]["Tables"]["manual_guest_entries"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
 function csvEscape(value: string | number) {
@@ -34,7 +35,8 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   const [
     { data: memberships, error: membershipsError },
     { data: attendees, error: attendeesError },
-    { data: sales, error: salesError }
+    { data: sales, error: salesError },
+    { data: manualEntries, error: manualEntriesError }
   ] = await Promise.all([
     supabase.from("event_memberships").select("user_id, role").eq("event_id", event.id),
     supabase
@@ -45,16 +47,22 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     supabase
       .from("sales")
       .select("id, unit_price, payment_status, created_at")
+      .eq("event_id", event.id),
+    supabase
+      .from("manual_guest_entries")
+      .select("id, guest_name, notes, created_at")
       .eq("event_id", event.id)
+      .order("guest_name", { ascending: true })
   ]);
 
-  if (membershipsError || attendeesError || salesError) {
+  if (membershipsError || attendeesError || salesError || manualEntriesError) {
     return NextResponse.json(
       {
         error:
           membershipsError?.message ||
           attendeesError?.message ||
           salesError?.message ||
+          manualEntriesError?.message ||
           "Nao foi possivel carregar a lista de entrada para exportacao."
       },
       { status: 500 }
@@ -64,6 +72,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   const membershipRows = (memberships ?? []) as MembershipRow[];
   const attendeeRows = (attendees ?? []) as SaleAttendeeRow[];
   const salesRows = (sales ?? []) as SaleRow[];
+  const manualGuestRows = (manualEntries ?? []) as ManualGuestEntryRow[];
   const viewerMembership = membershipRows.find((membership) => membership.user_id === user.id);
 
   if (!viewerMembership && profile.role !== "host") {
@@ -76,6 +85,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   const visibleAttendees = canViewFullList
     ? attendeeRows
     : attendeeRows.filter((entry) => entry.seller_user_id === user.id);
+  const visibleManualEntries = manualGuestRows;
 
   const profileIds = [...new Set(membershipRows.map((membership) => membership.user_id))];
   const { data: profiles, error: profilesError } = await supabase
@@ -106,7 +116,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   const rows = [
     ["Lista de entrada", event.name],
     [""],
-    ["Nome", "Vendedor", "Venda", "Valor por ingresso", "Pagamento", "Check-in"],
+    ["Nome", "Origem", "Venda", "Valor por ingresso", "Pagamento", "Check-in", "Observacao"],
     ...visibleAttendees.map((entry) => [
       entry.guest_name,
       profileMap.get(entry.seller_user_id)?.full_name ?? "Vendedor",
@@ -115,7 +125,17 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
         salesById.get(entry.sale_id)?.unit_price ?? 0
       ),
       salesById.get(entry.sale_id)?.payment_status === "paid" ? "Pago" : "Pendente",
-      entry.checked_in_at ? "Sim" : "Nao"
+      entry.checked_in_at ? "Sim" : "Nao",
+      ""
+    ]),
+    ...visibleManualEntries.map((entry) => [
+      entry.guest_name,
+      "Entrada manual",
+      "",
+      "",
+      "",
+      "",
+      entry.notes ?? ""
     ])
   ];
 

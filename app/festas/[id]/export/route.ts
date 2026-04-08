@@ -148,6 +148,8 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     [""],
     ["Resumo financeiro"],
     ["Total vendido", formatCurrency(financeTotals.grossSoldRevenue)],
+    ["Ticket medio", formatCurrency(financeTotals.averageTicket)],
+    ["Valor mais vendido", financeTotals.modeTicketPriceCount > 0 ? formatCurrency(financeTotals.modeTicketPrice) : "-"],
     ["Vendas extras", formatCurrency(financeTotals.additionalRevenue)],
     ["Receita confirmada", formatCurrency(financeTotals.confirmedRevenue)],
     ["Receita pendente", formatCurrency(financeTotals.pendingRevenue)],

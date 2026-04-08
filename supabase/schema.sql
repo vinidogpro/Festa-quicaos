@@ -60,6 +60,17 @@ create table if not exists public.sale_attendees (
   updated_at timestamptz not null default timezone('utc', now())
 );
 
+create table if not exists public.manual_guest_entries (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events (id) on delete cascade,
+  guest_name text not null,
+  notes text,
+  source_type text not null default 'manual' check (source_type = 'manual'),
+  created_by uuid not null references public.profiles (id) on delete restrict,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
 create table if not exists public.expenses (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events (id) on delete cascade,
@@ -127,6 +138,7 @@ alter table public.event_memberships add column if not exists updated_at timesta
 alter table public.event_memberships drop column if exists ticket_quota;
 alter table public.sales add column if not exists updated_at timestamptz not null default timezone('utc', now());
 alter table public.sale_attendees add column if not exists updated_at timestamptz not null default timezone('utc', now());
+alter table public.manual_guest_entries add column if not exists updated_at timestamptz not null default timezone('utc', now());
 alter table public.expenses add column if not exists updated_at timestamptz not null default timezone('utc', now());
 alter table public.additional_revenues add column if not exists updated_at timestamptz not null default timezone('utc', now());
 alter table public.tasks add column if not exists updated_at timestamptz not null default timezone('utc', now());
@@ -198,6 +210,11 @@ drop trigger if exists enforce_sales_quota on public.sales;
 drop trigger if exists set_sale_attendees_updated_at on public.sale_attendees;
 create trigger set_sale_attendees_updated_at
   before update on public.sale_attendees
+  for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_manual_guest_entries_updated_at on public.manual_guest_entries;
+create trigger set_manual_guest_entries_updated_at
+  before update on public.manual_guest_entries
   for each row execute procedure public.set_updated_at();
 
 drop trigger if exists set_expenses_updated_at on public.expenses;
@@ -310,6 +327,7 @@ alter table public.events enable row level security;
 alter table public.event_memberships enable row level security;
 alter table public.sales enable row level security;
 alter table public.sale_attendees enable row level security;
+alter table public.manual_guest_entries enable row level security;
 alter table public.expenses enable row level security;
 alter table public.additional_revenues enable row level security;
 alter table public.tasks enable row level security;
@@ -453,6 +471,17 @@ drop policy if exists "sale_attendees_delete_accessible" on public.sale_attendee
 create policy "sale_attendees_delete_accessible"
   on public.sale_attendees for delete
   using (public.can_manage_sale(event_id, seller_user_id));
+
+drop policy if exists "manual_guest_entries_select_accessible" on public.manual_guest_entries;
+create policy "manual_guest_entries_select_accessible"
+  on public.manual_guest_entries for select
+  using (public.can_access_event(event_id));
+
+drop policy if exists "manual_guest_entries_write_hosts_only" on public.manual_guest_entries;
+create policy "manual_guest_entries_write_hosts_only"
+  on public.manual_guest_entries for all
+  using (public.current_global_role() = 'host' or public.membership_role(event_id) = 'host')
+  with check (public.current_global_role() = 'host' or public.membership_role(event_id) = 'host');
 
 drop policy if exists "expenses_select_accessible" on public.expenses;
 create policy "expenses_select_accessible"

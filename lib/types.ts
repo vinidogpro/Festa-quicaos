@@ -18,6 +18,7 @@ export interface ViewerPermissions {
   canManageEvent: boolean;
   canViewActivityLog: boolean;
   canManageTeam: boolean;
+  canManageManualGuests: boolean;
   canManageSales: boolean;
   canManageFinance: boolean;
   canManageTasks: boolean;
@@ -109,16 +110,18 @@ export interface SalesRecord {
 
 export interface GuestListEntry {
   id: string;
-  saleId: string;
-  saleNumber: number;
-  sellerUserId: string;
+  saleId?: string;
+  saleNumber?: number;
+  sellerUserId?: string;
   sellerName: string;
   guestName: string;
-  paymentStatus: PaymentStatus;
-  unitPrice: number;
+  paymentStatus?: PaymentStatus;
+  unitPrice?: number;
   checkedInAt?: string;
   createdAt: string;
   isOwnedByViewer: boolean;
+  notes?: string;
+  sourceType: "sale" | "manual";
 }
 
 export interface Expense {
