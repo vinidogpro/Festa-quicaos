@@ -40,7 +40,7 @@ create table if not exists public.sales (
   seller_user_id uuid not null references public.profiles (id) on delete cascade,
   quantity integer not null default 1 check (quantity > 0),
   unit_price numeric(12,2) not null default 0,
-  payment_status text not null default 'pending' check (payment_status in ('paid', 'pending')),
+  payment_status text not null default 'paid' check (payment_status = 'paid'),
   sold_at date not null default current_date,
   notes text,
   created_by uuid not null references public.profiles (id) on delete restrict,
@@ -246,6 +246,10 @@ alter table public.sales drop constraint if exists sales_unit_price_positive;
 alter table public.sales add constraint sales_unit_price_positive check (unit_price > 0);
 alter table public.sales drop constraint if exists sales_quantity_positive;
 alter table public.sales add constraint sales_quantity_positive check (quantity > 0);
+update public.sales set payment_status = 'paid' where payment_status is distinct from 'paid';
+alter table public.sales alter column payment_status set default 'paid';
+alter table public.sales drop constraint if exists sales_payment_status_check;
+alter table public.sales add constraint sales_payment_status_check check (payment_status = 'paid');
 alter table public.expenses drop constraint if exists expenses_amount_positive;
 alter table public.expenses add constraint expenses_amount_positive check (amount > 0);
 alter table public.additional_revenues drop constraint if exists additional_revenues_amount_positive;

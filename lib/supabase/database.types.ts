@@ -109,7 +109,7 @@ export interface Database {
           seller_user_id: string;
           quantity: number;
           unit_price: number;
-          payment_status: "paid" | "pending";
+          payment_status: "paid";
           sold_at: string;
           notes: string | null;
           created_by: string;
@@ -122,7 +122,7 @@ export interface Database {
           seller_user_id: string;
           quantity?: number;
           unit_price?: number;
-          payment_status?: "paid" | "pending";
+          payment_status?: "paid";
           sold_at?: string;
           notes?: string | null;
           created_by: string;
@@ -135,7 +135,7 @@ export interface Database {
           seller_user_id?: string;
           quantity?: number;
           unit_price?: number;
-          payment_status?: "paid" | "pending";
+          payment_status?: "paid";
           sold_at?: string;
           notes?: string | null;
           created_by?: string;

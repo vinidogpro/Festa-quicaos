@@ -6,7 +6,7 @@ import { formatCurrency } from "@/lib/utils";
 function SummaryValue({ value, isCurrency }: { value: number; isCurrency?: boolean }) {
   if (isCurrency === false) {
     return (
-      <p className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.6rem,2.4vw,2.2rem)] font-bold tracking-tight text-slate-950">
+      <p className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.7rem,2.2vw,2.35rem)] font-bold tracking-tight text-slate-950">
         {value}
       </p>
     );
@@ -20,7 +20,7 @@ function SummaryValue({ value, isCurrency }: { value: number; isCurrency?: boole
       <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
         {currencyLabel}
       </span>
-      <span className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.45rem,2.2vw,2.05rem)] font-bold tracking-tight text-slate-950">
+      <span className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.6rem,2.15vw,2.2rem)] font-bold tracking-tight text-slate-950">
         {amountLabel ?? formatted}
       </span>
     </div>
@@ -52,8 +52,8 @@ export function DashboardOverview({ data }: { data: PartyEventDetail }) {
           action={<SummaryIcon label={item.label} />}
           className="min-w-0 overflow-hidden"
         >
-          <div className="flex min-h-[136px] min-w-0 flex-col justify-between overflow-hidden sm:min-h-[156px]">
-            <div className="min-w-0 pt-2 sm:pt-3">
+          <div className="flex min-h-[152px] min-w-0 flex-col justify-between overflow-hidden sm:min-h-[168px]">
+            <div className="min-w-0 pt-3 sm:pt-4">
               <SummaryValue value={item.value} isCurrency={item.isCurrency} />
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEventActivitySectionById, getEventTeamSectionById } from "@/lib/supabase/queries";
+import { getEventActivitySectionById, getEventGuestListSectionById, getEventTeamSectionById } from "@/lib/supabase/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,16 @@ export async function GET(
 
     if (section === "activity") {
       const payload = await getEventActivitySectionById(params.id);
+
+      if (!payload) {
+        return NextResponse.json({ message: "Festa ou sessao nao encontrada." }, { status: 404 });
+      }
+
+      return NextResponse.json(payload);
+    }
+
+    if (section === "guest-list") {
+      const payload = await getEventGuestListSectionById(params.id);
 
       if (!payload) {
         return NextResponse.json({ message: "Festa ou sessao nao encontrada." }, { status: 404 });

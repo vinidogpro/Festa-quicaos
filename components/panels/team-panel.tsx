@@ -99,7 +99,7 @@ function TeamMemberRow({
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Desempenho individual</p>
                   <p className="mt-1 text-sm text-slate-600">
-                    {member.ticketsSold} ingressos vendidos | {member.pendingTransferAmount > 0 ? "Repasse em aberto" : "Repasse em dia"}
+                    {member.ticketsSold} ingressos vendidos | vendas registradas no sistema
                   </p>
                 </div>
                 <div className="text-right">

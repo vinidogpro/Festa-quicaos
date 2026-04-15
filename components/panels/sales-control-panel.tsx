@@ -8,7 +8,6 @@ import { initialSalesActionState } from "@/lib/actions/action-state";
 import { createSaleAction, deleteSaleAction, updateSaleAction } from "@/lib/actions/event-management";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { SalesRecord, SellerOption, ViewerPermissions } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
@@ -132,7 +131,7 @@ function SaleQuickForm({
           </div>
 
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-            Preencha so o essencial. Ao salvar, a lista de vendas e o ranking do evento sao atualizados automaticamente.
+            Preencha so o essencial. Ao salvar, a venda entra automaticamente como paga e atualiza a lista e o ranking do evento.
           </p>
 
           <form ref={formRef} action={action} className="mt-5 grid gap-3">
@@ -158,7 +157,7 @@ function SaleQuickForm({
               </select>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-[0.9fr_1.1fr_0.9fr]">
+            <div className="grid gap-3 sm:grid-cols-[0.9fr_1.1fr]">
               <label className="grid gap-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Qtd.</span>
                 <input
@@ -191,17 +190,6 @@ function SaleQuickForm({
                 />
               </label>
 
-              <label className="grid gap-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Repasse</span>
-                <select
-                  name="paymentStatus"
-                  defaultValue="pending"
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-brand-500"
-                >
-                  <option value="pending">Pendente</option>
-                  <option value="paid">Pago</option>
-                </select>
-              </label>
             </div>
 
             <details className="rounded-2xl border border-slate-200 bg-white/80 p-4">
@@ -378,14 +366,6 @@ function SaleEditForm({
           defaultValue={row.soldAt}
           className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
         />
-        <select
-          name="paymentStatus"
-          defaultValue={row.paymentStatus}
-          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
-        >
-          <option value="pending">Pendente</option>
-          <option value="paid">Pago</option>
-        </select>
         <input
           name="notes"
           defaultValue={row.notes ?? ""}
@@ -417,7 +397,7 @@ export function SalesControlPanel({
   return (
     <SectionCard
       title="Controle de vendas"
-      description="Registre vendas com rapidez, acompanhe repasses e mantenha o comercial atualizado em tempo real."
+      description="Registre vendas com rapidez e mantenha o comercial atualizado em tempo real."
     >
       {permissions.canManageSales && !compact ? (
         <SaleQuickForm eventId={eventId} permissions={permissions} sellerOptions={sellerOptions} />
@@ -426,7 +406,7 @@ export function SalesControlPanel({
       {visibleSales.length === 0 ? (
         <EmptyState
           title="Sem vendas registradas"
-          description="As novas vendas cadastradas pela equipe aparecerao aqui com repasse, impacto no ranking e atualizacao automatica."
+          description="As novas vendas cadastradas pela equipe aparecerao aqui com impacto no ranking e atualizacao automatica."
           icon={Plus}
         />
       ) : (
@@ -452,9 +432,6 @@ export function SalesControlPanel({
                         <p className="mt-2 font-[var(--font-heading)] text-2xl font-bold text-slate-950">
                           {formatCurrency(row.amount)}
                         </p>
-                      </div>
-                      <div className="flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2">
-                        <StatusBadge status={row.paymentStatus} />
                       </div>
                     </div>
 

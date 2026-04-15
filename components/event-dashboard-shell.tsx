@@ -29,7 +29,7 @@ import { TeamPanel } from "@/components/panels/team-panel";
 import { PartyEventDetail } from "@/lib/types";
 
 const baseNavItems = [
-  { id: "overview", label: "Dashboard", icon: LayoutDashboard },
+  { id: "overview", label: "Resumo", icon: LayoutDashboard },
   { id: "ranking", label: "Ranking", icon: Crown },
   { id: "sales", label: "Vendas", icon: Ticket },
   { id: "guest-list", label: "Lista", icon: ClipboardList },
@@ -37,7 +37,7 @@ const baseNavItems = [
   { id: "finance", label: "Financeiro", icon: DollarSign },
   { id: "tasks", label: "Tarefas", icon: ListTodo },
   { id: "announcements", label: "Comunicados", icon: Bell },
-  { id: "insights", label: "Insights", icon: ChartSpline },
+  { id: "insights", label: "Desempenho", icon: ChartSpline },
   { id: "activity", label: "Atividades", icon: History }
 ] as const;
 
@@ -89,6 +89,11 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
   } | null>(null);
   const [activityStatus, setActivityStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [activityError, setActivityError] = useState("");
+  const [guestListSection, setGuestListSection] = useState<{
+    guestListEntries: PartyEventDetail["guestListEntries"];
+  } | null>(null);
+  const [guestListStatus, setGuestListStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
+  const [guestListError, setGuestListError] = useState("");
   const navItems = baseNavItems.filter((item) => {
     if (item.id === "team" && !event.permissions.canManageTeam) {
       return false;
@@ -148,7 +153,38 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
           setActivityStatus("error");
         });
     }
-  }, [activeTab, activityStatus, event.id, event.permissions.canManageTeam, event.permissions.canViewActivityLog, teamStatus]);
+
+    if (activeTab === "guest-list" && guestListStatus === "idle") {
+      setGuestListStatus("loading");
+      setGuestListError("");
+
+      fetch(`/api/events/${event.id}/sections?section=guest-list`, { cache: "no-store" })
+        .then(async (response) => {
+          const payload = await response.json();
+
+          if (!response.ok) {
+            throw new Error(payload.message ?? "Nao foi possivel carregar a lista desta festa.");
+          }
+
+          setGuestListSection({
+            guestListEntries: payload.guestListEntries ?? []
+          });
+          setGuestListStatus("loaded");
+        })
+        .catch((error) => {
+          setGuestListError(error instanceof Error ? error.message : "Nao foi possivel carregar a lista.");
+          setGuestListStatus("error");
+        });
+    }
+  }, [
+    activeTab,
+    activityStatus,
+    event.id,
+    event.permissions.canManageTeam,
+    event.permissions.canViewActivityLog,
+    guestListStatus,
+    teamStatus
+  ]);
 
   return (
     <main className="min-h-screen">
@@ -280,25 +316,37 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
               )
             )}
             {activeTab === "guest-list" && (
-              <GuestListPanel eventId={event.id} entries={event.guestListEntries} permissions={event.permissions} />
+              guestListStatus === "loading" ? (
+                <AsyncSectionState tone="loading" message="Carregando lista completa da festa..." />
+              ) : guestListStatus === "error" ? (
+                <AsyncSectionState
+                  tone="error"
+                  message={guestListError || "Nao foi possivel carregar a lista agora."}
+                  onRetry={() => {
+                    setGuestListSection(null);
+                    setGuestListStatus("idle");
+                  }}
+                />
+              ) : (
+                <GuestListPanel
+                  eventId={event.id}
+                  entries={guestListSection?.guestListEntries ?? event.guestListEntries}
+                  permissions={event.permissions}
+                />
+              )
             )}
             {activeTab === "finance" && (
-              <FinancePanel
-                eventId={event.id}
-                permissions={event.permissions}
-                ticketRevenue={event.ticketRevenue}
-                additionalRevenue={event.additionalRevenue}
-                confirmedRevenue={event.confirmedRevenue}
-                pendingRevenue={event.pendingRevenue}
-                totalRevenue={event.totalRevenue}
-                totalExpenses={event.totalExpenses}
-                estimatedProfit={event.estimatedProfit}
-                pendingPaymentsCount={event.pendingPaymentsCount}
-                confirmedPaymentsCount={event.confirmedPaymentsCount}
-                expenses={event.expenses}
-                additionalRevenues={event.additionalRevenues}
-                transfersPending={event.transfersPending}
-              />
+                <FinancePanel
+                  eventId={event.id}
+                  permissions={event.permissions}
+                  ticketRevenue={event.ticketRevenue}
+                  additionalRevenue={event.additionalRevenue}
+                  totalRevenue={event.totalRevenue}
+                  totalExpenses={event.totalExpenses}
+                  estimatedProfit={event.estimatedProfit}
+                  expenses={event.expenses}
+                  additionalRevenues={event.additionalRevenues}
+                />
             )}
             {activeTab === "tasks" && (
               <TasksPanel
@@ -350,16 +398,11 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                     permissions={event.permissions}
                     ticketRevenue={event.ticketRevenue}
                     additionalRevenue={event.additionalRevenue}
-                    confirmedRevenue={event.confirmedRevenue}
-                    pendingRevenue={event.pendingRevenue}
                     totalRevenue={event.totalRevenue}
                     totalExpenses={event.totalExpenses}
                     estimatedProfit={event.estimatedProfit}
-                    pendingPaymentsCount={event.pendingPaymentsCount}
-                    confirmedPaymentsCount={event.confirmedPaymentsCount}
                     expenses={event.expenses}
                     additionalRevenues={event.additionalRevenues}
-                    transfersPending={event.transfersPending}
                     compact
                   />
                   <TasksPanel
@@ -370,7 +413,7 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                     compact
                   />
                 </div>
-                <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
                   <AnnouncementPanel
                     eventId={event.id}
                     announcements={event.announcements}

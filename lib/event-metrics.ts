@@ -1,10 +1,7 @@
-export type MetricPaymentStatus = "paid" | "pending";
-
 export interface MetricSale {
   sellerUserId: string;
   quantity: number;
   unitPrice: number;
-  paymentStatus: MetricPaymentStatus;
   attendeeCount?: number;
 }
 
@@ -39,6 +36,30 @@ export function calculateAverageTicket(totalTicketRevenue: number, totalTicketsS
 export function calculateSalePriceMode(
   sales: Array<Pick<MetricSale, "quantity" | "unitPrice">>
 ) {
+  const occurrences = calculateSalePriceRanking(sales);
+
+  let modePrice = 0;
+  let modeCount = 0;
+
+  for (const entry of occurrences) {
+    if (
+      entry.ticketsSold > modeCount ||
+      (entry.ticketsSold === modeCount && entry.ticketsSold > 0 && entry.unitPrice < modePrice)
+    ) {
+      modePrice = entry.unitPrice;
+      modeCount = entry.ticketsSold;
+    }
+  }
+
+  return {
+    modePrice,
+    modeCount
+  };
+}
+
+export function calculateSalePriceRanking(
+  sales: Array<Pick<MetricSale, "quantity" | "unitPrice">>
+) {
   const occurrences = new Map<number, number>();
 
   for (const sale of sales) {
@@ -49,20 +70,15 @@ export function calculateSalePriceMode(
     occurrences.set(sale.unitPrice, (occurrences.get(sale.unitPrice) ?? 0) + sale.quantity);
   }
 
-  let modePrice = 0;
-  let modeCount = 0;
+  return Array.from(occurrences.entries())
+    .map(([unitPrice, ticketsSold]) => ({ unitPrice, ticketsSold }))
+    .sort((left, right) => {
+      if (right.ticketsSold !== left.ticketsSold) {
+        return right.ticketsSold - left.ticketsSold;
+      }
 
-  for (const [unitPrice, count] of occurrences.entries()) {
-    if (count > modeCount || (count === modeCount && count > 0 && unitPrice < modePrice)) {
-      modePrice = unitPrice;
-      modeCount = count;
-    }
-  }
-
-  return {
-    modePrice,
-    modeCount
-  };
+      return left.unitPrice - right.unitPrice;
+    });
 }
 
 export function calculateFinanceTotals({
@@ -70,7 +86,7 @@ export function calculateFinanceTotals({
   expenses,
   additionalRevenues
 }: {
-  sales: Array<Pick<MetricSale, "quantity" | "unitPrice" | "paymentStatus">>;
+  sales: Array<Pick<MetricSale, "quantity" | "unitPrice">>;
   expenses: Array<Pick<MetricExpense, "amount">>;
   additionalRevenues?: Array<Pick<MetricAdditionalRevenue, "amount">>;
 }) {
@@ -80,14 +96,6 @@ export function calculateFinanceTotals({
   const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const estimatedProfit = totalRevenue - totalExpenses;
   const totalTicketsSold = sales.reduce((sum, sale) => sum + sale.quantity, 0);
-  const pendingPaymentsCount = sales.filter((sale) => sale.paymentStatus === "pending").length;
-  const confirmedPaymentsCount = sales.filter((sale) => sale.paymentStatus === "paid").length;
-  const paidValue = sales
-    .filter((sale) => sale.paymentStatus === "paid")
-    .reduce((sum, sale) => sum + getSaleAmount(sale), 0);
-  const pendingValue = sales
-    .filter((sale) => sale.paymentStatus === "pending")
-    .reduce((sum, sale) => sum + getSaleAmount(sale), 0);
   const { modePrice, modeCount } = calculateSalePriceMode(sales);
 
   return {
@@ -97,50 +105,34 @@ export function calculateFinanceTotals({
     modeTicketPrice: modePrice,
     modeTicketPriceCount: modeCount,
     additionalRevenue,
-    confirmedRevenue: paidValue,
-    pendingRevenue: pendingValue,
     generalRevenue: totalRevenue,
     totalRevenue,
     totalExpenses,
     estimatedProfit,
-    totalTicketsSold,
-    pendingPaymentsCount,
-    confirmedPaymentsCount,
-    paidValue,
-    pendingValue
+    totalTicketsSold
   };
 }
 
 export function calculateSellerMetrics(
-  sales: Array<Pick<MetricSale, "sellerUserId" | "quantity" | "unitPrice" | "paymentStatus">>
+  sales: Array<Pick<MetricSale, "sellerUserId" | "quantity" | "unitPrice">>
 ) {
   const metrics = new Map<
     string,
     {
       ticketsSold: number;
       revenue: number;
-      pendingTransferAmount: number;
-      confirmedValue: number;
     }
   >();
 
   for (const sale of sales) {
     const current = metrics.get(sale.sellerUserId) ?? {
       ticketsSold: 0,
-      revenue: 0,
-      pendingTransferAmount: 0,
-      confirmedValue: 0
+      revenue: 0
     };
     const saleAmount = getSaleAmount(sale);
 
     current.ticketsSold += sale.quantity;
     current.revenue += saleAmount;
-
-    if (sale.paymentStatus === "pending") {
-      current.pendingTransferAmount += saleAmount;
-    } else {
-      current.confirmedValue += saleAmount;
-    }
 
     metrics.set(sale.sellerUserId, current);
   }

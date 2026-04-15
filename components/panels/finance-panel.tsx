@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
-import { CircleDollarSign, ClipboardList, Pencil, Plus, ReceiptText, Ticket, Trash2, Wallet } from "lucide-react";
+import { CircleDollarSign, Pencil, Plus, ReceiptText, Ticket, Trash2, Wallet } from "lucide-react";
 import { initialFinanceActionState } from "@/lib/actions/action-state";
 import {
   createAdditionalRevenueAction,
@@ -16,7 +16,7 @@ import {
 import { SubmitButton } from "@/components/forms/submit-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
-import { AdditionalRevenue, Expense, TransferPending, ViewerPermissions } from "@/lib/types";
+import { AdditionalRevenue, Expense, ViewerPermissions } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
 interface FinancePanelProps {
@@ -24,44 +24,59 @@ interface FinancePanelProps {
   permissions: ViewerPermissions;
   ticketRevenue: number;
   additionalRevenue: number;
-  confirmedRevenue: number;
-  pendingRevenue: number;
   totalRevenue: number;
   totalExpenses: number;
   estimatedProfit: number;
-  pendingPaymentsCount: number;
-  confirmedPaymentsCount: number;
   expenses: Expense[];
   additionalRevenues: AdditionalRevenue[];
-  transfersPending: TransferPending[];
   compact?: boolean;
 }
 
 function FinanceMetricCard({
   label,
   value,
+  isCurrency = false,
   icon,
   valueClassName,
   cardClassName
 }: {
   label: string;
   value: string | number;
+  isCurrency?: boolean;
   icon: React.ReactNode;
   valueClassName: string;
   cardClassName: string;
 }) {
+  const valueLabel = String(value);
+  const [currencyLabel, amountLabel] = isCurrency ? valueLabel.split(/\s(.+)/) : [null, null];
+
   return (
-    <div className={`min-w-0 rounded-[24px] p-4 sm:min-h-[176px] sm:p-5 ${cardClassName}`}>
+    <div className={`min-w-0 rounded-[24px] p-4 sm:min-h-[188px] sm:p-5 ${cardClassName}`}>
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm leading-5">{label}</p>
+        <p className="max-w-[13rem] text-sm leading-5">{label}</p>
         <div className="mt-0.5 shrink-0 opacity-80">{icon}</div>
       </div>
-      <p
-        className={`mt-6 whitespace-nowrap font-[var(--font-heading)] font-bold tracking-tight sm:mt-8 ${valueClassName}`}
-        title={String(value)}
-      >
-        {value}
-      </p>
+
+      <div className="mt-6 min-w-0 sm:mt-8">
+        {isCurrency ? (
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">{currencyLabel}</p>
+            <p
+              className={`mt-2 min-w-0 whitespace-nowrap font-[var(--font-heading)] font-bold tracking-tight ${valueClassName}`}
+              title={valueLabel}
+            >
+              {amountLabel ?? valueLabel}
+            </p>
+          </div>
+        ) : (
+          <p
+            className={`min-w-0 whitespace-nowrap font-[var(--font-heading)] font-bold tracking-tight ${valueClassName}`}
+            title={valueLabel}
+          >
+            {value}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -486,20 +501,13 @@ export function FinancePanel({
   permissions,
   ticketRevenue,
   additionalRevenue,
-  confirmedRevenue,
-  pendingRevenue,
   totalRevenue,
   totalExpenses,
   estimatedProfit,
-  pendingPaymentsCount,
-  confirmedPaymentsCount,
   expenses,
   additionalRevenues,
-  transfersPending,
   compact = false
 }: FinancePanelProps) {
-  const totalPendingTransfers = transfersPending.reduce((sum, person) => sum + person.amount, 0);
-
   return (
     <SectionCard
       title="Financeiro"
@@ -514,7 +522,6 @@ export function FinancePanel({
 
       {expenses.length === 0 &&
       additionalRevenues.length === 0 &&
-      transfersPending.length === 0 &&
       totalRevenue === 0 ? (
         <EmptyState
           title="Financeiro em preparacao"
@@ -525,116 +532,56 @@ export function FinancePanel({
         <div className="grid gap-6">
           <div
             className={`grid gap-4 ${
-              compact ? "sm:grid-cols-2" : "md:grid-cols-2 xl:grid-cols-3"
+              compact ? "2xl:grid-cols-2" : "md:grid-cols-2 2xl:grid-cols-3"
             }`}
           >
             <FinanceMetricCard
               label="Total vendido"
               value={formatCurrency(ticketRevenue)}
+              isCurrency
               icon={<Ticket className="h-5 w-5 text-white/60" />}
               cardClassName="bg-slate-950 text-white"
-              valueClassName="text-[clamp(1.6rem,2.4vw,2.2rem)] leading-none text-white"
+              valueClassName="text-[clamp(1.7rem,2.2vw,2.35rem)] leading-none text-white"
             />
 
             <FinanceMetricCard
               label="Vendas extras"
               value={formatCurrency(additionalRevenue)}
+              isCurrency
               icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
               cardClassName="border border-emerald-200 bg-emerald-50 text-emerald-800"
-              valueClassName="text-[clamp(1.6rem,2.4vw,2.2rem)] leading-none text-emerald-900"
+              valueClassName="text-[clamp(1.7rem,2.2vw,2.35rem)] leading-none text-emerald-900"
             />
 
             <FinanceMetricCard
               label="Total arrecadado"
               value={formatCurrency(totalRevenue)}
+              isCurrency
               icon={<CircleDollarSign className="h-5 w-5 text-white/60" />}
               cardClassName="bg-brand-700 text-white"
-              valueClassName="text-[clamp(1.7rem,2.5vw,2.35rem)] leading-none text-white"
-            />
-
-            <FinanceMetricCard
-              label="Receita confirmada"
-              value={formatCurrency(confirmedRevenue)}
-              icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
-              cardClassName="border border-emerald-200 bg-emerald-50 text-emerald-800"
-              valueClassName="text-[clamp(1.6rem,2.4vw,2.2rem)] leading-none text-emerald-900"
-            />
-
-            <FinanceMetricCard
-              label="Receita pendente"
-              value={formatCurrency(pendingRevenue)}
-              icon={<ClipboardList className="h-5 w-5 text-amber-600" />}
-              cardClassName="border border-amber-200 bg-amber-50 text-amber-800"
-              valueClassName="text-[clamp(1.6rem,2.4vw,2.2rem)] leading-none text-amber-900"
+              valueClassName="text-[clamp(1.75rem,2.25vw,2.5rem)] leading-none text-white"
             />
 
             <FinanceMetricCard
               label="Total de despesas"
               value={formatCurrency(totalExpenses)}
+              isCurrency
               icon={<ReceiptText className="h-5 w-5 text-slate-400" />}
               cardClassName="border border-slate-200 bg-white text-slate-500"
-              valueClassName="text-[clamp(1.6rem,2.4vw,2.2rem)] leading-none text-slate-950"
+              valueClassName="text-[clamp(1.7rem,2.2vw,2.35rem)] leading-none text-slate-950"
             />
 
             <FinanceMetricCard
               label="Lucro estimado"
               value={formatCurrency(estimatedProfit)}
+              isCurrency
               icon={<Wallet className="h-5 w-5 text-brand-600" />}
               cardClassName="bg-brand-50 text-slate-500"
-              valueClassName="text-[clamp(1.6rem,2.4vw,2.2rem)] leading-none text-slate-950"
-            />
-
-            <FinanceMetricCard
-              label="Pagamentos pendentes"
-              value={pendingPaymentsCount}
-              icon={<ClipboardList className="h-5 w-5 text-amber-600" />}
-              cardClassName="border border-amber-200 bg-amber-50 text-amber-800"
-              valueClassName="text-[clamp(1.7rem,2.4vw,2.15rem)] leading-none text-amber-900"
-            />
-
-            <FinanceMetricCard
-              label="Pagamentos confirmados"
-              value={confirmedPaymentsCount}
-              icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
-              cardClassName="border border-emerald-200 bg-emerald-50 text-emerald-800"
-              valueClassName="text-[clamp(1.7rem,2.4vw,2.15rem)] leading-none text-emerald-900"
+              valueClassName="text-[clamp(1.7rem,2.2vw,2.35rem)] leading-none text-slate-950"
             />
           </div>
 
           <div className={`grid gap-6 ${compact ? "" : "xl:grid-cols-[0.95fr_1.05fr]"}`}>
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-semibold text-slate-900">Repasses pendentes</h3>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {transfersPending.length} membros ainda precisam acertar valores com a festa.
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-white px-4 py-3 text-right">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Total pendente</p>
-                  <p className="mt-1 font-semibold text-amber-700">{formatCurrency(totalPendingTransfers)}</p>
-                </div>
-              </div>
-
-              {transfersPending.length === 0 ? (
-                <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
-                  Nenhum repasse pendente no momento.
-                </div>
-              ) : (
-                <div className="mt-4 space-y-3">
-                  {transfersPending.map((person) => (
-                    <div
-                      key={person.id}
-                      className="flex items-center justify-between rounded-2xl bg-white px-4 py-3"
-                    >
-                      <span className="font-medium text-slate-700">{person.name}</span>
-                      <span className="font-semibold text-amber-600">{formatCurrency(person.amount)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
             <div className="space-y-6">
               <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
                 <div className="flex items-center justify-between gap-3">
@@ -680,7 +627,9 @@ export function FinancePanel({
                   </div>
                 )}
               </div>
+            </div>
 
+            <div className="space-y-6">
               <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>

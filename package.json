@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --test --experimental-strip-types tests/event-metrics.test.ts tests/permission-rules.test.ts"
+    "test": "node --test --experimental-strip-types tests/event-metrics.test.ts tests/permission-rules.test.ts tests/guest-list-utils.test.ts"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.10.0",

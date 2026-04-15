@@ -52,7 +52,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     supabase.from("event_memberships").select("id, user_id, role").eq("event_id", event.id),
     supabase
       .from("sales")
-      .select("id, seller_user_id, quantity, unit_price, payment_status")
+      .select("id, seller_user_id, quantity, unit_price")
       .eq("event_id", event.id)
       .order("sold_at", { ascending: true }),
     supabase
@@ -109,14 +109,11 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   const financeTotals = calculateFinanceTotals({
     sales: visibleSales.map((sale) => ({
       quantity: sale.quantity,
-      unitPrice: sale.unit_price,
-      paymentStatus: sale.payment_status
+      unitPrice: sale.unit_price
     })),
     expenses: expenseRows.map((expense) => ({ amount: expense.amount })),
     additionalRevenues: additionalRevenueRows.map((revenue) => ({ amount: revenue.amount }))
   });
-  const pendingSales = visibleSales.filter((sale) => sale.payment_status === "pending");
-  const paidSales = visibleSales.filter((sale) => sale.payment_status === "paid");
   const percentGoal = calculateGoalProgress(financeTotals.generalRevenue, event.goal_value);
 
   const rankingSource = membershipRows.filter((membership) =>
@@ -132,10 +129,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
       return {
         name: profileMap.get(membership.user_id)?.full_name ?? "Vendedor",
         tickets,
-        revenue,
-        pending: sellerSales
-          .filter((sale) => sale.payment_status === "pending")
-          .reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0)
+        revenue
       };
     })
     .sort((left, right) => right.revenue - left.revenue);
@@ -151,24 +145,18 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     ["Ticket medio", formatCurrency(financeTotals.averageTicket)],
     ["Valor mais vendido", financeTotals.modeTicketPriceCount > 0 ? formatCurrency(financeTotals.modeTicketPrice) : "-"],
     ["Vendas extras", formatCurrency(financeTotals.additionalRevenue)],
-    ["Receita confirmada", formatCurrency(financeTotals.confirmedRevenue)],
-    ["Receita pendente", formatCurrency(financeTotals.pendingRevenue)],
     ["Total arrecadado", formatCurrency(financeTotals.generalRevenue)],
     ["Total de despesas", formatCurrency(financeTotals.totalExpenses)],
     ["Lucro estimado", formatCurrency(financeTotals.estimatedProfit)],
     ["Meta de vendas", formatCurrency(event.goal_value)],
     ["Meta atingida", `${percentGoal}%`],
     ["Ingressos vendidos", financeTotals.totalTicketsSold],
-    ["Valores pagos", formatCurrency(financeTotals.confirmedRevenue)],
-    ["Valores pendentes", formatCurrency(financeTotals.pendingRevenue)],
-    ["Pagamentos confirmados", paidSales.length],
-    ["Pagamentos pendentes", pendingSales.length],
     [""],
     ["Ranking de vendedores"]
   ];
 
   rankingRows.forEach((row, index) => {
-    csvRows.push([index + 1, row.name, row.tickets, formatCurrency(row.revenue), formatCurrency(row.pending)]);
+    csvRows.push([index + 1, row.name, row.tickets, formatCurrency(row.revenue)]);
   });
 
   if (additionalRevenueRows.length > 0) {

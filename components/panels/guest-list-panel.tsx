@@ -8,7 +8,6 @@ import { ExportGuestListButton } from "@/components/export-summary-button";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { initialSalesActionState } from "@/lib/actions/action-state";
 import {
   createManualGuestEntryAction,
@@ -20,6 +19,49 @@ import { GuestListEntry, ViewerPermissions } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
 type SortOption = "name" | "seller" | "sale-asc" | "recent";
+
+function getEntryTimestamp(entry: GuestListEntry) {
+  const timestamp = Date.parse(entry.createdAt);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function compareGuestListEntries(left: GuestListEntry, right: GuestListEntry, sortBy: SortOption) {
+  if (sortBy === "seller") {
+    return (
+      left.sellerName.localeCompare(right.sellerName, "pt-BR") ||
+      left.guestName.localeCompare(right.guestName, "pt-BR") ||
+      getEntryTimestamp(right) - getEntryTimestamp(left)
+    );
+  }
+
+  if (sortBy === "sale-asc") {
+    const leftSaleWeight = left.saleNumber ?? Number.MAX_SAFE_INTEGER;
+    const rightSaleWeight = right.saleNumber ?? Number.MAX_SAFE_INTEGER;
+
+    return (
+      leftSaleWeight - rightSaleWeight ||
+      getEntryTimestamp(left) - getEntryTimestamp(right) ||
+      left.guestName.localeCompare(right.guestName, "pt-BR")
+    );
+  }
+
+  if (sortBy === "recent") {
+    if (left.sourceType !== right.sourceType) {
+      return left.sourceType === "manual" ? -1 : 1;
+    }
+
+    return (
+      (right.saleNumber ?? 0) - (left.saleNumber ?? 0) ||
+      getEntryTimestamp(right) - getEntryTimestamp(left) ||
+      left.guestName.localeCompare(right.guestName, "pt-BR")
+    );
+  }
+
+  return (
+    left.guestName.localeCompare(right.guestName, "pt-BR") ||
+    left.sellerName.localeCompare(right.sellerName, "pt-BR")
+  );
+}
 
 function ActionFeedback({
   status,
@@ -319,22 +361,7 @@ export function GuestListPanel({
           );
         });
 
-    nextEntries.sort((left, right) => {
-      if (sortBy === "seller") {
-        return left.sellerName.localeCompare(right.sellerName) || left.guestName.localeCompare(right.guestName);
-      }
-
-      if (sortBy === "sale-asc") {
-        return (left.saleNumber ?? Number.MAX_SAFE_INTEGER) - (right.saleNumber ?? Number.MAX_SAFE_INTEGER) ||
-          left.guestName.localeCompare(right.guestName);
-      }
-
-      if (sortBy === "recent") {
-        return right.createdAt.localeCompare(left.createdAt);
-      }
-
-      return left.guestName.localeCompare(right.guestName);
-    });
+    nextEntries.sort((left, right) => compareGuestListEntries(left, right, sortBy));
 
     return nextEntries;
   }, [entries, search, sortBy]);
@@ -361,10 +388,10 @@ export function GuestListPanel({
           onChange={(event) => setSortBy(event.target.value as SortOption)}
           className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
         >
-          <option value="name">Ordenar por nome</option>
-          <option value="seller">Ordenar por origem</option>
+          <option value="name">Ordem alfabetica</option>
+          <option value="seller">Ordenar por vendedor</option>
           <option value="sale-asc">Ordenar por venda crescente</option>
-          <option value="recent">Ordenar por mais recentes</option>
+          <option value="recent">Vendas recentes</option>
         </select>
         <div className="min-h-11 rounded-2xl bg-white px-4 py-3 text-sm text-slate-500">
           {filteredEntries.length} nome(s)
@@ -410,8 +437,6 @@ export function GuestListPanel({
                         <>
                           <span className="text-slate-300">&bull;</span>
                           <span>{formatCurrency(entry.unitPrice ?? 0)}</span>
-                          <span className="text-slate-300">&bull;</span>
-                          <StatusBadge status={entry.paymentStatus ?? "pending"} />
                         </>
                       ) : null}
                     </div>

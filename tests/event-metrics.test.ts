@@ -6,14 +6,15 @@ import {
   calculateGoalProgress,
   calculateGuestListStats,
   calculateSalePriceMode,
+  calculateSalePriceRanking,
   calculateSellerMetrics
 } from "../lib/event-metrics.ts";
 
 test("calculateFinanceTotals inclui ingressos, extras, despesas e pagamentos", () => {
   const totals = calculateFinanceTotals({
     sales: [
-      { quantity: 2, unitPrice: 50, paymentStatus: "paid" },
-      { quantity: 1, unitPrice: 80, paymentStatus: "pending" }
+      { quantity: 2, unitPrice: 50 },
+      { quantity: 1, unitPrice: 80 }
     ],
     expenses: [{ amount: 60 }],
     additionalRevenues: [{ amount: 40 }]
@@ -26,38 +27,28 @@ test("calculateFinanceTotals inclui ingressos, extras, despesas e pagamentos", (
     modeTicketPrice: 50,
     modeTicketPriceCount: 2,
     additionalRevenue: 40,
-    confirmedRevenue: 100,
-    pendingRevenue: 80,
     generalRevenue: 220,
     totalRevenue: 220,
     totalExpenses: 60,
     estimatedProfit: 160,
-    totalTicketsSold: 3,
-    pendingPaymentsCount: 1,
-    confirmedPaymentsCount: 1,
-    paidValue: 100,
-    pendingValue: 80
+    totalTicketsSold: 3
   });
 });
 
-test("calculateSellerMetrics agrega faturamento e repasse por vendedor", () => {
+test("calculateSellerMetrics agrega faturamento por vendedor", () => {
   const metrics = calculateSellerMetrics([
-    { sellerUserId: "seller-1", quantity: 2, unitPrice: 50, paymentStatus: "paid" },
-    { sellerUserId: "seller-1", quantity: 1, unitPrice: 70, paymentStatus: "pending" },
-    { sellerUserId: "seller-2", quantity: 3, unitPrice: 40, paymentStatus: "pending" }
+    { sellerUserId: "seller-1", quantity: 2, unitPrice: 50 },
+    { sellerUserId: "seller-1", quantity: 1, unitPrice: 70 },
+    { sellerUserId: "seller-2", quantity: 3, unitPrice: 40 }
   ]);
 
   assert.deepEqual(metrics.get("seller-1"), {
     ticketsSold: 3,
-    revenue: 170,
-    pendingTransferAmount: 70,
-    confirmedValue: 100
+    revenue: 170
   });
   assert.deepEqual(metrics.get("seller-2"), {
     ticketsSold: 3,
-    revenue: 120,
-    pendingTransferAmount: 120,
-    confirmedValue: 0
+    revenue: 120
   });
 });
 
@@ -104,4 +95,20 @@ test("calculateSalePriceMode considera o peso da quantidade vendida", () => {
     modePrice: 0,
     modeCount: 0
   });
+});
+
+test("calculateSalePriceRanking ordena os precos do mais vendido para o menos vendido", () => {
+  assert.deepEqual(
+    calculateSalePriceRanking([
+      { quantity: 5, unitPrice: 40 },
+      { quantity: 1, unitPrice: 50 },
+      { quantity: 2, unitPrice: 45 },
+      { quantity: 2, unitPrice: 50 }
+    ]),
+    [
+      { unitPrice: 40, ticketsSold: 5 },
+      { unitPrice: 50, ticketsSold: 3 },
+      { unitPrice: 45, ticketsSold: 2 }
+    ]
+  );
 });

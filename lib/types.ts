@@ -1,7 +1,6 @@
 export type UserRole = "host" | "organizer" | "seller";
 export type EventRole = "host" | "organizer" | "seller";
 export type EventStatus = "current" | "upcoming" | "past";
-export type PaymentStatus = "paid" | "pending";
 export type TaskStatus = "pending" | "in-progress" | "done";
 
 export interface ViewerProfile {
@@ -48,7 +47,6 @@ export interface TeamMember {
   isActive: boolean;
   ticketsSold: number;
   revenue: number;
-  pendingTransferAmount: number;
   isCurrentUser: boolean;
 }
 
@@ -63,7 +61,6 @@ export interface SellerRanking {
   name: string;
   ticketsSold: number;
   revenue: number;
-  pendingTransferAmount: number;
 }
 
 export interface EventHealthSnapshot {
@@ -97,7 +94,6 @@ export interface SalesRecord {
   sellerUserId: string;
   seller: string;
   sold: number;
-  paymentStatus: PaymentStatus;
   unitPrice: number;
   soldAt: string;
   notes?: string;
@@ -115,7 +111,6 @@ export interface GuestListEntry {
   sellerUserId?: string;
   sellerName: string;
   guestName: string;
-  paymentStatus?: PaymentStatus;
   unitPrice?: number;
   checkedInAt?: string;
   createdAt: string;
@@ -140,12 +135,6 @@ export interface AdditionalRevenue {
   category?: string;
   date: string;
   createdAt: string;
-}
-
-export interface TransferPending {
-  id: string;
-  name: string;
-  amount: number;
 }
 
 export interface TaskItem {
@@ -202,17 +191,12 @@ export interface PartyEventDetail extends EventSummary {
   activeSellers: number;
   ticketRevenue: number;
   additionalRevenue: number;
-  confirmedRevenue: number;
-  pendingRevenue: number;
   totalExpenses: number;
-  pendingPaymentsCount: number;
-  confirmedPaymentsCount: number;
   summary: SummaryMetric[];
   ranking: SellerRanking[];
   salesControl: SalesRecord[];
   expenses: Expense[];
   additionalRevenues: AdditionalRevenue[];
-  transfersPending: TransferPending[];
   tasks: TaskItem[];
   announcements: Announcement[];
   activityLogs: ActivityLogItem[];

@@ -84,13 +84,7 @@ export function RankingPanel({
                 </p>
               </div>
               <div className="grid gap-2 sm:text-right">
-                {seller.pendingTransferAmount > 0 ? (
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">
-                    Repasse pendente: {formatCurrency(seller.pendingTransferAmount)}
-                  </p>
-                ) : (
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Repasse em dia</p>
-                )}
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Venda registrada</p>
               </div>
             </div>
           </div>

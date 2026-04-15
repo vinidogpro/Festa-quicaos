@@ -501,7 +501,6 @@ export async function createSaleAction(
 
     const quantity = Number(formData.get("quantity") ?? 0);
     const unitPrice = Number(formData.get("unitPrice") ?? 0);
-    const paymentStatus = String(formData.get("paymentStatus") ?? "pending") as Database["public"]["Tables"]["sales"]["Row"]["payment_status"];
     const soldAt = String(formData.get("soldAt") ?? new Date().toISOString().slice(0, 10));
     const notes = String(formData.get("notes") ?? "").trim();
     const guestNames = parseGuestNames(formData);
@@ -536,7 +535,7 @@ export async function createSaleAction(
         seller_user_id: sellerUserId,
         quantity,
         unit_price: unitPrice,
-        payment_status: paymentStatus,
+        payment_status: "paid",
         sold_at: soldAt,
         notes: notes || null,
         created_by: profile.id
@@ -567,7 +566,6 @@ export async function createSaleAction(
         sellerUserId,
         quantity,
         unitPrice,
-        paymentStatus,
         attendeeCount: guestNames.length
       }
     });
@@ -621,7 +619,6 @@ export async function updateSaleAction(
 
     const quantity = Number(formData.get("quantity") ?? sale.quantity);
     const unitPrice = Number(formData.get("unitPrice") ?? sale.unit_price);
-    const paymentStatus = String(formData.get("paymentStatus") ?? sale.payment_status) as Database["public"]["Tables"]["sales"]["Row"]["payment_status"];
     const soldAt = String(formData.get("soldAt") ?? sale.sold_at);
     const notes = String(formData.get("notes") ?? sale.notes ?? "").trim();
     const requestedSellerUserId = String(formData.get("sellerId") ?? sale.seller_user_id).trim();
@@ -664,7 +661,7 @@ export async function updateSaleAction(
         seller_user_id: sellerUserId,
         quantity,
         unit_price: unitPrice,
-        payment_status: paymentStatus,
+        payment_status: "paid",
         sold_at: soldAt,
         notes: notes || null
       })
@@ -693,7 +690,6 @@ export async function updateSaleAction(
         sellerUserId,
         quantity,
         unitPrice,
-        paymentStatus,
         attendeeCount: guestNames.length
       }
     });
@@ -1597,6 +1593,12 @@ export async function deleteEventAction(
       };
     }
 
+    const { error } = await supabase.from("events").delete().eq("id", event.id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
     await logActivity(supabase, {
       actorUserId: profile.id,
       eventId: event.id,
@@ -1609,12 +1611,6 @@ export async function deleteEventAction(
         eventSlug: event.slug
       }
     });
-
-    const { error } = await supabase.from("events").delete().eq("id", event.id);
-
-    if (error) {
-      throw new Error(error.message);
-    }
 
     revalidatePath("/");
     revalidatePath("/festas");

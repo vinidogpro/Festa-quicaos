@@ -1,16 +1,14 @@
-import { PaymentStatus, TaskStatus } from "@/lib/types";
+import { TaskStatus } from "@/lib/types";
 
-type Status = PaymentStatus | TaskStatus;
+type Status = TaskStatus;
 
 const styles: Record<Status, string> = {
-  paid: "border-emerald-100 bg-emerald-50 text-emerald-700",
   pending: "border-amber-100 bg-amber-50 text-amber-700",
   "in-progress": "border-sky-100 bg-sky-50 text-sky-700",
   done: "border-emerald-100 bg-emerald-50 text-emerald-700"
 };
 
 const labels: Record<Status, string> = {
-  paid: "Pago",
   pending: "Pendente",
   "in-progress": "Em andamento",
   done: "Concluido"

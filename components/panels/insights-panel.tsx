@@ -7,9 +7,9 @@ import {
   BadgePercent,
   CheckCircle2,
   CircleDollarSign,
-  Clock3,
   Medal,
-  TrendingUp
+  TrendingUp,
+  Wallet
 } from "lucide-react";
 import {
   Bar,
@@ -18,8 +18,6 @@ import {
   Cell,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -29,9 +27,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
 import {
   calculateAverageTicket,
-  calculateGoalProgress,
   calculateGuestListStats,
-  calculateSalePriceMode
+  calculateSalePriceMode,
+  calculateSalePriceRanking
 } from "@/lib/event-metrics";
 import { PartyEventDetail, SalesRecord } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
@@ -72,10 +70,14 @@ function sumTickets(sales: SalesRecord[]) {
   return sales.reduce((total, sale) => total + sale.sold, 0);
 }
 
-function sumValues(sales: SalesRecord[], status: "paid" | "pending") {
-  return sales
-    .filter((sale) => sale.paymentStatus === status)
-    .reduce((total, sale) => total + sale.amount, 0);
+function splitCurrencyValue(value: string) {
+  const [currencyPrefix, amount] = value.split(/\s(.+)/);
+
+  if (!amount) {
+    return { currencyPrefix: undefined, amount: value };
+  }
+
+  return { currencyPrefix, amount };
 }
 
 function rankHighlight(index: number) {
@@ -88,12 +90,14 @@ function rankHighlight(index: number) {
 function MetricTile({
   title,
   value,
+  currencyPrefix,
   helper,
   tone = "default",
   icon: Icon
 }: {
   title: string;
   value: string;
+  currencyPrefix?: string;
   helper: string;
   tone?: "default" | "positive" | "warning";
   icon: React.ComponentType<{ className?: string }>;
@@ -106,14 +110,23 @@ function MetricTile({
         : "bg-brand-50 text-brand-700";
 
   return (
-    <div className="min-w-0 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-6">
+    <div className="min-w-0 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm sm:min-h-[208px] sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{title}</p>
-          <div className="mt-3 min-h-[64px] sm:mt-4 sm:min-h-[72px]">
-            <p className="whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.45rem,5vw,2.45rem)] font-bold tracking-tight text-slate-950">
-              {value}
-            </p>
+          <p className="max-w-[13rem] text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{title}</p>
+          <div className="mt-3 min-h-[84px] sm:mt-4 sm:min-h-[96px]">
+            {currencyPrefix ? (
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{currencyPrefix}</p>
+                <p className="mt-2 whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.55rem,4vw,2.45rem)] font-bold tracking-tight text-slate-950">
+                  {value}
+                </p>
+              </div>
+            ) : (
+              <p className="whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.55rem,4vw,2.45rem)] font-bold tracking-tight text-slate-950">
+                {value}
+              </p>
+            )}
           </div>
         </div>
         <div className={`shrink-0 rounded-2xl p-2.5 ${toneStyles}`}>
@@ -144,106 +157,24 @@ function InsightChart({
 }
 
 export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
-  const isSellerView = false;
-
-  const visibleSales = useMemo(
-    () =>
-      isSellerView
-        ? event.salesControl.filter((sale) => sale.sellerUserId === event.permissions.sellerUserId)
-        : event.salesControl,
-    [event.permissions.sellerUserId, event.salesControl, isSellerView]
-  );
-
-  const visibleRanking = useMemo(
-    () =>
-      isSellerView
-        ? event.ranking.filter((seller) => seller.sellerUserId === event.permissions.sellerUserId)
-        : event.ranking,
-    [event.permissions.sellerUserId, event.ranking, isSellerView]
-  );
-
+  const visibleSales = event.salesControl;
   const timeline = useMemo(() => groupSalesByDate(visibleSales), [visibleSales]);
-  const topPerformer = visibleRanking[0];
-
-  const totals = useMemo(() => {
-    const guestListStats = calculateGuestListStats(
-      visibleSales.map((sale) => ({
-        quantity: sale.sold,
-        attendeeCount: sale.attendeeCount
-      }))
-    );
-    const soldTickets = sumTickets(visibleSales);
-
-    if (!isSellerView) {
-      return {
-        grossSoldRevenue: event.ticketRevenue,
-        additionalRevenue: event.additionalRevenue,
-        confirmedRevenue: event.confirmedRevenue,
-        pendingRevenue: event.pendingRevenue,
-        generalRevenue: event.totalRevenue,
-        soldTickets: event.totalTicketsSold,
-        guestListStats,
-        goalReference: event.goalValue,
-        metaProgress: event.progress,
-        pendingPaymentsCount: event.pendingPaymentsCount
-      };
-    }
-
-    const grossSoldRevenue = visibleSales.reduce((total, sale) => total + sale.amount, 0);
-    const confirmedRevenue = sumValues(visibleSales, "paid");
-    const pendingRevenue = sumValues(visibleSales, "pending");
-    const generalRevenue = grossSoldRevenue;
-
-    return {
-      grossSoldRevenue,
-      additionalRevenue: 0,
-      confirmedRevenue,
-      pendingRevenue,
-      generalRevenue,
-      soldTickets,
-      guestListStats,
-      goalReference: event.goalValue,
-      metaProgress: calculateGoalProgress(generalRevenue, event.goalValue),
-      pendingPaymentsCount: visibleSales.filter((sale) => sale.paymentStatus === "pending").length
-    };
-  }, [
-    event.additionalRevenue,
-    event.confirmedRevenue,
-    event.goalValue,
-    event.pendingPaymentsCount,
-    event.pendingRevenue,
-    event.progress,
-    event.ticketRevenue,
-    event.totalRevenue,
-    event.totalTicketsSold,
-    isSellerView,
-    visibleSales
-  ]);
-
-  const sellerChartData = useMemo(() => {
-    if (isSellerView) {
-      return visibleRanking.map((seller) => ({
-        seller: seller.name.split(" ")[0] ?? seller.name,
-        amount: seller.revenue
-      }));
-    }
-
-    return event.sellerContribution.slice(0, compact ? 4 : 6);
-  }, [compact, event.sellerContribution, isSellerView, visibleRanking]);
-
-  const paymentChartData = useMemo(
-    () => [
-      { name: "Pago", value: totals.confirmedRevenue, color: "#16a34a" },
-      { name: "Pendente", value: totals.pendingRevenue, color: "#f59e0b" }
-    ],
-    [totals.confirmedRevenue, totals.pendingRevenue]
+  const topPerformer = event.ranking[0];
+  const soldTickets = useMemo(() => sumTickets(visibleSales), [visibleSales]);
+  const guestListStats = useMemo(
+    () =>
+      calculateGuestListStats(
+        visibleSales.map((sale) => ({
+          quantity: sale.sold,
+          attendeeCount: sale.attendeeCount
+        }))
+      ),
+    [visibleSales]
   );
-
   const averageTicket = useMemo(
-    () => calculateAverageTicket(totals.grossSoldRevenue, totals.soldTickets),
-    [totals.grossSoldRevenue, totals.soldTickets]
+    () => calculateAverageTicket(event.ticketRevenue, soldTickets),
+    [event.ticketRevenue, soldTickets]
   );
-
   const salePriceMode = useMemo(
     () =>
       calculateSalePriceMode(
@@ -254,10 +185,27 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
       ),
     [visibleSales]
   );
-
-  const pendingTransfers = isSellerView
-    ? event.transfersPending.filter((item) => item.id === event.permissions.sellerUserId)
-    : event.transfersPending;
+  const salePriceRanking = useMemo(
+    () =>
+      calculateSalePriceRanking(
+        visibleSales.map((sale) => ({
+          quantity: sale.sold,
+          unitPrice: sale.unitPrice
+        }))
+      ).slice(0, 5),
+    [visibleSales]
+  );
+  const sellerChartData = useMemo(
+    () => event.sellerContribution.slice(0, compact ? 4 : 6),
+    [compact, event.sellerContribution]
+  );
+  const totalRevenueDisplay = splitCurrencyValue(formatCurrency(event.totalRevenue));
+  const additionalRevenueDisplay = splitCurrencyValue(formatCurrency(event.additionalRevenue));
+  const expensesDisplay = splitCurrencyValue(formatCurrency(event.totalExpenses));
+  const profitDisplay = splitCurrencyValue(formatCurrency(event.estimatedProfit));
+  const averageTicketDisplay = soldTickets > 0 ? splitCurrencyValue(formatCurrency(averageTicket)) : null;
+  const salePriceModeDisplay =
+    salePriceMode.modeCount > 0 ? splitCurrencyValue(formatCurrency(salePriceMode.modePrice)) : null;
   const healthToneStyles =
     event.health.tone === "positive"
       ? "border-emerald-200 bg-emerald-50 text-emerald-800"
@@ -267,17 +215,13 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
 
   return (
     <SectionCard
-      title="Insights do evento"
-      description={
-        isSellerView
-          ? "Acompanhe sua performance, sua contribuicao para a meta e os repasses do seu proprio fluxo."
-          : "Entenda o ritmo comercial da festa, acompanhe repasses e tome decisoes com base no desempenho da equipe."
-      }
+      title="Desempenho do evento"
+      description="Entenda o ritmo comercial da festa e tome decisoes com base no desempenho real da operacao."
     >
       {visibleSales.length === 0 ? (
         <EmptyState
-          title="Insights ainda sem movimento"
-          description="Assim que as vendas comecarem, a aba vai mostrar evolucao de receita, ranking, repasses e avancos sobre a meta."
+          title="Desempenho ainda sem movimento"
+          description="Assim que as vendas comecarem, esta aba vai mostrar evolucao de receita, ranking e avancos sobre a meta."
           icon={BarChart3}
         />
       ) : (
@@ -357,51 +301,42 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
             </div>
           ) : null}
 
-          <div className={`grid gap-4 ${compact ? "xl:grid-cols-2" : "md:grid-cols-2 xl:grid-cols-3"}`}>
+          <div className={`grid gap-4 ${compact ? "2xl:grid-cols-2" : "lg:grid-cols-2 2xl:grid-cols-3"}`}>
             <MetricTile
-              title={isSellerView ? "Sua arrecadacao" : "Total arrecadado"}
-              value={formatCurrency(totals.generalRevenue)}
-              helper={
-                isSellerView
-                  ? `${totals.soldTickets} ingressos vendidos no seu nome`
-                  : `${formatCurrency(totals.grossSoldRevenue)} em total vendido + ${formatCurrency(totals.additionalRevenue)} em vendas extras`
-              }
+              title="Total arrecadado"
+              value={totalRevenueDisplay.amount}
+              currencyPrefix={totalRevenueDisplay.currencyPrefix}
+              helper={`${formatCurrency(event.ticketRevenue)} em ingressos + ${formatCurrency(event.additionalRevenue)} em vendas extras`}
               icon={CircleDollarSign}
             />
             <MetricTile
-              title={isSellerView ? "Sua meta individual" : "Meta atingida"}
-              value={`${totals.metaProgress}%`}
-              helper={
-                isSellerView
-                  ? `${formatCurrency(totals.generalRevenue)} do seu faturamento atual`
-                  : `${formatCurrency(totals.generalRevenue)} de ${formatCurrency(event.goalValue)} esperados`
-              }
+              title="Meta atingida"
+              value={`${event.progress}%`}
+              helper={`${formatCurrency(event.totalRevenue)} de ${formatCurrency(event.goalValue)} esperados`}
               icon={BadgePercent}
               tone="positive"
             />
             <MetricTile
               title="Ingressos vendidos"
-              value={`${totals.soldTickets}`}
-              helper={
-                isSellerView
-                  ? "Volume de ingressos vendidos por voce ate agora"
-                  : "Total de ingressos vendidos pela equipe nesta festa"
-              }
+              value={`${soldTickets}`}
+              helper="Total de ingressos vendidos pela equipe nesta festa"
               icon={TrendingUp}
             />
             <MetricTile
               title="Ticket medio"
-              value={totals.soldTickets > 0 ? formatCurrency(averageTicket) : "-"}
+              value={averageTicketDisplay?.amount ?? "-"}
+              currencyPrefix={averageTicketDisplay?.currencyPrefix}
               helper={
-                totals.soldTickets > 0
-                  ? `${formatCurrency(totals.grossSoldRevenue)} divididos por ${totals.soldTickets} ingresso(s)`
+                soldTickets > 0
+                  ? `${formatCurrency(event.ticketRevenue)} divididos por ${soldTickets} ingresso(s)`
                   : "A metrica aparece assim que a festa registrar as primeiras vendas"
               }
               icon={CircleDollarSign}
             />
             <MetricTile
               title="Valor mais vendido"
-              value={salePriceMode.modeCount > 0 ? formatCurrency(salePriceMode.modePrice) : "-"}
+              value={salePriceModeDisplay?.amount ?? "-"}
+              currencyPrefix={salePriceModeDisplay?.currencyPrefix}
               helper={
                 salePriceMode.modeCount > 0
                   ? `${salePriceMode.modeCount} ingresso(s) foram vendidos nesse valor`
@@ -410,39 +345,37 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
               icon={CircleDollarSign}
             />
             <MetricTile
-              title={isSellerView ? "Repasse pendente" : "Receita confirmada"}
-              value={formatCurrency(isSellerView ? totals.pendingRevenue : totals.confirmedRevenue)}
-              helper={
-                isSellerView
-                  ? totals.pendingRevenue > 0
-                    ? "Valor que ainda precisa ser acertado por voce"
-                    : "Nenhum repasse pendente no momento"
-                  : `${formatCurrency(totals.confirmedRevenue)} das vendas ja foram marcadas como pagas`
-              }
-              icon={isSellerView ? Clock3 : CheckCircle2}
-              tone={isSellerView ? (totals.pendingRevenue > 0 ? "warning" : "default") : "positive"}
+              title="Vendas extras"
+              value={additionalRevenueDisplay.amount}
+              currencyPrefix={additionalRevenueDisplay.currencyPrefix}
+              helper="Entradas adicionais como bar, copos e outras arrecadacoes"
+              icon={CircleDollarSign}
             />
             <MetricTile
-              title={isSellerView ? "Sua meta de nomes" : "Receita pendente"}
-              value={formatCurrency(totals.pendingRevenue)}
-              helper={
-                isSellerView
-                  ? `${totals.guestListStats.missingNames} nome(s) ainda precisam ser preenchidos`
-                  : `${totals.pendingPaymentsCount} pagamento(s) aguardando confirmacao`
-              }
-              icon={Clock3}
-              tone={totals.pendingRevenue > 0 ? "warning" : "default"}
+              title="Total de despesas"
+              value={expensesDisplay.amount}
+              currencyPrefix={expensesDisplay.currencyPrefix}
+              helper="Saidas cadastradas para calcular o resultado real da festa"
+              icon={Wallet}
             />
             <MetricTile
-              title={isSellerView ? "Nomes cadastrados" : "Lista de entrada"}
-              value={`${totals.guestListStats.totalRegisteredNames}/${totals.guestListStats.totalExpectedNames}`}
+              title="Lucro estimado"
+              value={profitDisplay.amount}
+              currencyPrefix={profitDisplay.currencyPrefix}
+              helper="Total arrecadado menos despesas registradas"
+              icon={Wallet}
+              tone="positive"
+            />
+            <MetricTile
+              title="Lista de entrada"
+              value={`${guestListStats.totalRegisteredNames}/${guestListStats.totalExpectedNames}`}
               helper={
-                totals.guestListStats.missingNames > 0
-                  ? `${totals.guestListStats.missingNames} nome(s) ainda faltam`
+                guestListStats.missingNames > 0
+                  ? `${guestListStats.missingNames} nome(s) ainda faltam`
                   : "Todos os nomes esperados ja foram preenchidos"
               }
               icon={CheckCircle2}
-              tone={totals.guestListStats.missingNames > 0 ? "warning" : "positive"}
+              tone={guestListStats.missingNames > 0 ? "warning" : "positive"}
             />
           </div>
 
@@ -479,12 +412,8 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
             </InsightChart>
 
             <InsightChart
-              title={isSellerView ? "Seu resultado" : "Comparacao entre vendedores"}
-              description={
-                isSellerView
-                  ? "Consolidado do seu faturamento dentro do evento atual."
-                  : "Compare rapidamente quem esta puxando a arrecadacao do evento."
-              }
+              title="Comparacao entre vendedores"
+              description="Compare rapidamente quem esta puxando a arrecadacao do evento."
             >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={sellerChartData}>
@@ -518,22 +447,18 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
               <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-slate-900">
-                      {isSellerView ? "Seu posicionamento" : "Ranking de vendedores"}
-                    </p>
+                    <p className="font-semibold text-slate-900">Ranking de vendedores</p>
                     <p className="mt-1 text-sm leading-6 text-slate-500">
-                      {isSellerView
-                        ? "Seu desempenho dentro da festa e sua contribuicao total."
-                        : "Top vendedores ordenados por arrecadacao total e repasse pendente."}
+                      Top vendedores ordenados por arrecadacao total e volume de ingressos vendidos.
                     </p>
                   </div>
                   <div className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm">
-                    {visibleRanking.length} ativos
+                    {event.ranking.length} ativos
                   </div>
                 </div>
 
                 <div className="mt-5 space-y-3">
-                  {visibleRanking.map((seller, index) => (
+                  {event.ranking.map((seller, index) => (
                     <div key={seller.id} className={`rounded-[22px] border p-4 ${rankHighlight(index)}`}>
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
@@ -549,98 +474,56 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                         </div>
                         {index < 3 ? <Medal className="h-5 w-5 shrink-0 text-amber-500" /> : null}
                       </div>
-                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Total vendido</p>
-                          <p className="mt-1 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
-                            {formatCurrency(seller.revenue)}
-                          </p>
-                          {seller.pendingTransferAmount > 0 ? (
-                            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-                              Repasse pendente: {formatCurrency(seller.pendingTransferAmount)}
-                            </p>
-                          ) : (
-                            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                              Repasse em dia
-                            </p>
-                          )}
-                        </div>
+                      <div className="mt-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Total vendido</p>
+                        <p className="mt-1 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
+                          {formatCurrency(seller.revenue)}
+                        </p>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <InsightChart
-                  title="Pagamentos confirmados x pendentes"
-                  description="Distribuicao por valor para entender o quanto ja foi repassado e o que ainda esta em aberto."
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={paymentChartData}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={72}
-                        outerRadius={108}
-                        paddingAngle={4}
-                      >
-                        {paymentChartData.map((entry) => (
-                          <Cell key={entry.name} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value: number) => formatCurrency(value)}
-                        contentStyle={{ borderRadius: 18, borderColor: "#e2e8f0" }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </InsightChart>
-
-                <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-900">Repasses pendentes</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-500">
-                        {isSellerView
-                          ? "Valor que ainda depende do seu acerto financeiro."
-                          : "Quem ainda precisa repassar valores para fechar o caixa."}
-                      </p>
-                    </div>
-                    {topPerformer ? (
-                      <div className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm">
-                        Destaque: {topPerformer.name.split(" ")[0]}
-                      </div>
-                    ) : null}
+              <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-900">Ranking de precos</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      Valores de ingresso mais vendidos, ponderados pela quantidade total de ingressos em cada preco.
+                    </p>
                   </div>
+                  <div className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm">
+                    Top 5
+                  </div>
+                </div>
 
-                  <div className="mt-5 space-y-3">
-                    {pendingTransfers.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 px-4 py-5 text-sm text-emerald-700">
-                        Nenhum repasse pendente no momento.
-                      </div>
-                    ) : (
-                      pendingTransfers.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate font-semibold text-slate-900">{item.name}</p>
-                            <p className="mt-1 text-sm text-slate-500">
-                              {isSellerView ? "Seu valor pendente" : "Aguardando acerto"}
-                            </p>
-                          </div>
-                          <p className="shrink-0 font-[var(--font-heading)] text-xl font-bold tracking-tight text-slate-950">
-                            {formatCurrency(item.amount)}
+                <div className="mt-5 space-y-3">
+                  {salePriceRanking.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
+                      O ranking aparece assim que a festa registrar vendas com preco definido.
+                    </div>
+                  ) : (
+                    salePriceRanking.map((entry, index) => (
+                      <div
+                        key={`${entry.unitPrice}-${index}`}
+                        className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">#{index + 1}</p>
+                          <p className="mt-2 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
+                            {formatCurrency(entry.unitPrice)}
                           </p>
                         </div>
-                      ))
-                    )}
-                  </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {entry.ticketsSold} ingresso{entry.ticketsSold === 1 ? "" : "s"}
+                          </p>
+                          <p className="mt-1 text-sm text-slate-500">vendidos nesse valor</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

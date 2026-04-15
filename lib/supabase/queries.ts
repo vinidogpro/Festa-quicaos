@@ -6,6 +6,7 @@ import {
   calculateSellerMetrics
 } from "@/lib/event-metrics";
 import { buildPermissions } from "@/lib/permissions";
+import { buildGuestListEntries, buildSaleSequenceMap } from "@/lib/guest-list-utils";
 import { Database } from "@/lib/supabase/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/utils";
@@ -26,7 +27,6 @@ import {
   SellerRanking,
   TaskItem,
   TeamMember,
-  TransferPending,
   UserDirectoryOption,
   ViewerPermissions,
   ViewerProfile
@@ -188,8 +188,7 @@ function buildSummaryFromRows({
   const financeTotals = calculateFinanceTotals({
     sales: sales.map((sale) => ({
       quantity: sale.quantity,
-      unitPrice: sale.unit_price,
-      paymentStatus: sale.payment_status
+      unitPrice: sale.unit_price
     })),
     expenses: expenses.map((expense) => ({ amount: expense.amount })),
     additionalRevenues: additionalRevenues.map((revenue) => ({ amount: revenue.amount }))
@@ -281,27 +280,23 @@ export async function getEvents(): Promise<EventSummary[]> {
 }
 
 function buildHealthSnapshot({
-  progress,
-  pendingPaymentsCount,
-  pendingTransfersCount
+  progress
 }: {
   progress: number;
-  pendingPaymentsCount: number;
-  pendingTransfersCount: number;
 }): EventHealthSnapshot {
-  if (progress >= 80 && pendingPaymentsCount <= 2 && pendingTransfersCount <= 1) {
+  if (progress >= 80) {
     return {
       label: "Bem encaminhada",
       tone: "positive",
-      summary: "A festa esta avancando bem e as pendencias atuais estao sob controle."
+      summary: "A festa esta avancando bem e os principais indicadores estao sob controle."
     };
   }
 
-  if (progress >= 45 && pendingPaymentsCount <= 5) {
+  if (progress >= 45) {
     return {
       label: "Atencao",
       tone: "warning",
-      summary: "A meta segue viva, mas o time precisa acelerar vendas e reduzir pendencias."
+      summary: "A meta segue viva, mas o time precisa acelerar as vendas para ganhar margem."
     };
   }
 
@@ -334,61 +329,85 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
       { data: memberships },
       { data: sales },
       { data: saleAttendees },
-      { data: manualGuestEntries },
       { data: expenses },
       { data: additionalRevenues },
       { data: tasks },
       { data: announcements }
     ] = await Promise.all([
-      supabase.from("event_memberships").select("*").eq("event_id", event.id).order("created_at", { ascending: true }),
-      supabase.from("sales").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
-      supabase.from("sale_attendees").select("*").eq("event_id", event.id).order("guest_name", { ascending: true }),
-      supabase.from("manual_guest_entries").select("*").eq("event_id", event.id).order("guest_name", { ascending: true }),
-      supabase.from("expenses").select("*").eq("event_id", event.id).order("incurred_at", { ascending: false }),
-      supabase.from("additional_revenues").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
-      supabase.from("tasks").select("*").eq("event_id", event.id).order("created_at", { ascending: false }),
-      supabase.from("announcements").select("*").eq("event_id", event.id).order("created_at", { ascending: false })
+      supabase
+        .from("event_memberships")
+        .select("id, event_id, user_id, role, is_active, created_at")
+        .eq("event_id", event.id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("sales")
+        .select("id, event_id, seller_user_id, quantity, unit_price, sold_at, notes, created_at")
+        .eq("event_id", event.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("sale_attendees")
+        .select("id, event_id, sale_id, seller_user_id, guest_name, checked_in_at, created_at")
+        .eq("event_id", event.id)
+        .order("guest_name", { ascending: true }),
+      supabase
+        .from("expenses")
+        .select("id, event_id, title, category, amount, incurred_at, notes")
+        .eq("event_id", event.id)
+        .order("incurred_at", { ascending: false }),
+      supabase
+        .from("additional_revenues")
+        .select("id, event_id, title, amount, category, date, created_at")
+        .eq("event_id", event.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("tasks")
+        .select("id, event_id, title, owner_profile_id, status, due_at, created_at")
+        .eq("event_id", event.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("announcements")
+        .select("id, event_id, title, body, pinned, created_by, created_at")
+        .eq("event_id", event.id)
+        .order("created_at", { ascending: false })
     ]);
 
     const membershipRows = (memberships ?? []) as EventMembershipRow[];
     const salesRows = (sales ?? []) as SaleRow[];
     const saleAttendeeRows = (saleAttendees ?? []) as SaleAttendeeRow[];
-    const manualGuestEntryRows = (manualGuestEntries ?? []) as ManualGuestEntryRow[];
     const expenseRows = (expenses ?? []) as ExpenseRow[];
-  const additionalRevenueRows = (additionalRevenues ?? []) as AdditionalRevenueRow[];
-  const taskRows = (tasks ?? []) as TaskRow[];
-  const announcementRows = (announcements ?? []) as AnnouncementRow[];
-  const profileIds = [
-    ...new Set([
-      ...membershipRows.map((membership) => membership.user_id),
-      ...taskRows.flatMap((task) => (task.owner_profile_id ? [task.owner_profile_id] : []))
-    ])
-  ];
-  const profilesMap = await getProfilesMap(profileIds);
+    const additionalRevenueRows = (additionalRevenues ?? []) as AdditionalRevenueRow[];
+    const taskRows = (tasks ?? []) as TaskRow[];
+    const announcementRows = (announcements ?? []) as AnnouncementRow[];
+    const profileIds = [
+      ...new Set([
+        ...membershipRows.map((membership) => membership.user_id),
+        ...taskRows.flatMap((task) => (task.owner_profile_id ? [task.owner_profile_id] : []))
+      ])
+    ];
+    const profilesMap = await getProfilesMap(profileIds);
 
-  const viewerMembership = membershipRows.find((membership) => membership.user_id === context.viewer.id);
-  const eventRole = viewerMembership?.role;
-  const permissions = buildPermissions(context.viewer.role, eventRole, context.viewer.id);
+    const viewerMembership = membershipRows.find((membership) => membership.user_id === context.viewer.id);
+    const eventRole = viewerMembership?.role;
+    const permissions = buildPermissions(context.viewer.role, eventRole, context.viewer.id);
 
-  const availableUsers: UserDirectoryOption[] = [];
-  const activityItems: ActivityLogItem[] = [];
+    const availableUsers: UserDirectoryOption[] = [];
+    const activityItems: ActivityLogItem[] = [];
 
-  const summary = buildSummaryFromRows({
-    event,
-    sales: salesRows,
-    expenses: expenseRows,
-    additionalRevenues: additionalRevenueRows,
-    memberships: membershipRows,
-    profilesMap
-  });
+    const summary = buildSummaryFromRows({
+      event,
+      sales: salesRows,
+      expenses: expenseRows,
+      additionalRevenues: additionalRevenueRows,
+      memberships: membershipRows,
+      profilesMap
+    });
 
   const sellerMemberships = membershipRows.filter((membership) => membership.role === "seller");
   const sellerMetrics = calculateSellerMetrics(
     salesRows.map((sale) => ({
       sellerUserId: sale.seller_user_id,
       quantity: sale.quantity,
-      unitPrice: sale.unit_price,
-      paymentStatus: sale.payment_status
+      unitPrice: sale.unit_price
     }))
   );
   const ranking: SellerRanking[] = sellerMemberships
@@ -396,7 +415,6 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
       const sellerStat = sellerMetrics.get(membership.user_id);
       const ticketsSold = sellerStat?.ticketsSold ?? 0;
       const revenue = sellerStat?.revenue ?? 0;
-      const pendingTransferAmount = sellerStat?.pendingTransferAmount ?? 0;
       const profile = profilesMap.get(membership.user_id);
 
       return {
@@ -404,25 +422,12 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
         sellerUserId: membership.user_id,
         name: profile?.full_name ?? "Vendedor",
         ticketsSold,
-        revenue,
-        pendingTransferAmount
+        revenue
       };
     })
     .sort((left, right) => right.revenue - left.revenue);
 
-  const saleSequenceMap = new Map(
-    [...salesRows]
-      .sort((left, right) => {
-        const createdDiff = new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
-
-        if (createdDiff !== 0) {
-          return createdDiff;
-        }
-
-        return left.id.localeCompare(right.id);
-      })
-      .map((sale, index) => [sale.id, index + 1] as const)
-  );
+  const saleSequenceMap = buildSaleSequenceMap(salesRows);
 
   const salesControl: SalesRecord[] = salesRows.map((sale) => {
     const profile = profilesMap.get(sale.seller_user_id);
@@ -437,7 +442,6 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
       sellerUserId: sale.seller_user_id,
       seller: profile?.full_name ?? "Vendedor",
       sold: sale.quantity,
-      paymentStatus: sale.payment_status,
       unitPrice: sale.unit_price,
       soldAt: sale.sold_at,
       notes: sale.notes ?? undefined,
@@ -449,60 +453,10 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     };
   });
 
-  const salesById = new Map(salesRows.map((sale) => [sale.id, sale]));
-
-  const saleGuestEntries: GuestListEntry[] = saleAttendeeRows
-    .filter((entry) => !permissions.canManageOwnSalesOnly || entry.seller_user_id === context.viewer.id)
-    .map((entry) => {
-      const sale = salesById.get(entry.sale_id);
-
-      return {
-        id: entry.id,
-        saleId: entry.sale_id,
-        saleNumber: saleSequenceMap.get(entry.sale_id) ?? 0,
-        sellerUserId: entry.seller_user_id,
-        sellerName: profilesMap.get(entry.seller_user_id)?.full_name ?? "Vendedor",
-        guestName: entry.guest_name,
-        paymentStatus: sale?.payment_status ?? "pending",
-        unitPrice: sale?.unit_price ?? 0,
-        checkedInAt: entry.checked_in_at ?? undefined,
-        createdAt: entry.created_at,
-        isOwnedByViewer: entry.seller_user_id === context.viewer.id,
-        sourceType: "sale"
-      };
-    });
-
-  const manualGuestListEntries: GuestListEntry[] = manualGuestEntryRows.map((entry) => ({
-    id: entry.id,
-    sellerName: "Entrada manual",
-    guestName: entry.guest_name,
-    createdAt: entry.created_at,
-    isOwnedByViewer: false,
-    notes: entry.notes ?? undefined,
-    sourceType: "manual"
-  }));
-
-  const guestListEntries: GuestListEntry[] = [...saleGuestEntries, ...manualGuestListEntries].sort((left, right) =>
-    left.guestName.localeCompare(right.guestName)
-  );
-
-  const transfersPending: TransferPending[] = sellerMemberships
-    .map((membership) => {
-      const sellerStat = sellerMetrics.get(membership.user_id);
-
-      return {
-        id: membership.user_id,
-        name: profilesMap.get(membership.user_id)?.full_name ?? "Vendedor",
-        amount: sellerStat?.pendingTransferAmount ?? 0
-      };
-    })
-    .filter((item) => item.amount > 0);
-
   const financeTotals = calculateFinanceTotals({
     sales: salesRows.map((sale) => ({
       quantity: sale.quantity,
-      unitPrice: sale.unit_price,
-      paymentStatus: sale.payment_status
+      unitPrice: sale.unit_price
     })),
     expenses: expenseRows.map((expense) => ({ amount: expense.amount })),
     additionalRevenues: additionalRevenueRows.map((revenue) => ({ amount: revenue.amount }))
@@ -511,11 +465,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     grossSoldRevenue,
     ticketRevenue,
     additionalRevenue,
-    confirmedRevenue,
-    pendingRevenue,
-    totalExpenses,
-    pendingPaymentsCount,
-    confirmedPaymentsCount
+    totalExpenses
   } = financeTotals;
 
   const expenseItems: Expense[] = expenseRows.map((expense) => ({
@@ -611,9 +561,6 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     revenue: salesRows
       .filter((sale) => sale.seller_user_id === membership.user_id)
       .reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0),
-    pendingTransferAmount: salesRows
-      .filter((sale) => sale.seller_user_id === membership.user_id && sale.payment_status === "pending")
-      .reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0),
     isCurrentUser: membership.user_id === context.viewer.id
   }));
 
@@ -635,16 +582,6 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     });
   }
 
-  if (transfersPending.length > 0) {
-    const biggestPending = [...transfersPending].sort((a, b) => b.amount - a.amount)[0];
-    attentionItems.push({
-      id: "pending-transfers",
-      title: "Repasses ainda em aberto",
-      description: `${transfersPending.length} vendedor(es) ainda nao repassaram. Maior pendencia atual: ${biggestPending.name} com ${formatCurrency(biggestPending.amount)}.`,
-      tone: biggestPending.amount > Math.max(summary.goalValue * 0.1, 500) ? "critical" : "warning"
-    });
-  }
-
   if (guestListStats.missingNames > 0) {
     attentionItems.push({
       id: "guest-list-missing",
@@ -655,9 +592,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
   }
 
   const health = buildHealthSnapshot({
-    progress: summary.progress,
-    pendingPaymentsCount,
-    pendingTransfersCount: transfersPending.length
+    progress: summary.progress
   });
 
   return {
@@ -670,17 +605,12 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     activeSellers: sellerMemberships.filter((membership) => membership.is_active).length,
     ticketRevenue,
     additionalRevenue,
-    confirmedRevenue,
-    pendingRevenue,
     totalExpenses,
-    pendingPaymentsCount,
-    confirmedPaymentsCount,
     summary: [
       {
         label: "Total arrecadado",
         value: summary.totalRevenue,
-        helper:
-          `${formatCurrency(grossSoldRevenue)} em total vendido | ${formatCurrency(additionalRevenue)} em vendas extras | ${formatCurrency(confirmedRevenue)} confirmado | ${formatCurrency(pendingRevenue)} pendente`,
+        helper: `${formatCurrency(grossSoldRevenue)} em total vendido | ${formatCurrency(additionalRevenue)} em vendas extras`,
         isCurrency: true
       },
       {
@@ -707,11 +637,10 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     salesControl,
     expenses: expenseItems,
     additionalRevenues: additionalRevenueItems,
-    transfersPending,
     tasks: taskItems,
     announcements: announcementItems,
     activityLogs: activityItems,
-    guestListEntries,
+    guestListEntries: [],
     salesSeries,
     sellerContribution,
     sellerOptions,
@@ -721,6 +650,103 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
   };
   } catch (error) {
     logServerIssue("getEventById", error, { slug: id });
+    throw error;
+  }
+}
+
+export async function getEventGuestListSectionById(id: string): Promise<
+  | {
+      permissions: ViewerPermissions;
+      guestListEntries: GuestListEntry[];
+    }
+  | undefined
+> {
+  try {
+    const context = await getViewerContext();
+
+    if (!context) {
+      return undefined;
+    }
+
+    const supabase = createSupabaseServerClient() as any;
+    const { data: event, error } = await supabase.from("events").select("id").eq("slug", id).single();
+
+    if (error || !event) {
+      if (error) {
+        logServerIssue("getEventGuestListSectionById.event", error, { slug: id });
+      }
+      return undefined;
+    }
+
+    const [{ data: memberships }, { data: sales }] = await Promise.all([
+      supabase
+        .from("event_memberships")
+        .select("user_id, role")
+        .eq("event_id", event.id),
+      supabase
+        .from("sales")
+        .select("id, seller_user_id, unit_price, created_at")
+        .eq("event_id", event.id)
+    ]);
+
+    const membershipRows = (memberships ?? []) as Array<Pick<EventMembershipRow, "user_id" | "role">>;
+    const salesRows = (sales ?? []) as Array<Pick<SaleRow, "id" | "seller_user_id" | "unit_price" | "created_at">>;
+    const viewerMembership = membershipRows.find((membership) => membership.user_id === context.viewer.id);
+    const permissions = buildPermissions(context.viewer.role, viewerMembership?.role, context.viewer.id);
+    const canViewManualGuests = permissions.canManageManualGuests;
+
+    const saleAttendeesQuery = supabase
+      .from("sale_attendees")
+      .select("id, sale_id, seller_user_id, guest_name, checked_in_at, created_at")
+      .eq("event_id", event.id)
+      .order("guest_name", { ascending: true });
+
+    if (permissions.canManageOwnSalesOnly) {
+      saleAttendeesQuery.eq("seller_user_id", context.viewer.id);
+    }
+
+    const { data: saleAttendees, error: saleAttendeesError } = await saleAttendeesQuery;
+
+    if (saleAttendeesError) {
+      throw saleAttendeesError;
+    }
+
+    const saleAttendeeRows = (saleAttendees ?? []) as SaleAttendeeRow[];
+
+    const manualGuestEntryRows = canViewManualGuests
+      ? await (async () => {
+          const { data, error } = await supabase
+            .from("manual_guest_entries")
+            .select("id, guest_name, notes, created_at")
+            .eq("event_id", event.id)
+            .order("guest_name", { ascending: true });
+
+          if (error) {
+            throw error;
+          }
+
+          return (data ?? []) as ManualGuestEntryRow[];
+        })()
+      : [];
+
+    const profileIds = [...new Set([...membershipRows.map((membership) => membership.user_id), ...saleAttendeeRows.map((entry) => entry.seller_user_id)])];
+    const profilesMap = await getProfilesMap(profileIds);
+    const guestListEntries = buildGuestListEntries({
+      saleAttendeeRows,
+      salesRows,
+      manualGuestEntryRows,
+      profilesMap,
+      viewerId: context.viewer.id,
+      canManageOwnSalesOnly: permissions.canManageOwnSalesOnly,
+      canViewManualGuests
+    });
+
+    return {
+      permissions,
+      guestListEntries
+    };
+  } catch (error) {
+    logServerIssue("getEventGuestListSectionById", error, { slug: id });
     throw error;
   }
 }
@@ -798,9 +824,6 @@ export async function getEventTeamSectionById(id: string): Promise<
       .reduce((sum, sale) => sum + sale.quantity, 0),
     revenue: salesRows
       .filter((sale) => sale.seller_user_id === membership.user_id)
-      .reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0),
-    pendingTransferAmount: salesRows
-      .filter((sale) => sale.seller_user_id === membership.user_id && sale.payment_status === "pending")
       .reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0),
     isCurrentUser: membership.user_id === context.viewer.id
   }));
@@ -962,19 +985,23 @@ export async function getEventComparison(preloadedEvents?: EventSummary[]): Prom
     const profileIds = [...new Set(membershipRows.map((membership) => membership.user_id))];
     const profilesMap = await getProfilesMap(profileIds);
 
-    const sellerTotals = new Map<string, number>();
+    const sellerTotals = new Map<string, { sellerName: string; value: number }>();
     for (const membership of membershipRows) {
       const sellerName = profilesMap.get(membership.user_id)?.full_name ?? "Sem dados";
       const sellerRevenue = salesRows
         .filter((sale) => sale.seller_user_id === membership.user_id && sale.event_id === membership.event_id)
         .reduce((sum, sale) => sum + sale.quantity * sale.unit_price, 0);
 
-      sellerTotals.set(sellerName, (sellerTotals.get(sellerName) ?? 0) + sellerRevenue);
+      const current = sellerTotals.get(membership.user_id);
+      sellerTotals.set(membership.user_id, {
+        sellerName,
+        value: (current?.value ?? 0) + sellerRevenue
+      });
     }
 
     const bestRevenueEvent = [...events].sort((left, right) => right.totalRevenue - left.totalRevenue)[0];
     const bestProfitEvent = [...events].sort((left, right) => right.estimatedProfit - left.estimatedProfit)[0];
-    const topSellerEntry = Array.from(sellerTotals.entries()).sort((left, right) => right[1] - left[1])[0];
+    const topSellerEntry = Array.from(sellerTotals.values()).sort((left, right) => right.value - left.value)[0];
 
     return {
       bestRevenueEvent: {
@@ -986,8 +1013,8 @@ export async function getEventComparison(preloadedEvents?: EventSummary[]): Prom
         value: bestProfitEvent.estimatedProfit
       },
       topSellerOverall: {
-        sellerName: topSellerEntry?.[0] ?? "Sem dados",
-        value: topSellerEntry?.[1] ?? 0
+        sellerName: topSellerEntry?.sellerName ?? "Sem dados",
+        value: topSellerEntry?.value ?? 0
       },
       averageSalesPerEvent: Math.round(
         events.reduce((sum, event) => sum + event.totalRevenue, 0) / Math.max(events.length, 1)
