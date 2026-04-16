@@ -201,13 +201,20 @@ export function AnnouncementPanel({
       ) : (
         <div className="space-y-4">
           {announcements.slice(0, compact ? 2 : announcements.length).map((item) => (
-            <article key={item.id} className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+            <article
+              key={item.id}
+              className={`rounded-[24px] border p-5 ${
+                item.pinned
+                  ? "border-amber-200 bg-amber-50/65 shadow-sm"
+                  : "border-slate-200 bg-slate-50"
+              }`}
+            >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-semibold text-slate-900">{item.title}</h3>
                     {item.pinned ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-700">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
                         <Pin className="h-3.5 w-3.5" />
                         Fixado
                       </span>

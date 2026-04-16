@@ -415,7 +415,14 @@ export function GuestListPanel({
               (!permissions.canManageOwnSalesOnly || entry.isOwnedByViewer);
 
             return (
-              <article key={`${entry.sourceType}-${entry.id}`} className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+              <article
+                key={`${entry.sourceType}-${entry.id}`}
+                className={`rounded-[24px] border p-4 shadow-sm ${
+                  entry.sourceType === "manual"
+                    ? "border-brand-200 bg-brand-50/40"
+                    : "border-slate-200 bg-white"
+                }`}
+              >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -423,8 +430,8 @@ export function GuestListPanel({
                       <span
                         className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
                           entry.sourceType === "manual"
-                            ? "bg-brand-50 text-brand-700"
-                            : "bg-slate-100 text-slate-600"
+                            ? "border border-brand-200 bg-brand-100 text-brand-800"
+                            : "border border-sky-100 bg-sky-50 text-sky-700"
                         }`}
                       >
                         {entry.sourceType === "manual" ? "Manual" : `Venda #${entry.saleNumber ?? 0}`}
@@ -456,7 +463,7 @@ export function GuestListPanel({
                       {entry.checkedInAt ? (
                         <>
                           <span className="text-slate-300">&bull;</span>
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">Check-in feito</span>
+                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">Check-in feito</span>
                         </>
                       ) : null}
                     </div>

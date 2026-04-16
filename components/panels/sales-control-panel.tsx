@@ -452,7 +452,13 @@ export function SalesControlPanel({
 
                     <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
                       <details className="group w-full sm:w-auto">
-                        <summary className="flex w-full cursor-pointer list-none items-center justify-between gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 sm:w-auto sm:justify-start sm:rounded-full sm:py-1">
+                        <summary
+                          className={`flex w-full cursor-pointer list-none items-center justify-between gap-2 rounded-2xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] sm:w-auto sm:justify-start sm:rounded-full sm:py-1 ${
+                            row.missingAttendeeCount > 0
+                              ? "border border-amber-200 bg-amber-50 text-amber-700"
+                              : "bg-white text-slate-500"
+                          }`}
+                        >
                           {row.attendeeCount} nomes cadastrados
                           {row.missingAttendeeCount > 0 ? ` | faltam ${row.missingAttendeeCount}` : ""}
                           <ChevronDown className="h-3 w-3 transition group-open:rotate-180" />
@@ -463,7 +469,7 @@ export function SalesControlPanel({
                           ) : (
                             <div className="flex flex-wrap gap-2">
                               {row.attendeeNames.map((name) => (
-                                <span key={name} className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
+                                <span key={name} className="rounded-full bg-sky-50 px-3 py-1 text-sm text-sky-700">
                                   {name}
                                 </span>
                               ))}

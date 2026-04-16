@@ -1,9 +1,17 @@
 import { ArrowUpRight, Goal, Wallet } from "lucide-react";
 import { SectionCard } from "@/components/ui/section-card";
 import { PartyEventDetail } from "@/lib/types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrencyParts } from "@/lib/utils";
 
-function SummaryValue({ value, isCurrency }: { value: number; isCurrency?: boolean }) {
+function SummaryValue({
+  value,
+  isCurrency,
+  isPositive = false
+}: {
+  value: number;
+  isCurrency?: boolean;
+  isPositive?: boolean;
+}) {
   if (isCurrency === false) {
     return (
       <p className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.7rem,2.2vw,2.35rem)] font-bold tracking-tight text-slate-950">
@@ -12,24 +20,35 @@ function SummaryValue({ value, isCurrency }: { value: number; isCurrency?: boole
     );
   }
 
-  const formatted = formatCurrency(value);
-  const [currencyLabel, amountLabel] = formatted.split(/\s(.+)/);
+  const { currencyLabel, amountLabel, isNegative } = formatCurrencyParts(value);
 
   return (
     <div className="min-w-0 space-y-3 overflow-hidden">
       <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
         {currencyLabel}
       </span>
-      <span className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.6rem,2.15vw,2.2rem)] font-bold tracking-tight text-slate-950">
-        {amountLabel ?? formatted}
+        <span
+          className={`block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.6rem,2.15vw,2.2rem)] font-bold tracking-tight ${
+            isNegative ? "text-rose-700" : isPositive ? "text-emerald-700" : "text-slate-950"
+          }`}
+        >
+          {amountLabel}
       </span>
     </div>
   );
 }
 
 function SummaryIcon({ label }: { label: string }) {
+  const iconTone = label.includes("Meta")
+    ? "bg-amber-50 text-amber-700"
+    : label.includes("Lucro")
+      ? "bg-emerald-50 text-emerald-700"
+      : label.includes("Vendedores")
+        ? "bg-slate-100 text-slate-600"
+        : "bg-brand-50 text-brand-700";
+
   return (
-    <div className="shrink-0 rounded-2xl bg-brand-50 p-2.5 text-brand-700">
+    <div className={`shrink-0 rounded-2xl p-2.5 ${iconTone}`}>
       {label.includes("Meta") ? (
         <Goal className="h-[18px] w-[18px]" />
       ) : label.includes("Lucro") ? (
@@ -41,6 +60,24 @@ function SummaryIcon({ label }: { label: string }) {
   );
 }
 
+function summaryCardTone(label: string, value: number) {
+  if (label.includes("Lucro")) {
+    if (value < 0) return "border-rose-200 bg-rose-50/80";
+    if (value === 0) return "border-slate-200 bg-slate-50/70";
+    return "border-emerald-200 bg-emerald-50/70";
+  }
+
+  if (label.includes("Meta")) {
+    return "border-amber-200 bg-amber-50/70";
+  }
+
+  if (label.includes("Vendedores")) {
+    return "border-slate-200 bg-slate-50/70";
+  }
+
+  return "border-brand-200 bg-white";
+}
+
 export function DashboardOverview({ data }: { data: PartyEventDetail }) {
   return (
     <section className="grid gap-4 sm:gap-6 lg:grid-cols-2">
@@ -50,12 +87,16 @@ export function DashboardOverview({ data }: { data: PartyEventDetail }) {
           title={item.label}
           description={item.helper}
           action={<SummaryIcon label={item.label} />}
-          className="min-w-0 overflow-hidden"
+          className={`min-w-0 overflow-hidden ${summaryCardTone(item.label, item.value)}`}
         >
           <div className="flex min-h-[152px] min-w-0 flex-col justify-between overflow-hidden sm:min-h-[168px]">
             <div className="min-w-0 pt-3 sm:pt-4">
-              <SummaryValue value={item.value} isCurrency={item.isCurrency} />
-            </div>
+                <SummaryValue
+                  value={item.value}
+                  isCurrency={item.isCurrency}
+                  isPositive={item.label.includes("Lucro") && item.value > 0}
+                />
+              </div>
           </div>
 
           {typeof item.progress === "number" ? (

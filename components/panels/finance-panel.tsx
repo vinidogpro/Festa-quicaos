@@ -17,7 +17,7 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
 import { AdditionalRevenue, Expense, ViewerPermissions } from "@/lib/types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyParts } from "@/lib/utils";
 
 interface FinancePanelProps {
   eventId: string;
@@ -35,6 +35,7 @@ interface FinancePanelProps {
 function FinanceMetricCard({
   label,
   value,
+  rawValue,
   isCurrency = false,
   icon,
   valueClassName,
@@ -42,13 +43,14 @@ function FinanceMetricCard({
 }: {
   label: string;
   value: string | number;
+  rawValue?: number;
   isCurrency?: boolean;
   icon: React.ReactNode;
   valueClassName: string;
   cardClassName: string;
 }) {
   const valueLabel = String(value);
-  const [currencyLabel, amountLabel] = isCurrency ? valueLabel.split(/\s(.+)/) : [null, null];
+  const currencyParts = isCurrency && typeof rawValue === "number" ? formatCurrencyParts(rawValue) : null;
 
   return (
     <div className={`min-w-0 rounded-[24px] p-4 sm:min-h-[188px] sm:p-5 ${cardClassName}`}>
@@ -60,13 +62,15 @@ function FinanceMetricCard({
       <div className="mt-6 min-w-0 sm:mt-8">
         {isCurrency ? (
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">{currencyLabel}</p>
-            <p
-              className={`mt-2 min-w-0 whitespace-nowrap font-[var(--font-heading)] font-bold tracking-tight ${valueClassName}`}
-              title={valueLabel}
-            >
-              {amountLabel ?? valueLabel}
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">
+              {currencyParts?.currencyLabel ?? valueLabel}
             </p>
+              <p
+                className={`mt-2 min-w-0 whitespace-nowrap font-[var(--font-heading)] font-bold tracking-tight ${valueClassName}`}
+                title={valueLabel}
+              >
+                {currencyParts?.amountLabel ?? valueLabel}
+              </p>
           </div>
         ) : (
           <p
@@ -538,6 +542,7 @@ export function FinancePanel({
             <FinanceMetricCard
               label="Total vendido"
               value={formatCurrency(ticketRevenue)}
+              rawValue={ticketRevenue}
               isCurrency
               icon={<Ticket className="h-5 w-5 text-white/60" />}
               cardClassName="bg-slate-950 text-white"
@@ -547,6 +552,7 @@ export function FinancePanel({
             <FinanceMetricCard
               label="Vendas extras"
               value={formatCurrency(additionalRevenue)}
+              rawValue={additionalRevenue}
               isCurrency
               icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
               cardClassName="border border-emerald-200 bg-emerald-50 text-emerald-800"
@@ -556,6 +562,7 @@ export function FinancePanel({
             <FinanceMetricCard
               label="Total arrecadado"
               value={formatCurrency(totalRevenue)}
+              rawValue={totalRevenue}
               isCurrency
               icon={<CircleDollarSign className="h-5 w-5 text-white/60" />}
               cardClassName="bg-brand-700 text-white"
@@ -565,20 +572,24 @@ export function FinancePanel({
             <FinanceMetricCard
               label="Total de despesas"
               value={formatCurrency(totalExpenses)}
+              rawValue={totalExpenses}
               isCurrency
-              icon={<ReceiptText className="h-5 w-5 text-slate-400" />}
-              cardClassName="border border-slate-200 bg-white text-slate-500"
-              valueClassName="text-[clamp(1.7rem,2.2vw,2.35rem)] leading-none text-slate-950"
+              icon={<ReceiptText className="h-5 w-5 text-rose-500" />}
+              cardClassName="border border-rose-200 bg-rose-50/75 text-rose-700"
+              valueClassName="text-[clamp(1.7rem,2.2vw,2.35rem)] leading-none text-rose-900"
             />
 
-            <FinanceMetricCard
-              label="Lucro estimado"
-              value={formatCurrency(estimatedProfit)}
-              isCurrency
-              icon={<Wallet className="h-5 w-5 text-brand-600" />}
-              cardClassName="bg-brand-50 text-slate-500"
-              valueClassName="text-[clamp(1.7rem,2.2vw,2.35rem)] leading-none text-slate-950"
-            />
+              <FinanceMetricCard
+                label="Lucro estimado"
+                value={formatCurrency(estimatedProfit)}
+                rawValue={estimatedProfit}
+                isCurrency
+                icon={<Wallet className="h-5 w-5 text-brand-600" />}
+                cardClassName={estimatedProfit < 0 ? "border border-rose-200 bg-rose-50 text-slate-500" : "bg-brand-50 text-slate-500"}
+                valueClassName={`text-[clamp(1.7rem,2.2vw,2.35rem)] leading-none ${
+                  estimatedProfit < 0 ? "text-rose-900" : estimatedProfit > 0 ? "text-emerald-900" : "text-slate-950"
+                }`}
+              />
           </div>
 
           <div className={`grid gap-6 ${compact ? "" : "xl:grid-cols-[0.95fr_1.05fr]"}`}>
@@ -589,23 +600,25 @@ export function FinancePanel({
                     <h3 className="font-semibold text-slate-900">Arrecadacoes adicionais</h3>
                     <p className="mt-1 text-sm text-slate-500">Entradas extras do evento alem dos ingressos.</p>
                   </div>
-                  <span className="text-sm text-slate-400">{additionalRevenues.length} lancamentos</span>
+                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
+                    {additionalRevenues.length} lancamentos
+                  </span>
                 </div>
 
                 {additionalRevenues.length === 0 ? (
-                  <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+                  <div className="mt-4 rounded-2xl border border-dashed border-emerald-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
                     Nenhuma arrecadacao adicional cadastrada ainda.
                   </div>
                 ) : (
                   <div className="mt-4 space-y-3">
                     {additionalRevenues.map((revenue) => (
-                      <article key={revenue.id} className="rounded-2xl bg-white px-4 py-4">
+                      <article key={revenue.id} className="rounded-2xl border border-emerald-100 bg-white px-4 py-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
                               <h4 className="font-medium text-slate-900">{revenue.title}</h4>
                               {revenue.category ? (
-                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
+                                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
                                   {revenue.category}
                                 </span>
                               ) : null}
@@ -636,22 +649,24 @@ export function FinancePanel({
                     <h3 className="font-semibold text-slate-900">Despesas da festa</h3>
                     <p className="mt-1 text-sm text-slate-500">Cada lancamento impacta o lucro estimado automaticamente.</p>
                   </div>
-                  <span className="text-sm text-slate-400">{expenses.length} lancamentos</span>
+                  <span className="rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700">
+                    {expenses.length} lancamentos
+                  </span>
                 </div>
 
                 {expenses.length === 0 ? (
-                  <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+                  <div className="mt-4 rounded-2xl border border-dashed border-rose-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
                     Nenhuma despesa cadastrada para esta festa.
                   </div>
                 ) : (
                   <div className="mt-4 space-y-3">
                     {expenses.map((expense) => (
-                      <article key={expense.id} className="rounded-2xl bg-white px-4 py-4">
+                      <article key={expense.id} className="rounded-2xl border border-rose-100 bg-white px-4 py-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
                               <h4 className="font-medium text-slate-900">{expense.title}</h4>
-                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
+                              <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">
                                 {expense.category}
                               </span>
                             </div>
@@ -661,7 +676,7 @@ export function FinancePanel({
                             ) : null}
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold text-slate-900">{formatCurrency(expense.amount)}</p>
+                            <p className="font-semibold text-rose-800">{formatCurrency(expense.amount)}</p>
                             {permissions.canManageFinance && !compact ? (
                               <div className="mt-3 space-y-2">
                                 <ExpenseEditForm eventId={eventId} expense={expense} />

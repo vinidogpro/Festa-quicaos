@@ -32,7 +32,7 @@ import {
   calculateSalePriceRanking
 } from "@/lib/event-metrics";
 import { PartyEventDetail, SalesRecord } from "@/lib/types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyParts } from "@/lib/utils";
 
 interface InsightsPanelProps {
   event: PartyEventDetail;
@@ -70,20 +70,10 @@ function sumTickets(sales: SalesRecord[]) {
   return sales.reduce((total, sale) => total + sale.sold, 0);
 }
 
-function splitCurrencyValue(value: string) {
-  const [currencyPrefix, amount] = value.split(/\s(.+)/);
-
-  if (!amount) {
-    return { currencyPrefix: undefined, amount: value };
-  }
-
-  return { currencyPrefix, amount };
-}
-
 function rankHighlight(index: number) {
-  if (index === 0) return "border-brand-200 bg-brand-50/80";
-  if (index === 1) return "border-sky-100 bg-sky-50/80";
-  if (index === 2) return "border-amber-100 bg-amber-50/80";
+  if (index === 0) return "border-emerald-200 bg-emerald-50/80";
+  if (index === 1) return "border-sky-200 bg-sky-50/80";
+  if (index === 2) return "border-amber-200 bg-amber-50/80";
   return "border-slate-200 bg-slate-50/80";
 }
 
@@ -91,6 +81,8 @@ function MetricTile({
   title,
   value,
   currencyPrefix,
+  isNegative = false,
+  isPositive = false,
   helper,
   tone = "default",
   icon: Icon
@@ -98,6 +90,8 @@ function MetricTile({
   title: string;
   value: string;
   currencyPrefix?: string;
+  isNegative?: boolean;
+  isPositive?: boolean;
   helper: string;
   tone?: "default" | "positive" | "warning";
   icon: React.ComponentType<{ className?: string }>;
@@ -107,7 +101,7 @@ function MetricTile({
       ? "bg-emerald-50 text-emerald-700"
       : tone === "warning"
         ? "bg-amber-50 text-amber-700"
-        : "bg-brand-50 text-brand-700";
+        : "bg-slate-100 text-slate-600";
 
   return (
     <div className="min-w-0 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm sm:min-h-[208px] sm:p-6">
@@ -118,8 +112,12 @@ function MetricTile({
             {currencyPrefix ? (
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{currencyPrefix}</p>
-                <p className="mt-2 whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.55rem,4vw,2.45rem)] font-bold tracking-tight text-slate-950">
-                  {value}
+                  <p
+                    className={`mt-2 whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.55rem,4vw,2.45rem)] font-bold tracking-tight ${
+                      isNegative ? "text-rose-700" : isPositive ? "text-emerald-700" : "text-slate-950"
+                    }`}
+                  >
+                    {value}
                 </p>
               </div>
             ) : (
@@ -199,13 +197,12 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
     () => event.sellerContribution.slice(0, compact ? 4 : 6),
     [compact, event.sellerContribution]
   );
-  const totalRevenueDisplay = splitCurrencyValue(formatCurrency(event.totalRevenue));
-  const additionalRevenueDisplay = splitCurrencyValue(formatCurrency(event.additionalRevenue));
-  const expensesDisplay = splitCurrencyValue(formatCurrency(event.totalExpenses));
-  const profitDisplay = splitCurrencyValue(formatCurrency(event.estimatedProfit));
-  const averageTicketDisplay = soldTickets > 0 ? splitCurrencyValue(formatCurrency(averageTicket)) : null;
-  const salePriceModeDisplay =
-    salePriceMode.modeCount > 0 ? splitCurrencyValue(formatCurrency(salePriceMode.modePrice)) : null;
+  const totalRevenueDisplay = formatCurrencyParts(event.totalRevenue);
+  const additionalRevenueDisplay = formatCurrencyParts(event.additionalRevenue);
+  const expensesDisplay = formatCurrencyParts(event.totalExpenses);
+  const profitDisplay = formatCurrencyParts(event.estimatedProfit);
+  const averageTicketDisplay = soldTickets > 0 ? formatCurrencyParts(averageTicket) : null;
+  const salePriceModeDisplay = salePriceMode.modeCount > 0 ? formatCurrencyParts(salePriceMode.modePrice) : null;
   const healthToneStyles =
     event.health.tone === "positive"
       ? "border-emerald-200 bg-emerald-50 text-emerald-800"
@@ -304,17 +301,18 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
           <div className={`grid gap-4 ${compact ? "2xl:grid-cols-2" : "lg:grid-cols-2 2xl:grid-cols-3"}`}>
             <MetricTile
               title="Total arrecadado"
-              value={totalRevenueDisplay.amount}
-              currencyPrefix={totalRevenueDisplay.currencyPrefix}
+              value={totalRevenueDisplay.amountLabel}
+              currencyPrefix={totalRevenueDisplay.currencyLabel}
               helper={`${formatCurrency(event.ticketRevenue)} em ingressos + ${formatCurrency(event.additionalRevenue)} em vendas extras`}
               icon={CircleDollarSign}
+              tone="positive"
             />
             <MetricTile
               title="Meta atingida"
               value={`${event.progress}%`}
               helper={`${formatCurrency(event.totalRevenue)} de ${formatCurrency(event.goalValue)} esperados`}
               icon={BadgePercent}
-              tone="positive"
+              tone={event.progress >= 100 ? "positive" : event.progress >= 75 ? "warning" : "default"}
             />
             <MetricTile
               title="Ingressos vendidos"
@@ -324,8 +322,8 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
             />
             <MetricTile
               title="Ticket medio"
-              value={averageTicketDisplay?.amount ?? "-"}
-              currencyPrefix={averageTicketDisplay?.currencyPrefix}
+              value={averageTicketDisplay?.amountLabel ?? "-"}
+              currencyPrefix={averageTicketDisplay?.currencyLabel}
               helper={
                 soldTickets > 0
                   ? `${formatCurrency(event.ticketRevenue)} divididos por ${soldTickets} ingresso(s)`
@@ -335,8 +333,8 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
             />
             <MetricTile
               title="Valor mais vendido"
-              value={salePriceModeDisplay?.amount ?? "-"}
-              currencyPrefix={salePriceModeDisplay?.currencyPrefix}
+              value={salePriceModeDisplay?.amountLabel ?? "-"}
+              currencyPrefix={salePriceModeDisplay?.currencyLabel}
               helper={
                 salePriceMode.modeCount > 0
                   ? `${salePriceMode.modeCount} ingresso(s) foram vendidos nesse valor`
@@ -346,26 +344,30 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
             />
             <MetricTile
               title="Vendas extras"
-              value={additionalRevenueDisplay.amount}
-              currencyPrefix={additionalRevenueDisplay.currencyPrefix}
+              value={additionalRevenueDisplay.amountLabel}
+              currencyPrefix={additionalRevenueDisplay.currencyLabel}
               helper="Entradas adicionais como bar, copos e outras arrecadacoes"
               icon={CircleDollarSign}
+              tone="positive"
             />
             <MetricTile
               title="Total de despesas"
-              value={expensesDisplay.amount}
-              currencyPrefix={expensesDisplay.currencyPrefix}
+              value={expensesDisplay.amountLabel}
+              currencyPrefix={expensesDisplay.currencyLabel}
               helper="Saidas cadastradas para calcular o resultado real da festa"
               icon={Wallet}
+              tone="warning"
             />
-            <MetricTile
-              title="Lucro estimado"
-              value={profitDisplay.amount}
-              currencyPrefix={profitDisplay.currencyPrefix}
-              helper="Total arrecadado menos despesas registradas"
-              icon={Wallet}
-              tone="positive"
-            />
+              <MetricTile
+                title="Lucro estimado"
+                value={profitDisplay.amountLabel}
+                currencyPrefix={profitDisplay.currencyLabel}
+                isNegative={profitDisplay.isNegative}
+                isPositive={event.estimatedProfit > 0}
+                helper="Total arrecadado menos despesas registradas"
+                icon={Wallet}
+                tone={profitDisplay.isNegative ? "warning" : "positive"}
+              />
             <MetricTile
               title="Lista de entrada"
               value={`${guestListStats.totalRegisteredNames}/${guestListStats.totalExpectedNames}`}

@@ -25,6 +25,29 @@ interface TasksPanelProps {
   compact?: boolean;
 }
 
+function getTaskVisualState(task: TaskItem) {
+  const isDone = task.status === "done";
+  const hasOwner = task.ownerProfileId && task.owner !== "Sem responsavel";
+  const hasDueAt = Boolean(task.dueAt);
+  const isOverdue =
+    !isDone &&
+    hasDueAt &&
+    new Date(`${task.dueAt}T23:59:59`).getTime() < new Date().getTime();
+
+  return {
+    isOverdue,
+    hasOwner: Boolean(hasOwner),
+    cardClassName: isOverdue
+      ? "border-rose-200 bg-rose-50/60"
+      : task.status === "done"
+        ? "border-emerald-200 bg-emerald-50/50"
+        : task.status === "in-progress"
+          ? "border-sky-200 bg-sky-50/50"
+          : "border-amber-200 bg-amber-50/50",
+    dueClassName: isOverdue ? "text-rose-700" : "text-slate-500"
+  };
+}
+
 function formatDateTime(date: string) {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
@@ -288,36 +311,50 @@ export function TasksPanel({
         />
       ) : (
         <div className="space-y-3">
-          {tasks.slice(0, compact ? 3 : tasks.length).map((task) => (
-            <article
-              key={task.id}
-              className="rounded-[24px] border border-slate-200 bg-slate-50 p-4"
-            >
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold text-slate-900">{task.title}</h3>
-                    {!permissions.canManageTasks || compact ? <StatusBadge status={task.status} /> : null}
-                  </div>
-                  <div className="mt-3 flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:flex-wrap sm:gap-3">
-                    <span>Responsavel: {task.owner}</span>
-                    <span>Prazo: {task.dueLabel}</span>
-                    <span className="inline-flex items-center gap-1">
-                      <CalendarDays className="h-4 w-4" />
-                      Criada em {formatDateTime(task.createdAt)}
-                    </span>
-                  </div>
-                </div>
+          {tasks.slice(0, compact ? 3 : tasks.length).map((task) => {
+            const visualState = getTaskVisualState(task);
 
-                {permissions.canManageTasks && !compact ? (
-                  <div className="grid gap-3 xl:w-[25rem]">
-                    <TaskStatusForm eventId={eventId} task={task} />
-                    <TaskEditForm eventId={eventId} task={task} participantOptions={participantOptions} />
+            return (
+              <article
+                key={task.id}
+                className={`rounded-[24px] border p-4 ${visualState.cardClassName}`}
+              >
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold text-slate-900">{task.title}</h3>
+                      {!permissions.canManageTasks || compact ? <StatusBadge status={task.status} /> : null}
+                      {visualState.isOverdue ? (
+                        <span className="inline-flex rounded-full border border-rose-200 bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
+                          Atrasada
+                        </span>
+                      ) : null}
+                      {!visualState.hasOwner ? (
+                        <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                          Sem responsavel
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="mt-3 flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:flex-wrap sm:gap-3">
+                      <span className={!visualState.hasOwner ? "text-slate-600" : undefined}>Responsavel: {task.owner}</span>
+                      <span className={visualState.dueClassName}>Prazo: {task.dueLabel}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <CalendarDays className="h-4 w-4" />
+                        Criada em {formatDateTime(task.createdAt)}
+                      </span>
+                    </div>
                   </div>
-                ) : null}
-              </div>
-            </article>
-          ))}
+
+                  {permissions.canManageTasks && !compact ? (
+                    <div className="grid gap-3 xl:w-[25rem]">
+                      <TaskStatusForm eventId={eventId} task={task} />
+                      <TaskEditForm eventId={eventId} task={task} participantOptions={participantOptions} />
+                    </div>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </SectionCard>

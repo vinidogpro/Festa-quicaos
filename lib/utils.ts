@@ -13,6 +13,18 @@ export function formatCurrency(value: number) {
   }).format(value);
 }
 
+export function formatCurrencyParts(value: number) {
+  const absoluteFormatted = formatCurrency(Math.abs(value));
+  const [currencyLabel, amountLabel] = absoluteFormatted.split(/\s(.+)/);
+  const normalizedAmountLabel = amountLabel ?? absoluteFormatted;
+
+  return {
+    isNegative: value < 0,
+    currencyLabel: currencyLabel ?? "R$",
+    amountLabel: value < 0 ? `-${normalizedAmountLabel}` : normalizedAmountLabel
+  };
+}
+
 export function formatDate(date: string) {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
