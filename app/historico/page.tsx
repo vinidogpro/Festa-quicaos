@@ -1,7 +1,7 @@
 import { PastEventsPage } from "@/components/past-events-page";
 import { SetupCard } from "@/components/setup-card";
 import { isSupabaseConfigured } from "@/lib/env";
-import { getCurrentViewer, getEvents } from "@/lib/supabase/queries";
+import { getCurrentViewer, getEvents, getStrategicOverview } from "@/lib/supabase/queries";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,9 @@ export default async function HistoryPage() {
       redirect("/login");
     }
 
-    return <PastEventsPage events={events.filter((event) => event.status === "past")} />;
+    const strategic = await getStrategicOverview(events);
+
+    return <PastEventsPage events={events.filter((event) => event.status === "past")} strategic={strategic} />;
   } catch (error) {
     return (
       <SetupCard

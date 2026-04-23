@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import {
+  calculateBatchMetrics,
   calculateCashFlowByDate,
   calculateCategoryBreakdown,
   calculateFinanceTotals,
   calculateGoalProgress,
+  calculatePostEventReport,
   calculateTicketTypeMetrics
 } from "@/lib/event-metrics";
 import { buildGuestListEntries, buildSaleSequenceMap } from "@/lib/guest-list-utils";
@@ -238,7 +240,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 
   const [{ data: event, error: eventError }, { data: profile, error: profileError }] = await Promise.all([
-    supabase.from("events").select("id, name, slug, venue, event_date, goal_value").eq("slug", params.id).single(),
+    supabase.from("events").select("id, name, slug, status, venue, event_date, goal_value").eq("slug", params.id).single(),
     supabase.from("profiles").select("id, role").eq("id", user.id).single()
   ]);
 
@@ -356,6 +358,28 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }))
   );
   const percentGoal = calculateGoalProgress(financeTotals.generalRevenue, event.goal_value ?? 0);
+  const postEventReport = calculatePostEventReport({
+    eventId: event.slug,
+    eventName: event.name,
+    eventDate: event.event_date,
+    status: event.status,
+    goalValue: event.goal_value,
+    sales: summarySales.map((sale) => ({
+      quantity: sale.quantity,
+      unitPrice: sale.unit_price,
+      batchLabel: batchNameMap.get(sale.batch_id) ?? "Sem lote",
+      saleType: sale.sale_type,
+      ticketType: sale.ticket_type
+    })),
+    expenses: expenseRows.map((expense) => ({
+      amount: expense.amount,
+      category: expense.category
+    })),
+    additionalRevenues: additionalRevenueRows.map((revenue) => ({
+      amount: revenue.amount,
+      category: revenue.category
+    }))
+  });
   const expenseCategories = calculateCategoryBreakdown(
     expenseRows.map((expense) => ({
       category: expense.category,
@@ -401,6 +425,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
       ["Lucro final", formatCurrency(financeTotals.estimatedProfit)],
       ["Ticket medio geral", formatCurrency(financeTotals.averageTicket)],
       ["Meta atingida", `${percentGoal}%`],
+      [""],
+      ["Relatorio pos-evento", ""],
+      ["Lote campeao", postEventReport.commercial.bestBatchLabel],
+      ["Tipo dominante", postEventReport.commercial.dominantTicketType === "vip" ? "VIP" : "PISTA"],
+      ["Preco mais eficiente", formatCurrency(postEventReport.commercial.mostEfficientPrice)],
+      ["Margem", `${postEventReport.financial.marginPercentage}%`],
       [""],
       ["Tipo ingresso", "Ingressos", "Receita", "Ticket medio"],
       [
@@ -580,6 +610,30 @@ export async function GET(request: Request, { params }: { params: { id: string }
     styleCurrencyCell(row.getCell(4), "default");
   });
 
+  summarySheet.addRow([]);
+  const postEventLabelRow = summarySheet.addRow(["Relatorio pos-evento", ""]);
+  styleSectionLabelRow(postEventLabelRow);
+  const postEventHeader = summarySheet.addRow(["Leitura", "Valor"]);
+  styleHeaderRow(postEventHeader);
+
+  [
+    ["Lote campeao", postEventReport.commercial.bestBatchLabel],
+    ["Tipo dominante", postEventReport.commercial.dominantTicketType === "vip" ? "VIP" : "PISTA"],
+    ["Preco mais eficiente", postEventReport.commercial.mostEfficientPrice],
+    ["Tipo de venda dominante", postEventReport.commercial.dominantSaleType === "grupo" ? "Grupo" : "Normal"],
+    ["Margem da festa", `${postEventReport.financial.marginPercentage}%`],
+    ["Despesas sobre receita", `${postEventReport.financial.expenseRatio}%`]
+  ].forEach(([label, value], index) => {
+    const row = summarySheet.addRow([label, value]);
+    styleBodyRow(row, index + 1);
+    styleTextCell(row.getCell(1));
+    if (typeof value === "number") {
+      styleCurrencyCell(row.getCell(2), "default");
+    } else {
+      styleTextCell(row.getCell(2));
+    }
+  });
+
   if (isManager) {
     summarySheet.addRow([]);
     const expenseLabelRow = summarySheet.addRow(["Categorias de despesas", ""]);
@@ -716,6 +770,77 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 
   autoFitColumns(salesSheet, 12, 28);
+
+  const reportSheet = workbook.addWorksheet("Relatorio pos-evento", {
+    views: [{ state: "frozen", ySplit: 1 }]
+  });
+
+  styleHeaderRow(reportSheet.addRow(["Bloco", "Indicador", "Valor"]));
+
+  const reportRows: Array<[string, string, string | number, "currency" | "text"]> = [
+    ["Resumo geral", "Total arrecadado", postEventReport.overview.totalRevenue, "currency"],
+    ["Resumo geral", "Despesas", postEventReport.overview.totalExpenses, "currency"],
+    ["Resumo geral", "Lucro final", postEventReport.overview.estimatedProfit, "currency"],
+    ["Resumo geral", "Ticket medio", postEventReport.overview.averageTicket, "currency"],
+    ["Resumo geral", "Ingressos vendidos", postEventReport.overview.totalTicketsSold, "text"],
+    ["Analise comercial", "Lote campeao", postEventReport.commercial.bestBatchLabel, "text"],
+    [
+      "Analise comercial",
+      "Tipo mais forte",
+      postEventReport.commercial.dominantTicketType === "vip" ? "VIP" : "PISTA",
+      "text"
+    ],
+    ["Analise comercial", "Preco mais eficiente", postEventReport.commercial.mostEfficientPrice, "currency"],
+    ["Analise financeira", "Margem", `${postEventReport.financial.marginPercentage}%`, "text"],
+    [
+      "Analise financeira",
+      "Categoria que mais impactou",
+      postEventReport.financial.heaviestExpenseCategory?.category ?? "Sem categoria dominante",
+      "text"
+    ],
+    [
+      "Analise financeira",
+      "Principal despesa",
+      postEventReport.financial.heaviestExpenseCategory?.total ?? 0,
+      "currency"
+    ]
+  ];
+
+  reportRows.forEach(([block, label, value, valueType], index) => {
+    const row = reportSheet.addRow([block, label, value]);
+    styleBodyRow(row, index + 1);
+    styleTextCell(row.getCell(1));
+    styleTextCell(row.getCell(2));
+    if (valueType === "currency" && typeof value === "number") {
+      styleCurrencyCell(
+        row.getCell(3),
+        label === "Despesas" || label === "Principal despesa"
+          ? "expense"
+          : label === "Lucro final" && value < 0
+            ? "negative"
+            : label === "Lucro final" && value > 0
+              ? "positive"
+              : "default"
+      );
+    } else {
+      styleTextCell(row.getCell(3));
+    }
+  });
+
+  reportSheet.addRow([]);
+  const insightLabelRow = reportSheet.addRow(["Insights automaticos", "", ""]);
+  styleSectionLabelRow(insightLabelRow);
+  styleHeaderRow(reportSheet.addRow(["#", "Insight", "Base"]));
+
+  postEventReport.insights.forEach((insight, index) => {
+    const row = reportSheet.addRow([index + 1, insight, event.name]);
+    styleBodyRow(row, index + 1);
+    styleCenteredCell(row.getCell(1));
+    styleTextCell(row.getCell(2));
+    styleTextCell(row.getCell(3));
+  });
+
+  autoFitColumns(reportSheet, 12, 34);
 
   const guestListSheet = workbook.addWorksheet("Lista de nomes", {
     views: [{ state: "frozen", ySplit: 1 }]

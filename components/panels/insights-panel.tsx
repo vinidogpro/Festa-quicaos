@@ -29,6 +29,7 @@ import {
   calculateAverageTicket,
   calculateBatchMetrics,
   calculateGuestListStats,
+  calculateOperationalTimeline,
   calculatePeriodComparison,
   calculateSalePriceConversion,
   calculateSalePriceMode,
@@ -81,10 +82,10 @@ function sumTickets(sales: SalesRecord[]) {
 }
 
 function rankHighlight(index: number) {
-  if (index === 0) return "border-emerald-200 bg-emerald-50/80";
-  if (index === 1) return "border-sky-200 bg-sky-50/80";
-  if (index === 2) return "border-amber-200 bg-amber-50/80";
-  return "border-slate-200 bg-slate-50/80";
+  if (index === 0) return "ds-tone-positive";
+  if (index === 1) return "ds-tone-primary";
+  if (index === 2) return "ds-tone-warning";
+  return "ds-card-muted";
 }
 
 function TicketTypeValue({ value }: { value: string }) {
@@ -103,7 +104,7 @@ function TicketTypeValue({ value }: { value: string }) {
   return (
     <div className="mt-4 min-w-0 space-y-2">
       <p className="ds-label">R$</p>
-      <p className="min-w-0 break-words font-[var(--font-heading)] text-[clamp(1.25rem,2vw,1.75rem)] font-bold leading-tight tracking-tight text-slate-950">
+      <p className="min-w-0 break-words font-[var(--font-heading)] text-[clamp(1.15rem,5vw,1.75rem)] font-bold leading-tight tracking-tight text-slate-950">
         {amountLabel}
       </p>
     </div>
@@ -124,7 +125,7 @@ function InlineStatCard({
   return (
     <div className={`min-w-0 overflow-hidden rounded-2xl px-4 py-4 ${tone === "soft" ? "bg-white/75" : "bg-slate-50"}`}>
       <p className="ds-label">{label}</p>
-      <p className="mt-2 break-words font-[var(--font-heading)] text-[clamp(1.35rem,1.8vw,1.85rem)] font-bold leading-tight tracking-tight text-slate-950">
+      <p className="mt-2 break-words font-[var(--font-heading)] text-[clamp(1.2rem,5vw,1.85rem)] font-bold leading-tight tracking-tight text-slate-950">
         {value}
       </p>
       {helper ? <p className="ds-helper mt-2">{helper}</p> : null}
@@ -248,12 +249,12 @@ function SaleTypeAnalysisBlock({
   const items = [
     {
       saleType: "normal" as const,
-      tone: "border-sky-200 bg-sky-50/80 text-sky-900",
+      tone: "border-[color:var(--ds-info-border)] bg-[color:var(--ds-info-bg)] text-[color:var(--ds-info-text)]",
       metrics: metrics.normal
     },
     {
       saleType: "grupo" as const,
-      tone: "border-violet-200 bg-violet-50/80 text-violet-900",
+      tone: "border-[color:var(--ds-group-border)] bg-[color:var(--ds-group-bg)] text-[color:var(--ds-group-text)]",
       metrics: metrics.grupo
     }
   ];
@@ -280,7 +281,7 @@ function SaleTypeAnalysisBlock({
                 {item.metrics.percentage}% do total
               </span>
             </div>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="mt-5 grid gap-3 xl:grid-cols-3">
               <InlineStatCard label="Ingressos" value={`${item.metrics.ticketsSold}`} tone="soft" />
               <InlineStatCard label="Receita" value={formatCurrency(item.metrics.revenue)} tone="soft" />
               <InlineStatCard
@@ -317,10 +318,10 @@ function MetricTile({
 }) {
   const toneStyles =
     tone === "positive"
-      ? "bg-emerald-50 text-emerald-700"
+      ? "ds-tone-positive"
       : tone === "warning"
-        ? "bg-amber-50 text-amber-700"
-        : "bg-slate-100 text-slate-600";
+        ? "ds-tone-warning"
+        : "ds-tone-info";
 
   return (
     <div className="min-w-0 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm sm:min-h-[208px] sm:p-6">
@@ -332,15 +333,15 @@ function MetricTile({
               <div className="min-w-0">
                 <p className="ds-label">{currencyPrefix}</p>
                   <p
-                    className={`mt-2 whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.55rem,4vw,2.45rem)] font-bold tracking-tight ${
-                      isNegative ? "text-rose-700" : isPositive ? "text-emerald-700" : "text-slate-950"
+                    className={`mt-2 break-words whitespace-normal font-[var(--font-heading)] text-[clamp(1.35rem,7vw,2.45rem)] font-bold tracking-tight sm:whitespace-nowrap ${
+                      isNegative ? "ds-stat-danger" : isPositive ? "ds-stat-positive" : "text-slate-950"
                     }`}
                   >
                     {value}
                 </p>
               </div>
             ) : (
-              <p className="whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.55rem,4vw,2.45rem)] font-bold tracking-tight text-slate-950">
+              <p className="break-words whitespace-normal font-[var(--font-heading)] text-[clamp(1.35rem,7vw,2.45rem)] font-bold tracking-tight text-slate-950 sm:whitespace-nowrap">
                 {value}
               </p>
             )}
@@ -387,14 +388,24 @@ function variationTone(value: number | null) {
   }
 
   if (value > 0) {
-    return "text-emerald-700";
+    return "ds-stat-positive";
   }
 
   if (value < 0) {
-    return "text-rose-700";
+    return "ds-stat-danger";
   }
 
   return "text-slate-500";
+}
+
+function formatTimelineDisplayDate(value: string) {
+  const [year, month, day] = value.split("-");
+
+  if (!year || !month || !day) {
+    return value;
+  }
+
+  return `${day}/${month}/${year}`;
 }
 
 export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
@@ -490,6 +501,27 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
       ),
     [visibleSales]
   );
+  const operationalTimeline = useMemo(
+    () =>
+      calculateOperationalTimeline({
+        sales: visibleSales.map((sale) => ({
+          quantity: sale.sold,
+          unitPrice: sale.unitPrice,
+          createdAt: sale.soldAt
+        })),
+        additionalRevenues: event.additionalRevenues.map((revenue) => ({
+          amount: revenue.amount,
+          date: revenue.date
+        })),
+        expenses: event.expenses.map((expense) => ({
+          amount: expense.amount,
+          incurredAt: expense.incurredAt,
+          category: expense.category,
+          title: expense.title
+        }))
+      }),
+    [event.additionalRevenues, event.expenses, visibleSales]
+  );
   const sellerChartData = useMemo(
     () => event.sellerContribution.slice(0, compact ? 4 : 6),
     [compact, event.sellerContribution]
@@ -502,10 +534,10 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
   const salePriceModeDisplay = salePriceMode.modeCount > 0 ? formatCurrencyParts(salePriceMode.modePrice) : null;
   const healthToneStyles =
     event.health.tone === "positive"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      ? "ds-tone-positive"
       : event.health.tone === "warning"
-        ? "border-amber-200 bg-amber-50 text-amber-800"
-        : "border-rose-200 bg-rose-50 text-rose-800";
+        ? "ds-tone-warning"
+        : "ds-tone-danger";
 
   return (
     <SectionCard
@@ -560,7 +592,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                 </p>
                 <div className="mt-5 space-y-3">
                   {event.attentionItems.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 px-4 py-5 text-sm text-emerald-700">
+                    <div className="ds-tone-positive rounded-2xl border border-dashed px-4 py-5 text-sm">
                       Nenhum ponto critico no momento. A operacao esta equilibrada.
                     </div>
                   ) : (
@@ -569,20 +601,20 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                         key={item.id}
                         className={`rounded-2xl border px-4 py-4 ${
                           item.tone === "critical"
-                            ? "border-rose-200 bg-rose-50"
-                            : "border-amber-200 bg-amber-50"
+                            ? "ds-tone-danger"
+                            : "ds-tone-warning"
                         }`}
                       >
                         <p
                           className={`font-semibold ${
-                            item.tone === "critical" ? "text-rose-900" : "text-amber-900"
+                            item.tone === "critical" ? "ds-stat-danger" : "text-[color:var(--ds-warning-text)]"
                           }`}
                         >
                           {item.title}
                         </p>
                         <p
                           className={`mt-1 text-sm leading-6 ${
-                            item.tone === "critical" ? "text-rose-800" : "text-amber-800"
+                            item.tone === "critical" ? "text-[color:var(--ds-danger-text)]" : "text-[color:var(--ds-warning-text)]"
                           }`}
                         >
                           {item.description}
@@ -679,7 +711,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
           </div>
 
           {!compact ? (
-            <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(380px,1fr))]">
+          <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))] xl:[grid-template-columns:repeat(auto-fit,minmax(380px,1fr))]">
               <TicketTypeMetricBlock
                 title="Ingressos por tipo"
                 items={[
@@ -808,7 +840,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
             </div>
           ) : null}
 
-          <div className={`grid gap-6 ${compact ? "lg:grid-cols-1" : "xl:grid-cols-[1.1fr_0.9fr]"}`}>
+          <div className={`grid gap-6 ${compact ? "lg:grid-cols-1" : "2xl:grid-cols-[1.1fr_0.9fr]"}`}>
             <InsightChart
               title="Evolucao da receita"
               description="Veja como o valor arrecadado avanca ao longo do tempo e identifique os dias com melhor resposta."
@@ -898,6 +930,119 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
           </div>
 
           {!compact ? (
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-slate-900">Linha do tempo operacional</p>
+                  <p className="ds-helper mt-1">
+                    Leitura historica da operacao para enxergar quando as vendas ganharam tracao, quando a receita subiu e quando os custos apertaram.
+                  </p>
+                </div>
+              </div>
+
+              {operationalTimeline.length === 0 ? (
+                <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
+                  A linha do tempo aparece assim que a festa tiver vendas ou despesas registradas.
+                </div>
+              ) : (
+                <div className="mt-5 space-y-4">
+                  {operationalTimeline.map((item) => {
+                    const importanceBadge = item.title.includes("Pico")
+                      ? {
+                          label: "Pico",
+                          className: "bg-[color:var(--ds-group-text)] text-white border-[color:var(--ds-group-text)]"
+                        }
+                      : item.title.includes("Aceleracao")
+                        ? {
+                            label: "Aceleracao",
+                          className: "bg-[color:var(--ds-batch-text)] text-white border-[color:var(--ds-batch-text)]"
+                          }
+                        : item.title.includes("Aumento de custos")
+                          ? {
+                              label: "Custo alto",
+                              className: "bg-[color:var(--ds-danger-text)] text-white border-[color:var(--ds-danger-text)]"
+                            }
+                          : item.title.includes("Inicio")
+                            ? {
+                                label: "Marco inicial",
+                                className: "bg-[color:#4f5b71] text-white border-[color:#4f5b71]"
+                              }
+                            : item.category === "attention"
+                              ? {
+                                  label: "Atencao",
+                                  className: "bg-[color:var(--ds-warning-text)] text-white border-[color:var(--ds-warning-text)]"
+                                }
+                              : null;
+                    const toneStyles =
+                      item.category === "expense"
+                        ? {
+                            rail: "bg-[color:var(--ds-danger-border)]",
+                            dot: "bg-[color:var(--ds-danger-text)]",
+                            badge: "ds-badge-danger"
+                          }
+                        : item.category === "revenue"
+                          ? {
+                              rail: "bg-[color:var(--ds-success-border)]",
+                              dot: "bg-[color:var(--ds-success-text)]",
+                              badge: "ds-badge-positive"
+                            }
+                          : item.category === "attention"
+                            ? {
+                                rail: "bg-[color:var(--ds-warning-border)]",
+                                dot: "bg-[color:var(--ds-warning-text)]",
+                                badge: "ds-badge-warning"
+                              }
+                            : {
+                                rail: "bg-[color:var(--ds-batch-border)]",
+                                dot: "bg-[color:var(--ds-batch-text)]",
+                                badge: "ds-badge-batch"
+                              };
+
+                    return (
+                      <div key={item.id} className="grid gap-3 sm:grid-cols-[140px_16px_minmax(0,1fr)] sm:items-start">
+                        <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                          <p className="ds-label">Data</p>
+                          <p className="mt-2 font-semibold text-slate-900">{formatTimelineDisplayDate(item.date)}</p>
+                        </div>
+
+                        <div className="relative hidden h-full justify-center sm:flex">
+                          <div className={`absolute inset-y-0 w-px ${toneStyles.rail}`} />
+                          <div className={`relative mt-3 h-3 w-3 rounded-full ${toneStyles.dot}`} />
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-semibold text-slate-950">{item.title}</p>
+                                {importanceBadge ? (
+                                  <span className={`ds-badge border ${importanceBadge.className}`}>
+                                    {importanceBadge.label}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="ds-helper mt-2 text-sm leading-6">{item.description}</p>
+                            </div>
+                            <span className={`ds-badge ${toneStyles.badge}`}>
+                              {item.category === "sales"
+                                ? "Vendas"
+                                : item.category === "revenue"
+                                  ? "Receita"
+                                  : item.category === "expense"
+                                    ? "Despesa"
+                                    : "Atencao"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {!compact ? (
             <div className="grid gap-6 xl:grid-cols-[1fr_0.95fr]">
               <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
@@ -927,7 +1072,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                             </div>
                           </div>
                         </div>
-                        {index < 3 ? <Medal className="h-5 w-5 shrink-0 text-amber-500" /> : null}
+                        {index < 3 ? <Medal className="h-5 w-5 shrink-0 text-[color:var(--ds-warning-text)]" /> : null}
                       </div>
                       <div className="mt-4">
                         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Total vendido</p>

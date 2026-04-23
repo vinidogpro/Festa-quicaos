@@ -4,7 +4,7 @@ type Status = TaskStatus;
 
 const styles: Record<Status, string> = {
   pending: "ds-badge ds-badge-warning",
-  "in-progress": "ds-badge border-sky-100 bg-sky-50 text-sky-700",
+  "in-progress": "ds-badge ds-badge-info",
   done: "ds-badge ds-badge-positive"
 };
 

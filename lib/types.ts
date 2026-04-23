@@ -193,10 +193,14 @@ export interface EventSummary {
   status: EventStatus;
   description?: string;
   totalRevenue: number;
+  ticketRevenue: number;
+  additionalRevenue: number;
+  totalExpenses: number;
   goalValue: number;
   progress: number;
   estimatedProfit: number;
   totalTicketsSold: number;
+  averageTicket: number;
   bestSeller: string;
   venue: string;
 }
@@ -227,6 +231,7 @@ export interface PartyEventDetail extends EventSummary {
   eventBatches: EventBatch[];
   teamMembers: TeamMember[];
   availableUsers: UserDirectoryOption[];
+  postEventReport: PostEventReportSnapshot;
 }
 
 export interface EventComparisonSnapshot {
@@ -243,4 +248,91 @@ export interface EventComparisonSnapshot {
     value: number;
   };
   averageSalesPerEvent: number;
+}
+
+export interface StrategicEventSnapshot extends EventSummary {
+  profitMargin: number;
+  expenseRatio: number;
+  isLoss: boolean;
+  isBelowGoal: boolean;
+}
+
+export interface StrategicBatchLearning {
+  batchLabel: string;
+  ticketsSold: number;
+  revenue: number;
+  averageTicket: number;
+  percentage: number;
+}
+
+export interface StrategicTicketTypeMetric {
+  ticketsSold: number;
+  revenue: number;
+  averageTicket: number;
+  percentage: number;
+}
+
+export interface StrategicSaleTypeMetric {
+  ticketsSold: number;
+  revenue: number;
+  averageTicket: number;
+  percentage: number;
+}
+
+export interface StrategicExpenseCategoryLearning {
+  category: string;
+  total: number;
+  count: number;
+  averagePerEvent: number;
+  revenueShare: number;
+}
+
+export interface PostEventReportSnapshot {
+  eventId: string;
+  eventName: string;
+  eventDate: string;
+  status: EventStatus;
+  overview: {
+    totalRevenue: number;
+    ticketRevenue: number;
+    additionalRevenue: number;
+    totalExpenses: number;
+    estimatedProfit: number;
+    averageTicket: number;
+    totalTicketsSold: number;
+  };
+  commercial: {
+    bestBatchLabel: string;
+    bestBatchRevenue: number;
+    bestBatchShare: number;
+    dominantTicketType: TicketType;
+    dominantTicketRevenue: number;
+    dominantTicketRevenueShare: number;
+    dominantSaleType: SaleType;
+    dominantSaleTypeShare: number;
+    mostEfficientPrice: number;
+    mostEfficientPriceRevenue: number;
+  };
+  financial: {
+    topExpenseCategories: Array<{ category: string; total: number }>;
+    heaviestExpenseCategory?: { category: string; total: number };
+    marginPercentage: number;
+    expenseRatio: number;
+  };
+  insights: string[];
+}
+
+export interface StrategicOverviewSnapshot {
+  eventSnapshots: StrategicEventSnapshot[];
+  batchLearning: StrategicBatchLearning[];
+  ticketTypeLearning: {
+    vip: StrategicTicketTypeMetric;
+    pista: StrategicTicketTypeMetric;
+  };
+  saleTypeLearning: {
+    normal: StrategicSaleTypeMetric;
+    grupo: StrategicSaleTypeMetric;
+  };
+  expenseCategoryLearning: StrategicExpenseCategoryLearning[];
+  postEventReports: PostEventReportSnapshot[];
 }

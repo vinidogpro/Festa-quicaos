@@ -80,7 +80,7 @@ function FinanceMetricCard({
               {currencyParts?.currencyLabel ?? valueLabel}
             </p>
               <p
-                className={`mt-2 min-w-0 whitespace-nowrap font-[var(--font-heading)] font-bold tracking-tight ${valueClassName}`}
+                className={`mt-2 min-w-0 break-words whitespace-normal font-[var(--font-heading)] font-bold tracking-tight sm:whitespace-nowrap ${valueClassName}`}
                 title={valueLabel}
               >
                 {currencyParts?.amountLabel ?? valueLabel}
@@ -88,7 +88,7 @@ function FinanceMetricCard({
           </div>
         ) : (
           <p
-            className={`min-w-0 whitespace-nowrap font-[var(--font-heading)] font-bold tracking-tight ${valueClassName}`}
+            className={`min-w-0 break-words whitespace-normal font-[var(--font-heading)] font-bold tracking-tight sm:whitespace-nowrap ${valueClassName}`}
             title={valueLabel}
           >
             {value}
@@ -144,7 +144,7 @@ function ClosingMetricCard({
       </div>
       <div className="mt-2.5 min-w-0">
         <p className="ds-label text-slate-400">{currencyParts.currencyLabel}</p>
-        <p className={`ds-value-lg mt-1.5 whitespace-nowrap ${amountToneClass}`}>
+        <p className={`ds-value-lg mt-1.5 break-words whitespace-normal sm:whitespace-nowrap ${amountToneClass}`}>
           {currencyParts.amountLabel}
         </p>
       </div>
@@ -312,13 +312,13 @@ function ExpenseForm({ eventId }: { eventId: string }) {
   }, [router, state.status]);
 
   return (
-    <div className="mb-6 rounded-[28px] border border-brand-200 bg-gradient-to-br from-brand-50 via-white to-slate-50 p-4 sm:p-5">
+    <div className="mb-6 rounded-[28px] border border-rose-200 bg-gradient-to-br from-rose-50 via-white to-slate-50 p-4 sm:p-5">
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-200/60">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-700 text-white shadow-lg shadow-rose-200/60">
           <Plus className="h-5 w-5" />
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-700">Nova despesa</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-rose-700">Nova despesa</p>
           <h3 className="mt-1 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
             Registrar saida financeira
           </h3>
@@ -331,13 +331,13 @@ function ExpenseForm({ eventId }: { eventId: string }) {
           <input
             name="title"
             placeholder="Titulo da despesa"
-            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-rose-400"
             required
           />
           <input
             name="category"
             placeholder="Categoria"
-            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-rose-400"
             required
           />
           <input
@@ -346,20 +346,20 @@ function ExpenseForm({ eventId }: { eventId: string }) {
             min="0.01"
             step="0.01"
             placeholder="Valor"
-            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-rose-400"
             required
           />
           <input
             name="incurredAt"
             type="date"
             defaultValue={new Date().toISOString().slice(0, 10)}
-            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-rose-400"
           />
         </div>
         <input
           name="notes"
           placeholder="Observacoes da despesa"
-          className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+          className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-rose-400"
         />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-500">
@@ -367,7 +367,7 @@ function ExpenseForm({ eventId }: { eventId: string }) {
           </p>
           <SubmitButton
             pendingLabel="Salvando despesa..."
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-rose-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Plus className="h-4 w-4" />
             Adicionar despesa
@@ -774,7 +774,7 @@ export function FinancePanel({
         <div className="grid gap-6">
           <div
             className={`grid gap-4 ${
-              compact ? "2xl:grid-cols-2" : "md:grid-cols-2 2xl:grid-cols-3"
+              compact ? "xl:grid-cols-2" : "sm:grid-cols-2 2xl:grid-cols-3"
             }`}
           >
             <FinanceMetricCard
@@ -784,7 +784,7 @@ export function FinancePanel({
               isCurrency
               icon={<Ticket className="h-5 w-5 text-white/60" />}
               cardClassName="bg-slate-950 text-white"
-              valueClassName="text-[clamp(1.7rem,2.2vw,2.35rem)] leading-none text-white"
+              valueClassName="text-[clamp(1.45rem,7vw,2.35rem)] leading-[0.95] text-white"
             />
 
             <FinanceMetricCard
@@ -794,7 +794,7 @@ export function FinancePanel({
               isCurrency
               icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
               cardClassName="border border-emerald-200 bg-emerald-50 text-emerald-800"
-              valueClassName="text-[clamp(1.7rem,2.2vw,2.35rem)] leading-none text-emerald-900"
+              valueClassName="text-[clamp(1.45rem,7vw,2.35rem)] leading-[0.95] text-emerald-900"
             />
 
             <FinanceMetricCard
@@ -804,7 +804,7 @@ export function FinancePanel({
               isCurrency
               icon={<CircleDollarSign className="h-5 w-5 text-white/60" />}
               cardClassName="bg-brand-700 text-white"
-              valueClassName="text-[clamp(1.75rem,2.25vw,2.5rem)] leading-none text-white"
+              valueClassName="text-[clamp(1.5rem,7vw,2.5rem)] leading-[0.95] text-white"
             />
 
             <FinanceMetricCard
@@ -814,7 +814,7 @@ export function FinancePanel({
               isCurrency
               icon={<ReceiptText className="h-5 w-5 text-rose-500" />}
               cardClassName="border border-rose-200 bg-rose-50/75 text-rose-700"
-              valueClassName="text-[clamp(1.7rem,2.2vw,2.35rem)] leading-none text-rose-900"
+              valueClassName="text-[clamp(1.45rem,7vw,2.35rem)] leading-[0.95] text-rose-900"
             />
 
               <FinanceMetricCard
@@ -824,7 +824,7 @@ export function FinancePanel({
                 isCurrency
                 icon={<Wallet className="h-5 w-5 text-brand-600" />}
                 cardClassName={estimatedProfit < 0 ? "border border-rose-200 bg-rose-50 text-slate-500" : "bg-brand-50 text-slate-500"}
-                valueClassName={`text-[clamp(1.7rem,2.2vw,2.35rem)] leading-none ${
+                valueClassName={`text-[clamp(1.45rem,7vw,2.35rem)] leading-[0.95] ${
                   estimatedProfit < 0 ? "text-rose-900" : estimatedProfit > 0 ? "text-emerald-900" : "text-slate-950"
                 }`}
               />

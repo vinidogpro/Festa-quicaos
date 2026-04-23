@@ -1,7 +1,7 @@
 import { EventsOverviewPage } from "@/components/events-overview-page";
 import { SetupCard } from "@/components/setup-card";
 import { isSupabaseConfigured } from "@/lib/env";
-import { getCurrentViewer, getEventComparison, getEvents } from "@/lib/supabase/queries";
+import { getCurrentViewer, getEventComparison, getEvents, getStrategicOverview } from "@/lib/supabase/queries";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export default async function EventsPage() {
     }
 
     const events = await getEvents();
-    const comparison = await getEventComparison(events);
+    const [comparison, strategic] = await Promise.all([getEventComparison(events), getStrategicOverview(events)]);
 
     return (
       <EventsOverviewPage
@@ -28,6 +28,7 @@ export default async function EventsPage() {
         upcomingEvents={events.filter((event) => event.status === "upcoming")}
         pastEvents={events.filter((event) => event.status === "past")}
         comparison={comparison}
+        strategic={strategic}
       />
     );
   } catch (error) {

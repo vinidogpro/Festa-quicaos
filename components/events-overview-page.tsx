@@ -2,8 +2,9 @@ import { CreateEventForm } from "@/components/forms/create-event-form";
 import { ComparisonSection } from "@/components/comparison-section";
 import { EventCard } from "@/components/event-card";
 import { PlatformHeader } from "@/components/platform-header";
+import { StrategicIntelligenceSection } from "@/components/strategic-intelligence-section";
 import { SectionCard } from "@/components/ui/section-card";
-import { EventComparisonSnapshot, EventSummary, ViewerProfile } from "@/lib/types";
+import { EventComparisonSnapshot, EventSummary, StrategicOverviewSnapshot, ViewerProfile } from "@/lib/types";
 
 interface EventsOverviewPageProps {
   viewer: ViewerProfile;
@@ -11,6 +12,7 @@ interface EventsOverviewPageProps {
   upcomingEvents: EventSummary[];
   pastEvents: EventSummary[];
   comparison: EventComparisonSnapshot;
+  strategic: StrategicOverviewSnapshot;
 }
 
 export function EventsOverviewPage({
@@ -18,7 +20,8 @@ export function EventsOverviewPage({
   currentEvents,
   upcomingEvents,
   pastEvents,
-  comparison
+  comparison,
+  strategic
 }: EventsOverviewPageProps) {
   return (
     <main className="min-h-screen">
@@ -61,6 +64,8 @@ export function EventsOverviewPage({
         </SectionCard>
 
         <ComparisonSection comparison={comparison} />
+
+        <StrategicIntelligenceSection strategic={strategic} />
 
         <SectionCard
           title="Festas passadas"

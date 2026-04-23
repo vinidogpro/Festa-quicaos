@@ -4,6 +4,42 @@
 
 :root {
   color-scheme: light;
+  --ds-bg: #f6f7f5;
+  --ds-bg-elevated: rgba(255, 255, 255, 0.86);
+  --ds-bg-muted: #f2f4f3;
+  --ds-card: #ffffff;
+  --ds-border: rgba(145, 158, 171, 0.16);
+  --ds-border-strong: rgba(100, 116, 139, 0.2);
+  --ds-text-primary: #142033;
+  --ds-text-secondary: #5f6f84;
+  --ds-text-tertiary: #8b9ab0;
+  --ds-success-bg: #edf6f0;
+  --ds-success-border: #c9ddcf;
+  --ds-success-text: #25543f;
+  --ds-danger-bg: #fbf0f1;
+  --ds-danger-border: #efcfd5;
+  --ds-danger-text: #7f2740;
+  --ds-warning-bg: #faf4e6;
+  --ds-warning-border: #ead6ad;
+  --ds-warning-text: #8a5a1f;
+  --ds-primary-bg: #eef2fb;
+  --ds-primary-border: #d4ddf0;
+  --ds-primary-text: #41567f;
+  --ds-vip-bg: linear-gradient(135deg, #f8f2df 0%, #f5ecd0 100%);
+  --ds-vip-border: #e4c982;
+  --ds-vip-text: #8b6321;
+  --ds-pista-bg: #f3eff7;
+  --ds-pista-border: #d8ccdf;
+  --ds-pista-text: #5f4d74;
+  --ds-batch-bg: #eef3ee;
+  --ds-batch-border: #cbd8cf;
+  --ds-batch-text: #486257;
+  --ds-group-bg: #f0edfb;
+  --ds-group-border: #d7d0f0;
+  --ds-group-text: #5d4d87;
+  --ds-info-bg: #eef4f8;
+  --ds-info-border: #cfdae5;
+  --ds-info-text: #46657a;
 }
 
 html {
@@ -13,13 +49,14 @@ html {
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(47, 138, 79, 0.12), transparent 30%),
-    linear-gradient(180deg, #f8fafc 0%, #eff6f0 100%);
-  color: #0f172a;
+    radial-gradient(circle at top left, rgba(74, 112, 83, 0.1), transparent 28%),
+    radial-gradient(circle at top right, rgba(84, 96, 126, 0.08), transparent 24%),
+    linear-gradient(180deg, #f8f8f6 0%, #f0f3f1 100%);
+  color: var(--ds-text-primary);
 }
 
 * {
-  border-color: rgba(148, 163, 184, 0.18);
+  border-color: var(--ds-border);
 }
 
 ::-webkit-scrollbar {
@@ -40,75 +77,118 @@ body {
 
 @layer components {
   .ds-section-card {
-    @apply rounded-[28px] border border-white/60 bg-white/85 p-5 shadow-soft backdrop-blur sm:p-6;
+    @apply rounded-[28px] p-4 shadow-soft backdrop-blur sm:p-6;
+    border-color: rgba(255, 255, 255, 0.62);
+    background: var(--ds-bg-elevated);
   }
 
   .ds-section-header {
-    @apply mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between;
+    @apply mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:items-start sm:justify-between;
   }
 
   .ds-section-title {
-    @apply font-[var(--font-heading)] text-xl font-bold leading-tight tracking-tight text-slate-950;
+    @apply font-[var(--font-heading)] text-lg font-bold leading-tight tracking-tight sm:text-xl;
+    color: var(--ds-text-primary);
   }
 
   .ds-section-description {
-    @apply mt-1 text-sm leading-6 text-slate-500;
+    @apply mt-1 text-sm leading-6;
+    color: var(--ds-text-secondary);
   }
 
   .ds-metric-card {
-    @apply min-w-0 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5;
+    @apply min-w-0 rounded-[24px] border p-4 shadow-sm sm:p-5;
+    border-color: var(--ds-border);
+    background: rgba(255, 255, 255, 0.92);
   }
 
   .ds-label {
-    @apply text-xs font-semibold uppercase tracking-[0.18em] text-slate-400;
+    @apply text-xs font-semibold uppercase tracking-[0.18em];
+    color: var(--ds-text-tertiary);
   }
 
   .ds-value {
-    @apply font-[var(--font-heading)] font-bold leading-[0.98] tracking-tight text-slate-950;
+    @apply font-[var(--font-heading)] font-bold leading-[0.98] tracking-tight;
+    color: var(--ds-text-primary);
   }
 
   .ds-value-lg {
-    @apply ds-value text-[clamp(1.7rem,2.2vw,2.35rem)];
+    @apply ds-value text-[clamp(1.5rem,5vw,2.35rem)];
   }
 
   .ds-value-xl {
-    @apply ds-value text-[clamp(1.95rem,2.5vw,2.7rem)];
+    @apply ds-value text-[clamp(1.7rem,5.8vw,2.7rem)];
   }
 
   .ds-helper {
-    @apply text-sm leading-6 text-slate-500;
+    @apply text-sm leading-6;
+    color: var(--ds-text-secondary);
   }
 
   .ds-badge {
     @apply inline-flex min-h-7 items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em];
+    letter-spacing: 0.18em;
   }
 
   .ds-badge-neutral {
-    @apply border-slate-200 bg-slate-50 text-slate-700;
+    border-color: var(--ds-border);
+    background: var(--ds-bg-muted);
+    color: var(--ds-text-secondary);
   }
 
   .ds-badge-positive {
-    @apply border-emerald-200 bg-emerald-50 text-emerald-700;
+    border-color: var(--ds-success-border);
+    background: var(--ds-success-bg);
+    color: var(--ds-success-text);
   }
 
   .ds-badge-warning {
-    @apply border-amber-200 bg-amber-50 text-amber-800;
+    border-color: var(--ds-warning-border);
+    background: var(--ds-warning-bg);
+    color: var(--ds-warning-text);
   }
 
   .ds-badge-danger {
-    @apply border-rose-200 bg-rose-50 text-rose-700;
+    border-color: var(--ds-danger-border);
+    background: var(--ds-danger-bg);
+    color: var(--ds-danger-text);
+  }
+
+  .ds-badge-primary {
+    border-color: var(--ds-primary-border);
+    background: var(--ds-primary-bg);
+    color: var(--ds-primary-text);
   }
 
   .ds-badge-vip {
-    @apply border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-900 shadow-sm;
+    border-color: var(--ds-vip-border);
+    background: var(--ds-vip-bg);
+    color: var(--ds-vip-text);
+    box-shadow: 0 1px 2px rgba(139, 99, 33, 0.06);
   }
 
   .ds-badge-pista {
-    @apply border-rose-200 bg-rose-50 text-rose-800;
+    border-color: var(--ds-pista-border);
+    background: var(--ds-pista-bg);
+    color: var(--ds-pista-text);
   }
 
   .ds-badge-batch {
-    @apply border-brand-200 bg-brand-50 text-brand-800;
+    border-color: var(--ds-batch-border);
+    background: var(--ds-batch-bg);
+    color: var(--ds-batch-text);
+  }
+
+  .ds-badge-group {
+    border-color: var(--ds-group-border);
+    background: var(--ds-group-bg);
+    color: var(--ds-group-text);
+  }
+
+  .ds-badge-info {
+    border-color: var(--ds-info-border);
+    background: var(--ds-info-bg);
+    color: var(--ds-info-text);
   }
 
   .ds-button {
@@ -116,27 +196,60 @@ body {
   }
 
   .ds-button-primary {
-    @apply ds-button bg-brand-600 text-white hover:bg-brand-700;
+    @apply ds-button text-white;
+    background: #3a654f;
+  }
+
+  .ds-button-primary:hover {
+    background: #315542;
   }
 
   .ds-button-success {
-    @apply ds-button bg-emerald-600 text-white hover:bg-emerald-700;
+    @apply ds-button text-white;
+    background: #2e5d48;
+  }
+
+  .ds-button-success:hover {
+    background: #244b3a;
   }
 
   .ds-button-dark {
-    @apply ds-button bg-slate-950 text-white hover:bg-slate-800;
+    @apply ds-button text-white;
+    background: #1a2536;
+  }
+
+  .ds-button-dark:hover {
+    background: #243043;
   }
 
   .ds-button-secondary {
-    @apply ds-button border border-slate-200 bg-white text-slate-700 hover:bg-slate-50;
+    @apply ds-button border bg-white hover:bg-slate-50;
+    border-color: var(--ds-border);
+    color: var(--ds-text-secondary);
   }
 
   .ds-button-danger {
-    @apply ds-button border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100;
+    @apply ds-button border;
+    border-color: var(--ds-danger-border);
+    background: var(--ds-danger-bg);
+    color: var(--ds-danger-text);
+  }
+
+  .ds-button-danger:hover {
+    background: #f6e6ea;
   }
 
   .ds-input {
-    @apply min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500;
+    @apply min-h-11 rounded-2xl border bg-white px-4 py-3 text-sm outline-none transition;
+    border-color: var(--ds-border);
+    color: var(--ds-text-primary);
+  }
+
+  .ds-input:focus,
+  .ds-select:focus,
+  .ds-textarea:focus {
+    border-color: #8ea39b;
+    box-shadow: 0 0 0 3px rgba(142, 163, 155, 0.12);
   }
 
   .ds-select {
@@ -144,6 +257,59 @@ body {
   }
 
   .ds-textarea {
-    @apply rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500;
+    @apply rounded-2xl border bg-white px-4 py-3 text-sm outline-none transition;
+    border-color: var(--ds-border);
+    color: var(--ds-text-primary);
+  }
+
+  .ds-tone-positive {
+    border-color: var(--ds-success-border);
+    background: color-mix(in srgb, var(--ds-success-bg) 74%, white 26%);
+    color: var(--ds-success-text);
+  }
+
+  .ds-tone-danger {
+    border-color: var(--ds-danger-border);
+    background: color-mix(in srgb, var(--ds-danger-bg) 76%, white 24%);
+    color: var(--ds-danger-text);
+  }
+
+  .ds-tone-warning {
+    border-color: var(--ds-warning-border);
+    background: color-mix(in srgb, var(--ds-warning-bg) 78%, white 22%);
+    color: var(--ds-warning-text);
+  }
+
+  .ds-tone-primary {
+    border-color: var(--ds-primary-border);
+    background: color-mix(in srgb, var(--ds-primary-bg) 78%, white 22%);
+    color: var(--ds-primary-text);
+  }
+
+  .ds-tone-info {
+    border-color: var(--ds-info-border);
+    background: color-mix(in srgb, var(--ds-info-bg) 80%, white 20%);
+    color: var(--ds-info-text);
+  }
+
+  .ds-card-muted {
+    border-color: var(--ds-border);
+    background: color-mix(in srgb, var(--ds-bg-muted) 70%, white 30%);
+  }
+
+  .ds-stat-positive {
+    color: var(--ds-success-text);
+  }
+
+  .ds-stat-danger {
+    color: var(--ds-danger-text);
+  }
+
+  .ds-stat-primary {
+    color: var(--ds-primary-text);
+  }
+
+  .ds-stat-info {
+    color: var(--ds-info-text);
   }
 }

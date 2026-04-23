@@ -1,10 +1,15 @@
 import { isSupabaseConfigured } from "@/lib/env";
 import {
+  calculateBatchMetrics,
+  calculateExpenseCategoryInsights,
   calculateFinanceTotals,
   calculateGoalProgress,
   calculateGuestListStats,
+  calculatePostEventReport,
   calculatePeriodComparison,
-  calculateSellerMetrics
+  calculateSaleTypeMetrics,
+  calculateSellerMetrics,
+  calculateTicketTypeMetrics
 } from "@/lib/event-metrics";
 import { buildPermissions } from "@/lib/permissions";
 import { buildGuestListEntries, buildSaleSequenceMap } from "@/lib/guest-list-utils";
@@ -18,6 +23,7 @@ import {
   EventAttentionItem,
   EventComparisonSnapshot,
   EventHealthSnapshot,
+  PostEventReportSnapshot,
   EventSummary,
   Expense,
   GuestListEntry,
@@ -30,7 +36,9 @@ import {
   TeamMember,
   UserDirectoryOption,
   ViewerPermissions,
-  ViewerProfile
+  ViewerProfile,
+  StrategicEventSnapshot,
+  StrategicOverviewSnapshot
 } from "@/lib/types";
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
@@ -220,10 +228,14 @@ function buildSummaryFromRows({
     status: event.status,
     description: event.description ?? undefined,
     totalRevenue,
+    ticketRevenue: financeTotals.ticketRevenue,
+    additionalRevenue: financeTotals.additionalRevenue,
+    totalExpenses,
     goalValue: event.goal_value,
     progress,
     estimatedProfit: totalRevenue - totalExpenses,
     totalTicketsSold,
+    averageTicket: financeTotals.averageTicket,
     bestSeller: bestProfile?.full_name ?? "Sem vendas",
     venue: event.venue
   };
@@ -277,6 +289,170 @@ export async function getEvents(): Promise<EventSummary[]> {
     );
   } catch (error) {
     logServerIssue("getEvents", error);
+    throw error;
+  }
+}
+
+function toStrategicEventSnapshot(event: EventSummary): StrategicEventSnapshot {
+  return {
+    ...event,
+    profitMargin: event.totalRevenue > 0 ? Math.round((event.estimatedProfit / event.totalRevenue) * 100) : 0,
+    expenseRatio: event.totalRevenue > 0 ? Math.round((event.totalExpenses / event.totalRevenue) * 100) : 0,
+    isLoss: event.estimatedProfit < 0,
+    isBelowGoal: event.progress < 100
+  };
+}
+
+export async function getStrategicOverview(preloadedEvents?: EventSummary[]): Promise<StrategicOverviewSnapshot> {
+  try {
+    const events = preloadedEvents ?? (await getEvents());
+
+    if (events.length === 0) {
+      return {
+        eventSnapshots: [],
+        batchLearning: [],
+        ticketTypeLearning: calculateTicketTypeMetrics([]),
+        saleTypeLearning: calculateSaleTypeMetrics([]),
+        expenseCategoryLearning: [],
+        postEventReports: []
+      };
+    }
+
+    const context = await getViewerContext();
+
+    if (!context) {
+      return {
+        eventSnapshots: [],
+        batchLearning: [],
+        ticketTypeLearning: calculateTicketTypeMetrics([]),
+        saleTypeLearning: calculateSaleTypeMetrics([]),
+        expenseCategoryLearning: [],
+        postEventReports: []
+      };
+    }
+
+    const supabase = createSupabaseServerClient() as any;
+    const accessibleEvents = await getAccessibleEvents(context.viewer);
+    const eventIds = accessibleEvents.map((event) => event.id);
+
+    if (eventIds.length === 0) {
+      return {
+        eventSnapshots: [],
+        batchLearning: [],
+        ticketTypeLearning: calculateTicketTypeMetrics([]),
+        saleTypeLearning: calculateSaleTypeMetrics([]),
+        expenseCategoryLearning: [],
+        postEventReports: []
+      };
+    }
+
+    const [{ data: eventBatches }, { data: sales }, { data: expenses }, { data: additionalRevenues }] = await Promise.all([
+      supabase.from("event_batches").select("id, event_id, name").in("event_id", eventIds),
+      supabase
+        .from("sales")
+        .select("id, event_id, seller_user_id, batch_id, sale_type, ticket_type, quantity, unit_price, sold_at, created_at")
+        .in("event_id", eventIds),
+      supabase.from("expenses").select("event_id, amount, category").in("event_id", eventIds),
+      supabase.from("additional_revenues").select("event_id, amount, category").in("event_id", eventIds)
+    ]);
+
+    const batchRows = (eventBatches ?? []) as Array<Pick<EventBatchRow, "id" | "event_id" | "name">>;
+    const salesRows = (sales ?? []) as Array<
+      Pick<SaleRow, "id" | "event_id" | "seller_user_id" | "batch_id" | "sale_type" | "ticket_type" | "quantity" | "unit_price" | "sold_at" | "created_at">
+    >;
+    const expenseRows = (expenses ?? []) as Array<Pick<ExpenseRow, "event_id" | "amount" | "category">>;
+    const additionalRevenueRows = (additionalRevenues ?? []) as Array<Pick<AdditionalRevenueRow, "event_id" | "amount" | "category">>;
+    const batchNameMap = new Map(batchRows.map((batch) => [batch.id, batch.name]));
+    const internalEventIdBySlug = new Map(accessibleEvents.map((event) => [event.slug, event.id]));
+    const eventSnapshots = events.map(toStrategicEventSnapshot);
+
+    const batchLearning = calculateBatchMetrics(
+      salesRows.map((sale) => ({
+        quantity: sale.quantity,
+        unitPrice: sale.unit_price,
+        batchLabel: batchNameMap.get(sale.batch_id) ?? "Sem lote"
+      }))
+    );
+    const ticketTypeLearning = calculateTicketTypeMetrics(
+      salesRows.map((sale) => ({
+        quantity: sale.quantity,
+        unitPrice: sale.unit_price,
+        ticketType: sale.ticket_type
+      }))
+    );
+    const saleTypeLearning = calculateSaleTypeMetrics(
+      salesRows.map((sale) => ({
+        quantity: sale.quantity,
+        unitPrice: sale.unit_price,
+        saleType: sale.sale_type
+      }))
+    );
+    const totalPortfolioRevenue = eventSnapshots.reduce((sum, event) => sum + event.totalRevenue, 0);
+    const expenseCategoryLearning = calculateExpenseCategoryInsights(
+      expenseRows.map((expense) => ({
+        category: expense.category,
+        amount: expense.amount
+      })),
+      totalPortfolioRevenue,
+      events.length
+    );
+
+    const postEventReports: PostEventReportSnapshot[] = eventSnapshots.map((event) => {
+      const sourceEventId = internalEventIdBySlug.get(event.id) ?? event.id;
+      const peerEvents = eventSnapshots.filter((item) => item.id !== event.id);
+      const peerAverageTicket =
+        peerEvents.length > 0
+          ? peerEvents.reduce((sum, item) => sum + item.averageTicket, 0) / peerEvents.length
+          : undefined;
+      const report = calculatePostEventReport({
+        eventId: event.id,
+        eventName: event.name,
+        eventDate: event.eventDate,
+        status: event.status,
+        goalValue: event.goalValue,
+        sales: salesRows
+          .filter((sale) => sale.event_id === sourceEventId)
+          .map((sale) => ({
+            quantity: sale.quantity,
+            unitPrice: sale.unit_price,
+            batchLabel: batchNameMap.get(sale.batch_id) ?? "Sem lote",
+            saleType: sale.sale_type,
+            ticketType: sale.ticket_type
+          })),
+        expenses: expenseRows
+          .filter((expense) => expense.event_id === sourceEventId)
+          .map((expense) => ({
+            amount: expense.amount,
+            category: expense.category
+          })),
+        additionalRevenues: additionalRevenueRows
+          .filter((revenue) => revenue.event_id === sourceEventId)
+          .map((revenue) => ({
+            amount: revenue.amount,
+            category: revenue.category
+          })),
+        peerAverageTicket
+      });
+
+      return {
+        eventId: event.id,
+        eventName: event.name,
+        eventDate: event.eventDate,
+        status: event.status,
+        ...report
+      };
+    });
+
+    return {
+      eventSnapshots,
+      batchLearning,
+      ticketTypeLearning,
+      saleTypeLearning,
+      expenseCategoryLearning,
+      postEventReports
+    };
+  } catch (error) {
+    logServerIssue("getStrategicOverview", error, { preloadedCount: preloadedEvents?.length ?? 0 });
     throw error;
   }
 }
@@ -487,6 +663,28 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     additionalRevenue,
     totalExpenses
   } = financeTotals;
+  const postEventReportBase = calculatePostEventReport({
+    eventId: event.slug,
+    eventName: event.name,
+    eventDate: event.event_date,
+    status: event.status,
+    goalValue: event.goal_value,
+    sales: salesRows.map((sale) => ({
+      quantity: sale.quantity,
+      unitPrice: sale.unit_price,
+      batchLabel: batchNameMap.get(sale.batch_id) ?? "Sem lote",
+      saleType: sale.sale_type,
+      ticketType: sale.ticket_type
+    })),
+    expenses: expenseRows.map((expense) => ({
+      amount: expense.amount,
+      category: expense.category
+    })),
+    additionalRevenues: additionalRevenueRows.map((revenue) => ({
+      amount: revenue.amount,
+      category: revenue.category
+    }))
+  });
 
   const expenseItems: Expense[] = expenseRows.map((expense) => ({
     id: expense.id,
@@ -733,7 +931,14 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     participantOptions,
     eventBatches: eventBatchItems,
     teamMembers,
-    availableUsers
+    availableUsers,
+    postEventReport: {
+      eventId: event.slug,
+      eventName: event.name,
+      eventDate: event.event_date,
+      status: event.status,
+      ...postEventReportBase
+    }
   };
   } catch (error) {
     logServerIssue("getEventById", error, { slug: id });

@@ -129,7 +129,7 @@ function ManualGuestEntryForm({ eventId }: { eventId: string }) {
 
       <form ref={formRef} action={action} className="mt-5 grid gap-3">
         <input type="hidden" name="eventId" value={eventId} />
-        <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr_auto]">
+        <div className="grid gap-3 xl:grid-cols-[1.2fr_0.8fr_auto]">
           <input
             name="guestName"
             placeholder="Nome da pessoa"
@@ -393,24 +393,24 @@ export function GuestListPanel({
       }
       action={<ExportGuestListButton eventId={eventId} />}
     >
-      <div className="grid gap-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4 lg:grid-cols-[1fr_240px_auto]">
+      <div className="grid gap-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4 xl:grid-cols-[1fr_240px_auto]">
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Buscar por nome, vendedor, lote, tipo ou numero da venda"
-          className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
+          className="ds-input"
         />
         <select
           value={sortBy}
           onChange={(event) => setSortBy(event.target.value as SortOption)}
-          className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
+          className="ds-select"
         >
           <option value="name">Ordem alfabetica</option>
           <option value="seller">Ordenar por vendedor</option>
           <option value="sale-asc">Ordenar por venda crescente</option>
           <option value="recent">Vendas recentes</option>
         </select>
-        <div className="min-h-11 rounded-2xl bg-white px-4 py-3 text-sm text-slate-500">
+        <div className="flex min-h-11 items-center rounded-2xl bg-white px-4 py-3 text-sm text-slate-500">
           {filteredEntries.length} nome(s)
         </div>
       </div>

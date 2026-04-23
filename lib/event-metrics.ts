@@ -28,6 +28,11 @@ export interface MetricExpenseWithDate extends MetricExpense {
   incurredAt?: string;
 }
 
+export interface MetricExpenseTimelineInput extends MetricExpenseWithDate {
+  title?: string;
+  category?: string | null;
+}
+
 export interface MetricAdditionalRevenueWithDate extends MetricAdditionalRevenue {
   date?: string;
 }
@@ -60,6 +65,38 @@ export interface SaleTypeMetricSnapshot {
   revenue: number;
   averageTicket: number;
   percentage: number;
+}
+
+export interface OperationalTimelineEvent {
+  id: string;
+  date: string;
+  category: "sales" | "revenue" | "expense" | "attention";
+  title: string;
+  description: string;
+}
+
+interface SalesAccelerationCandidate {
+  date: string;
+  tickets: number;
+  baseline: number;
+  score: number;
+}
+
+export interface PortfolioExpenseCategoryInsight extends CategoryBreakdownItem {
+  averagePerEvent: number;
+  revenueShare: number;
+}
+
+export interface PostEventReportMetricInput {
+  eventId: string;
+  eventName: string;
+  eventDate: string;
+  status: "current" | "upcoming" | "past";
+  goalValue?: number;
+  sales: Array<Pick<MetricSale, "quantity" | "unitPrice" | "batchLabel" | "saleType" | "ticketType">>;
+  expenses: Array<Pick<MetricExpense, "amount"> & { category?: string | null }>;
+  additionalRevenues?: Array<Pick<MetricAdditionalRevenue, "amount" | "category">>;
+  peerAverageTicket?: number;
 }
 
 function startOfDay(date: Date) {
@@ -541,6 +578,309 @@ export function calculateSaleTypeMetrics(
   return initial;
 }
 
+function formatTimelineDateLabel(date: string) {
+  const [year, month, day] = date.split("-");
+
+  if (!year || !month || !day) {
+    return date;
+  }
+
+  return `${day}/${month}`;
+}
+
+function buildRangeKeys(startKey: string, endKey: string) {
+  const keys: string[] = [];
+  let cursor = new Date(`${startKey}T12:00:00`);
+  const end = new Date(`${endKey}T12:00:00`);
+
+  while (cursor <= end) {
+    keys.push(formatLocalDateKey(cursor));
+    cursor = shiftDays(cursor, 1);
+  }
+
+  return keys;
+}
+
+export function calculateOperationalTimeline({
+  sales,
+  additionalRevenues = [],
+  expenses = []
+}: {
+  sales: Array<Pick<MetricSale, "quantity" | "unitPrice" | "createdAt">>;
+  additionalRevenues?: Array<Pick<MetricAdditionalRevenueWithDate, "amount" | "date">>;
+  expenses?: Array<MetricExpenseTimelineInput>;
+}) {
+  const salesByDate = new Map<string, { tickets: number; revenue: number }>();
+  const inflowByDate = new Map<string, number>();
+  const expenseByDate = new Map<string, { amount: number; topCategory?: string | null; topTitle?: string }>();
+
+  for (const sale of sales) {
+    const date = normalizeMetricDate(sale.createdAt);
+
+    if (!date) {
+      continue;
+    }
+
+    const amount = getSaleAmount(sale);
+    const currentSale = salesByDate.get(date) ?? { tickets: 0, revenue: 0 };
+
+    currentSale.tickets += sale.quantity;
+    currentSale.revenue += amount;
+    salesByDate.set(date, currentSale);
+    inflowByDate.set(date, (inflowByDate.get(date) ?? 0) + amount);
+  }
+
+  for (const additionalRevenue of additionalRevenues) {
+    const date = normalizeMetricDate(additionalRevenue.date);
+
+    if (!date || !Number.isFinite(additionalRevenue.amount) || additionalRevenue.amount <= 0) {
+      continue;
+    }
+
+    inflowByDate.set(date, (inflowByDate.get(date) ?? 0) + additionalRevenue.amount);
+  }
+
+  for (const expense of expenses) {
+    const date = normalizeMetricDate(expense.incurredAt);
+
+    if (!date || !Number.isFinite(expense.amount) || expense.amount <= 0) {
+      continue;
+    }
+
+    const currentExpense = expenseByDate.get(date) ?? { amount: 0, topCategory: null, topTitle: undefined };
+    currentExpense.amount += expense.amount;
+
+    const currentTopValue = currentExpense.topTitle || currentExpense.topCategory ? currentExpense.amount - expense.amount : 0;
+    if (expense.amount >= currentTopValue) {
+      currentExpense.topCategory = expense.category?.trim() || null;
+      currentExpense.topTitle = expense.title?.trim() || undefined;
+    }
+
+    expenseByDate.set(date, currentExpense);
+  }
+
+  const salesDays = Array.from(salesByDate.entries())
+    .map(([date, snapshot]) => ({ date, ...snapshot }))
+    .sort((left, right) => left.date.localeCompare(right.date));
+  const inflowDays = Array.from(inflowByDate.entries())
+    .map(([date, inflow]) => ({ date, inflow }))
+    .sort((left, right) => left.date.localeCompare(right.date));
+  const expenseDays = Array.from(expenseByDate.entries())
+    .map(([date, snapshot]) => ({ date, ...snapshot }))
+    .sort((left, right) => left.date.localeCompare(right.date));
+
+  const events: OperationalTimelineEvent[] = [];
+  const pushEvent = (event: OperationalTimelineEvent | null) => {
+    if (!event || events.some((existing) => existing.id === event.id)) {
+      return;
+    }
+
+    events.push(event);
+  };
+
+  const firstSaleDay = salesDays[0];
+  if (firstSaleDay) {
+    pushEvent({
+      id: `sales-start-${firstSaleDay.date}`,
+      date: firstSaleDay.date,
+      category: "sales",
+      title: "Inicio das vendas",
+      description: `${formatTimelineDateLabel(firstSaleDay.date)} marcou as primeiras ${firstSaleDay.tickets} entrada(s) vendidas.`
+    });
+  }
+
+  const peakSalesDay = salesDays.reduce<typeof salesDays[number] | null>((best, current) => {
+    if (!best || current.tickets > best.tickets || (current.tickets === best.tickets && current.date < best.date)) {
+      return current;
+    }
+
+    return best;
+  }, null);
+
+  if (peakSalesDay) {
+    pushEvent({
+      id: `sales-peak-${peakSalesDay.date}`,
+      date: peakSalesDay.date,
+      category: "sales",
+      title: "Pico de vendas",
+      description: `${peakSalesDay.tickets} ingresso(s) vendidos em ${formatTimelineDateLabel(peakSalesDay.date)}.`
+    });
+  }
+
+  let accelerationCandidate: SalesAccelerationCandidate | undefined;
+  let historicalTicketsTotal = 0;
+
+  salesDays.forEach((day, index) => {
+    if (index === 0) {
+      historicalTicketsTotal += day.tickets;
+      return;
+    }
+
+    const baseline = historicalTicketsTotal / index;
+    const threshold = Math.max(Math.ceil(baseline * 1.6), Math.ceil(baseline) + 3);
+
+    if (baseline > 0 && day.tickets >= threshold) {
+      const score = day.tickets - baseline;
+      if (
+        !accelerationCandidate ||
+        score > accelerationCandidate.score ||
+        (score === accelerationCandidate.score && day.date < accelerationCandidate.date)
+      ) {
+        accelerationCandidate = {
+          date: day.date,
+          tickets: day.tickets,
+          baseline,
+          score
+        };
+      }
+    }
+
+    historicalTicketsTotal += day.tickets;
+  });
+
+  if (accelerationCandidate) {
+    pushEvent({
+      id: `sales-acceleration-${accelerationCandidate.date}`,
+      date: accelerationCandidate.date,
+      category: "sales",
+      title: "Aceleracao de vendas",
+      description: `${accelerationCandidate.tickets} ingresso(s) vendidos em ${formatTimelineDateLabel(
+        accelerationCandidate.date
+      )}, acima da media anterior de ${Math.round(accelerationCandidate.baseline)}.`
+    });
+  }
+
+  const peakRevenueDay = inflowDays.reduce<typeof inflowDays[number] | null>((best, current) => {
+    if (!best || current.inflow > best.inflow || (current.inflow === best.inflow && current.date < best.date)) {
+      return current;
+    }
+
+    return best;
+  }, null);
+
+  if (peakRevenueDay) {
+    pushEvent({
+      id: `revenue-peak-${peakRevenueDay.date}`,
+      date: peakRevenueDay.date,
+      category: "revenue",
+      title: "Pico de arrecadacao",
+      description: `${formatTimelineDateLabel(peakRevenueDay.date)} gerou ${peakRevenueDay.inflow.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+      })} em receita.`
+    });
+  }
+
+  const firstExpenseDay = expenseDays[0];
+  if (firstExpenseDay) {
+    pushEvent({
+      id: `expense-start-${firstExpenseDay.date}`,
+      date: firstExpenseDay.date,
+      category: "expense",
+      title: "Inicio dos custos",
+      description: `As primeiras despesas apareceram em ${formatTimelineDateLabel(firstExpenseDay.date)}.`
+    });
+  }
+
+  const positiveExpenseDays = expenseDays.filter((day) => day.amount > 0);
+  const averageExpense = positiveExpenseDays.length
+    ? positiveExpenseDays.reduce((sum, day) => sum + day.amount, 0) / positiveExpenseDays.length
+    : 0;
+  const expenseSpike = positiveExpenseDays.reduce<typeof positiveExpenseDays[number] | null>((best, current) => {
+    const threshold = Math.max(averageExpense * 1.7, 1000);
+
+    if (current.amount < threshold) {
+      return best;
+    }
+
+    if (!best || current.amount > best.amount || (current.amount === best.amount && current.date < best.date)) {
+      return current;
+    }
+
+    return best;
+  }, null);
+
+  if (expenseSpike) {
+    const expenseContext = expenseSpike.topCategory || expenseSpike.topTitle
+      ? ` em ${expenseSpike.topCategory ?? expenseSpike.topTitle}`
+      : "";
+
+    pushEvent({
+      id: `expense-spike-${expenseSpike.date}`,
+      date: expenseSpike.date,
+      category: "expense",
+      title: "Aumento de custos",
+      description: `Despesa alta de ${expenseSpike.amount.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+      })}${expenseContext} em ${formatTimelineDateLabel(expenseSpike.date)}.`
+    });
+  }
+
+  const firstActivityDate = [salesDays[0]?.date, inflowDays[0]?.date].filter(Boolean).sort()[0];
+  const lastActivityDate = [salesDays.at(-1)?.date, inflowDays.at(-1)?.date].filter(Boolean).sort().at(-1);
+
+  if (firstActivityDate && lastActivityDate && firstActivityDate < lastActivityDate) {
+    const dateRange = buildRangeKeys(firstActivityDate, lastActivityDate);
+    let bestGap: { start: string; end: string; length: number } | null = null;
+    let currentGapStart: string | null = null;
+    let currentGapLength = 0;
+
+    for (const date of dateRange) {
+      const hasSales = (salesByDate.get(date)?.tickets ?? 0) > 0;
+      const hasInflow = (inflowByDate.get(date) ?? 0) > 0;
+
+      if (!hasSales && !hasInflow) {
+        currentGapStart ??= date;
+        currentGapLength += 1;
+        continue;
+      }
+
+      if (currentGapStart && currentGapLength >= 2) {
+        const previousDateKey = formatLocalDateKey(shiftDays(new Date(`${date}T12:00:00`), -1));
+        const currentGap = {
+          start: currentGapStart,
+          end: previousDateKey,
+          length: currentGapLength
+        };
+
+        if (!bestGap || currentGap.length > bestGap.length) {
+          bestGap = currentGap;
+        }
+      }
+
+      currentGapStart = null;
+      currentGapLength = 0;
+    }
+
+    if (currentGapStart && currentGapLength >= 2) {
+      const currentGap = {
+        start: currentGapStart,
+        end: dateRange[dateRange.length - 1],
+        length: currentGapLength
+      };
+
+      if (!bestGap || currentGap.length > bestGap.length) {
+        bestGap = currentGap;
+      }
+    }
+
+    if (bestGap) {
+      pushEvent({
+        id: `quiet-period-${bestGap.start}-${bestGap.end}`,
+        date: bestGap.start,
+        category: "attention",
+        title: "Periodo de baixa atividade",
+        description: `${bestGap.length} dia(s) seguidos sem venda relevante entre ${formatTimelineDateLabel(
+          bestGap.start
+        )} e ${formatTimelineDateLabel(bestGap.end)}.`
+      });
+    }
+  }
+
+  return events.sort((left, right) => left.date.localeCompare(right.date));
+}
+
 export function calculateGuestListStats(
   sales: Array<Pick<MetricSale, "quantity" | "attendeeCount">>
 ) {
@@ -551,5 +891,157 @@ export function calculateGuestListStats(
     totalExpectedNames,
     totalRegisteredNames,
     missingNames: Math.max(totalExpectedNames - totalRegisteredNames, 0)
+  };
+}
+
+export function calculateExpenseCategoryInsights(
+  items: MetricCategorizedAmount[],
+  totalRevenue: number,
+  eventCount: number,
+  fallbackLabel = "Sem categoria"
+) {
+  return calculateCategoryBreakdown(items, fallbackLabel).map((item) => ({
+    ...item,
+    averagePerEvent: eventCount > 0 ? Math.round((item.total / eventCount) * 100) / 100 : 0,
+    revenueShare: totalRevenue > 0 ? Math.round((item.total / totalRevenue) * 100) : 0
+  })) satisfies PortfolioExpenseCategoryInsight[];
+}
+
+export function calculateMostEfficientPrice(
+  sales: Array<Pick<MetricSale, "quantity" | "unitPrice">>
+) {
+  const ranking = calculateSalePriceRanking(sales);
+
+  if (ranking.length === 0) {
+    return {
+      unitPrice: 0,
+      revenue: 0,
+      ticketsSold: 0
+    };
+  }
+
+  const pricedRows = ranking.map((entry) => ({
+    unitPrice: entry.unitPrice,
+    ticketsSold: entry.ticketsSold,
+    revenue: entry.unitPrice * entry.ticketsSold
+  }));
+
+  pricedRows.sort((left, right) => {
+    if (right.revenue !== left.revenue) {
+      return right.revenue - left.revenue;
+    }
+
+    if (right.ticketsSold !== left.ticketsSold) {
+      return right.ticketsSold - left.ticketsSold;
+    }
+
+    return left.unitPrice - right.unitPrice;
+  });
+
+  return pricedRows[0];
+}
+
+export function calculatePostEventReport(input: PostEventReportMetricInput) {
+  const financeTotals = calculateFinanceTotals({
+    sales: input.sales,
+    expenses: input.expenses,
+    additionalRevenues: input.additionalRevenues ?? []
+  });
+  const batchMetrics = calculateBatchMetrics(input.sales);
+  const ticketTypeMetrics = calculateTicketTypeMetrics(input.sales);
+  const saleTypeMetrics = calculateSaleTypeMetrics(input.sales);
+  const expenseCategoryInsights = calculateExpenseCategoryInsights(
+    input.expenses.map((expense) => ({
+      category: expense.category,
+      amount: expense.amount
+    })),
+    financeTotals.generalRevenue,
+    1
+  );
+  const mostEfficientPrice = calculateMostEfficientPrice(input.sales);
+  const bestBatch = batchMetrics[0] ?? {
+    batchLabel: "Sem lote",
+    ticketsSold: 0,
+    revenue: 0,
+    averageTicket: 0,
+    percentage: 0
+  };
+  const dominantTicketType: "vip" | "pista" =
+    ticketTypeMetrics.vip.revenue >= ticketTypeMetrics.pista.revenue ? "vip" : "pista";
+  const dominantSaleType: "normal" | "grupo" =
+    saleTypeMetrics.grupo.ticketsSold > saleTypeMetrics.normal.ticketsSold ? "grupo" : "normal";
+  const dominantTicketRevenue =
+    dominantTicketType === "vip" ? ticketTypeMetrics.vip.revenue : ticketTypeMetrics.pista.revenue;
+  const dominantTicketRevenueShare =
+    dominantTicketType === "vip"
+      ? Math.round(
+          financeTotals.ticketRevenue > 0 ? (ticketTypeMetrics.vip.revenue / financeTotals.ticketRevenue) * 100 : 0
+        )
+      : Math.round(
+          financeTotals.ticketRevenue > 0 ? (ticketTypeMetrics.pista.revenue / financeTotals.ticketRevenue) * 100 : 0
+        );
+  const dominantSaleTypeShare =
+    dominantSaleType === "grupo" ? saleTypeMetrics.grupo.percentage : saleTypeMetrics.normal.percentage;
+  const marginPercentage =
+    financeTotals.generalRevenue > 0 ? Math.round((financeTotals.estimatedProfit / financeTotals.generalRevenue) * 100) : 0;
+  const expenseRatio =
+    financeTotals.generalRevenue > 0 ? Math.round((financeTotals.totalExpenses / financeTotals.generalRevenue) * 100) : 0;
+  const heaviestExpenseCategory = expenseCategoryInsights[0];
+  const peerAverageTicket =
+    typeof input.peerAverageTicket === "number" && Number.isFinite(input.peerAverageTicket)
+      ? Math.round(input.peerAverageTicket * 100) / 100
+      : null;
+  const averageTicketDirection =
+    peerAverageTicket === null
+      ? null
+      : financeTotals.averageTicket >= peerAverageTicket
+        ? "acima"
+        : "abaixo";
+
+  const insights = [
+    bestBatch.ticketsSold > 0
+      ? `${bestBatch.batchLabel} foi responsavel por ${bestBatch.percentage}% das vendas.`
+      : "Ainda nao existe um lote campeao para esta festa.",
+    `${dominantTicketType === "vip" ? "VIP" : "PISTA"} concentrou ${dominantTicketRevenueShare}% da receita de ingressos.`,
+    `As despesas consumiram ${expenseRatio}% da arrecadacao total.`,
+    peerAverageTicket !== null
+      ? `O ticket medio ficou ${averageTicketDirection} da media das outras festas (${peerAverageTicket.toFixed(2)}).`
+      : "Ainda nao ha base suficiente para comparar o ticket medio com outras festas."
+  ];
+
+  return {
+    overview: {
+      totalRevenue: financeTotals.generalRevenue,
+      ticketRevenue: financeTotals.ticketRevenue,
+      additionalRevenue: financeTotals.additionalRevenue,
+      totalExpenses: financeTotals.totalExpenses,
+      estimatedProfit: financeTotals.estimatedProfit,
+      averageTicket: financeTotals.averageTicket,
+      totalTicketsSold: financeTotals.totalTicketsSold
+    },
+    commercial: {
+      bestBatchLabel: bestBatch.batchLabel,
+      bestBatchRevenue: bestBatch.revenue,
+      bestBatchShare: bestBatch.percentage,
+      dominantTicketType,
+      dominantTicketRevenue,
+      dominantTicketRevenueShare,
+      dominantSaleType,
+      dominantSaleTypeShare,
+      mostEfficientPrice: mostEfficientPrice.unitPrice,
+      mostEfficientPriceRevenue: mostEfficientPrice.revenue
+    },
+    financial: {
+      topExpenseCategories: expenseCategoryInsights.slice(0, 3).map((item) => ({
+        category: item.category,
+        total: item.total
+      })),
+      heaviestExpenseCategory: heaviestExpenseCategory
+        ? { category: heaviestExpenseCategory.category, total: heaviestExpenseCategory.total }
+        : undefined,
+      marginPercentage,
+      expenseRatio
+    },
+    insights
   };
 }

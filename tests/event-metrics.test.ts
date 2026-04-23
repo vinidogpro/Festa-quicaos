@@ -5,10 +5,14 @@ import {
   calculateBatchMetrics,
   calculateCashFlowByDate,
   calculateCategoryBreakdown,
+  calculateExpenseCategoryInsights,
   calculateFinanceTotals,
   calculateGoalProgress,
   calculateGuestListStats,
+  calculateMostEfficientPrice,
+  calculateOperationalTimeline,
   calculatePeriodComparison,
+  calculatePostEventReport,
   calculateSalePriceConversion,
   calculateSalePriceMode,
   calculateSalePriceRanking,
@@ -348,4 +352,107 @@ test("calculateSaleTypeMetrics compara normal e grupo sem quebrar divisao por ze
       percentage: 0
     }
   });
+});
+
+test("calculateExpenseCategoryInsights calcula media por festa e peso sobre a receita", () => {
+  assert.deepEqual(
+    calculateExpenseCategoryInsights(
+      [
+        { category: "Bebida", amount: 3000 },
+        { category: "Bebida", amount: 1000 },
+        { category: "Marketing", amount: 800 }
+      ],
+      10000,
+      4
+    ),
+    [
+      { category: "Bebida", total: 4000, count: 2, percentage: 83, averagePerEvent: 1000, revenueShare: 40 },
+      { category: "Marketing", total: 800, count: 1, percentage: 17, averagePerEvent: 200, revenueShare: 8 }
+    ]
+  );
+});
+
+test("calculateMostEfficientPrice escolhe o preco com maior arrecadacao", () => {
+  assert.deepEqual(
+    calculateMostEfficientPrice([
+      { quantity: 10, unitPrice: 40 },
+      { quantity: 5, unitPrice: 60 },
+      { quantity: 6, unitPrice: 55 }
+    ]),
+    {
+      unitPrice: 40,
+      ticketsSold: 10,
+      revenue: 400
+    }
+  );
+});
+
+test("calculatePostEventReport consolida leitura executiva da festa", () => {
+  const report = calculatePostEventReport({
+    eventId: "festa-1",
+    eventName: "Festa teste",
+    eventDate: "2026-05-10",
+    status: "past",
+    sales: [
+      { quantity: 5, unitPrice: 40, batchLabel: "1º lote", saleType: "normal", ticketType: "pista" },
+      { quantity: 2, unitPrice: 80, batchLabel: "VIP antecipado", saleType: "grupo", ticketType: "vip" }
+    ],
+    expenses: [
+      { amount: 300, category: "DJ" },
+      { amount: 200, category: "Marketing" }
+    ],
+    additionalRevenues: [{ amount: 100, category: "Bar" }],
+    peerAverageTicket: 45
+  });
+
+  assert.deepEqual(report.overview, {
+    totalRevenue: 460,
+    ticketRevenue: 360,
+    additionalRevenue: 100,
+    totalExpenses: 500,
+    estimatedProfit: -40,
+    averageTicket: 51.42857142857143,
+    totalTicketsSold: 7
+  });
+  assert.equal(report.commercial.bestBatchLabel, "1º lote");
+  assert.equal(report.commercial.dominantTicketType, "pista");
+  assert.equal(report.commercial.mostEfficientPrice, 40);
+  assert.equal(report.financial.heaviestExpenseCategory?.category, "DJ");
+  assert.equal(report.financial.expenseRatio, 109);
+  assert.equal(report.insights.length, 4);
+});
+
+test("calculateOperationalTimeline detecta inicio, pico, aceleracao e custos", () => {
+  const timeline = calculateOperationalTimeline({
+    sales: [
+      { quantity: 2, unitPrice: 40, createdAt: "2026-04-18" },
+      { quantity: 3, unitPrice: 40, createdAt: "2026-04-19" },
+      { quantity: 12, unitPrice: 45, createdAt: "2026-04-20" },
+      { quantity: 4, unitPrice: 50, createdAt: "2026-04-22" }
+    ],
+    additionalRevenues: [{ amount: 300, date: "2026-04-20" }],
+    expenses: [
+      { amount: 200, incurredAt: "2026-04-17", category: "Marketing", title: "Impulsionamento" },
+      { amount: 3000, incurredAt: "2026-04-21", category: "Estrutura", title: "Palco" }
+    ]
+  });
+
+  assert.equal(timeline[0]?.title, "Inicio dos custos");
+  assert.ok(timeline.some((item) => item.title === "Inicio das vendas"));
+  assert.ok(timeline.some((item) => item.title === "Pico de vendas"));
+  assert.ok(timeline.some((item) => item.title === "Aceleracao de vendas"));
+  assert.ok(timeline.some((item) => item.title === "Pico de arrecadacao"));
+  assert.ok(timeline.some((item) => item.title === "Aumento de custos"));
+  assert.ok(timeline.some((item) => item.description.includes("Estrutura") || item.description.includes("21/04")));
+});
+
+test("calculateOperationalTimeline retorna vazio sem dados operacionais", () => {
+  assert.deepEqual(
+    calculateOperationalTimeline({
+      sales: [],
+      additionalRevenues: [],
+      expenses: []
+    }),
+    []
+  );
 });

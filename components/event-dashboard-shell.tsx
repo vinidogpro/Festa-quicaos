@@ -200,7 +200,7 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
 
   return (
     <main className="min-h-screen">
-      <div className="mx-auto flex max-w-7xl gap-6 px-4 pb-32 pt-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl gap-4 px-3 pb-36 pt-3 sm:gap-6 sm:px-6 sm:pb-32 sm:pt-4 lg:px-8">
         <aside className="sticky top-4 hidden h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] w-72 shrink-0 overflow-hidden rounded-[28px] border border-white/60 bg-white/75 p-4 shadow-soft backdrop-blur xl:block">
           <div className="flex h-full min-h-0 flex-col">
             <div className="mb-8 rounded-[24px] bg-hero p-5">
@@ -260,7 +260,7 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
         <div className="min-w-0 flex-1">
           <EventHeader event={event} />
 
-          <div className="mt-4 xl:hidden">
+          <div className="mt-4 hidden md:block xl:hidden">
             <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -284,7 +284,7 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
             </div>
           </div>
 
-          <div className="mt-6 space-y-6">
+          <div className="mt-5 space-y-5 sm:mt-6 sm:space-y-6">
             {(activeTab === "overview" || activeTab === "ranking") && (
               <RankingPanel
                 ranking={event.ranking}

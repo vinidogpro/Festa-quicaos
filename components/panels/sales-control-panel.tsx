@@ -252,7 +252,7 @@ function SaleQuickForm({
               </label>
             )}
 
-            <div className="grid gap-4 xl:grid-cols-4">
+            <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
               <label className="grid gap-2">
                 <span className="ds-label text-slate-500">Qtd.</span>
                 <input
@@ -317,7 +317,7 @@ function SaleQuickForm({
 
             <TicketTypeSelector name="ticketType" defaultValue="pista" required />
 
-            <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr] xl:items-start">
+            <div className="grid gap-5 2xl:grid-cols-[1.2fr_0.8fr] 2xl:items-start">
               <GuestNameFields quantity={Math.max(Number(quantity) || 0, 0)} />
 
               <details className="rounded-2xl border border-slate-200 bg-white/80 p-4">
@@ -356,7 +356,7 @@ function SaleQuickForm({
 
               <SubmitButton
                 pendingLabel="Registrando..."
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-600 px-5 py-4 text-sm font-semibold text-white shadow-lg shadow-brand-200/60 transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 px-5 py-4 text-sm font-semibold text-white shadow-lg shadow-brand-200/60 transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
                 <Sparkles className="h-4 w-4" />
                 Adicionar venda
@@ -583,10 +583,10 @@ export function SalesControlPanel({
 
             return (
               <div key={row.id} data-sale-card className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className={`flex flex-col gap-4 ${compact ? "" : "lg:flex-row lg:items-start lg:justify-between"}`}>
                   <div className="flex-1 space-y-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
+                    <div className={`${compact ? "grid gap-3" : "flex flex-wrap items-start justify-between gap-3"}`}>
+                      <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
                             Venda #{row.saleNumber}
@@ -601,15 +601,22 @@ export function SalesControlPanel({
                           {row.seller}
                         </p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Total</p>
-                        <p className="mt-2 font-[var(--font-heading)] text-2xl font-bold text-slate-950">
+                      <div className={compact ? "rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-left" : "text-right"}>
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                          {compact ? "Venda registrada" : "Total"}
+                        </p>
+                        <p className={`mt-2 font-[var(--font-heading)] font-bold text-slate-950 ${compact ? "text-3xl leading-none" : "text-2xl"}`}>
                           {formatCurrency(row.amount)}
                         </p>
+                        {compact ? (
+                          <p className="mt-2 text-sm text-slate-500">
+                            {row.sold} ingresso{row.sold > 1 ? "s" : ""} em {row.soldAt}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
 
-                    <div className="grid gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600 sm:grid-cols-2 xl:grid-cols-5">
+                    <div className={`grid gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ${compact ? "sm:grid-cols-2" : "sm:grid-cols-2 2xl:grid-cols-5"}`}>
                       <div>
                         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Quantidade</p>
                         <p className="mt-1 font-semibold text-slate-900">{row.sold} ingressos</p>
@@ -622,13 +629,13 @@ export function SalesControlPanel({
                         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Data</p>
                         <p className="mt-1 font-semibold text-slate-900">{row.soldAt}</p>
                       </div>
-                      <div>
+                      <div className={compact ? "hidden" : ""}>
                         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Tipo</p>
                         <div className="mt-1">
                           <TicketTypeBadge ticketType={row.ticketType} />
                         </div>
                       </div>
-                      <div>
+                      <div className={compact ? "hidden" : ""}>
                         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Classificacao</p>
                         <p className="mt-1 font-semibold text-slate-900">
                           {row.batchLabel} • {formatSaleTypeLabel(row.saleType).toLowerCase()}
