@@ -16,7 +16,13 @@ import {
 import { SubmitButton } from "@/components/forms/submit-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
-import { AdditionalRevenue, Expense, ViewerPermissions } from "@/lib/types";
+import {
+  calculateCashFlowByDate,
+  calculateCategoryBreakdown,
+  calculateFinanceTotals,
+  calculateTicketTypeMetrics
+} from "@/lib/event-metrics";
+import { AdditionalRevenue, Expense, SalesRecord, ViewerPermissions } from "@/lib/types";
 import { formatCurrency, formatCurrencyParts } from "@/lib/utils";
 
 interface FinancePanelProps {
@@ -27,9 +33,17 @@ interface FinancePanelProps {
   totalRevenue: number;
   totalExpenses: number;
   estimatedProfit: number;
+  sales: SalesRecord[];
   expenses: Expense[];
   additionalRevenues: AdditionalRevenue[];
   compact?: boolean;
+}
+
+function formatShortDate(date: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit"
+  }).format(new Date(date));
 }
 
 function FinanceMetricCard({
@@ -62,7 +76,7 @@ function FinanceMetricCard({
       <div className="mt-6 min-w-0 sm:mt-8">
         {isCurrency ? (
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">
+            <p className="ds-label opacity-70">
               {currencyParts?.currencyLabel ?? valueLabel}
             </p>
               <p
@@ -80,6 +94,59 @@ function FinanceMetricCard({
             {value}
           </p>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ClosingMetricCard({
+  label,
+  value,
+  tone = "neutral",
+  wide = false
+}: {
+  label: string;
+  value: number;
+  tone?: "neutral" | "positive" | "negative" | "primary";
+  wide?: boolean;
+}) {
+  const currencyParts = formatCurrencyParts(value);
+  const amountToneClass =
+    tone === "positive"
+      ? "text-emerald-900"
+      : tone === "negative"
+        ? "text-rose-900"
+        : tone === "primary"
+          ? "text-brand-800"
+          : "text-slate-950";
+  const labelToneClass =
+    tone === "positive"
+      ? "text-emerald-700"
+      : tone === "negative"
+        ? "text-rose-700"
+        : tone === "primary"
+          ? "text-brand-700"
+          : "text-slate-500";
+  const accentClass =
+    tone === "positive"
+      ? "bg-emerald-500"
+      : tone === "negative"
+        ? "bg-rose-500"
+        : tone === "primary"
+          ? "bg-brand-600"
+          : "bg-slate-300";
+
+  return (
+    <div className={`rounded-2xl border border-white bg-white px-4 py-3.5 shadow-sm ${wide ? "sm:col-span-2" : ""}`}>
+      <div className="flex items-center gap-2">
+        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${accentClass}`} />
+        <p className={`ds-label ${labelToneClass}`}>{label}</p>
+      </div>
+      <div className="mt-2.5 min-w-0">
+        <p className="ds-label text-slate-400">{currencyParts.currencyLabel}</p>
+        <p className={`ds-value-lg mt-1.5 whitespace-nowrap ${amountToneClass}`}>
+          {currencyParts.amountLabel}
+        </p>
       </div>
     </div>
   );
@@ -105,6 +172,129 @@ function ActionFeedback({
       }`}
     >
       {message}
+    </div>
+  );
+}
+
+function CategorySubtotalPanel({
+  title,
+  description,
+  tone,
+  items
+}: {
+  title: string;
+  description: string;
+  tone: "expense" | "revenue";
+  items: Array<{ category: string; total: number; count: number; percentage: number }>;
+}) {
+  const palette =
+    tone === "expense"
+      ? {
+          badge: "bg-rose-100 text-rose-700",
+          progress: "bg-rose-500",
+          emptyBorder: "border-rose-200",
+          emptyBg: "bg-rose-50/60"
+        }
+      : {
+          badge: "bg-emerald-100 text-emerald-700",
+          progress: "bg-emerald-500",
+          emptyBorder: "border-emerald-200",
+          emptyBg: "bg-emerald-50/60"
+        };
+
+  return (
+    <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-slate-900">{title}</h3>
+          <p className="mt-1 text-sm text-slate-500">{description}</p>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${palette.badge}`}>
+          {items.length} categorias
+        </span>
+      </div>
+
+      {items.length === 0 ? (
+        <div className={`mt-4 rounded-2xl border border-dashed px-4 py-8 text-center text-sm text-slate-500 ${palette.emptyBorder} ${palette.emptyBg}`}>
+          Nenhuma categoria consolidada ainda.
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {items.map((item) => (
+            <div key={item.category} className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium text-slate-900">{item.category}</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {item.count} lancamento(s) | {item.percentage}% do total
+                  </p>
+                </div>
+                <p className="text-base font-semibold text-slate-900">{formatCurrency(item.total)}</p>
+              </div>
+              <div className="mt-3 h-2 rounded-full bg-slate-100">
+                <div className={`h-full rounded-full ${palette.progress}`} style={{ width: `${Math.max(item.percentage, 6)}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CashFlowPanel({
+  rows
+}: {
+  rows: Array<{ date: string; inflow: number; outflow: number; balance: number; cumulativeBalance: number }>;
+}) {
+  return (
+    <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-slate-900">Fluxo de caixa por data</h3>
+          <p className="mt-1 text-sm text-slate-500">
+            Entradas e saidas consolidadas por dia para acompanhar o saldo operacional da festa.
+          </p>
+        </div>
+        <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
+          {rows.length} dias com movimentacao
+        </span>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+          O fluxo de caixa aparece assim que houver entradas ou saidas registradas.
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-[0.18em] text-slate-400">
+                <th className="pb-3 pr-4 font-semibold">Data</th>
+                <th className="pb-3 pr-4 font-semibold">Entradas</th>
+                <th className="pb-3 pr-4 font-semibold">Saidas</th>
+                <th className="pb-3 pr-4 font-semibold">Saldo do dia</th>
+                <th className="pb-3 font-semibold">Saldo acumulado</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {rows.map((row) => (
+                <tr key={row.date}>
+                  <td className="py-3 pr-4 font-medium text-slate-900">{formatShortDate(row.date)}</td>
+                  <td className="py-3 pr-4 font-semibold text-emerald-700">+ {formatCurrency(row.inflow)}</td>
+                  <td className="py-3 pr-4 font-semibold text-rose-700">- {formatCurrency(row.outflow)}</td>
+                  <td className={`py-3 pr-4 font-semibold ${row.balance >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                    {row.balance >= 0 ? "+" : "-"} {formatCurrency(Math.abs(row.balance))}
+                  </td>
+                  <td className={`py-3 font-semibold ${row.cumulativeBalance >= 0 ? "text-slate-900" : "text-rose-800"}`}>
+                    {row.cumulativeBalance >= 0 ? "" : "-"}{formatCurrency(Math.abs(row.cumulativeBalance))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -508,10 +698,58 @@ export function FinancePanel({
   totalRevenue,
   totalExpenses,
   estimatedProfit,
+  sales,
   expenses,
   additionalRevenues,
   compact = false
 }: FinancePanelProps) {
+  const financeTotals = calculateFinanceTotals({
+    sales: sales.map((sale) => ({
+      quantity: sale.sold,
+      unitPrice: sale.unitPrice
+    })),
+    expenses: expenses.map((expense) => ({ amount: expense.amount })),
+    additionalRevenues: additionalRevenues.map((revenue) => ({ amount: revenue.amount }))
+  });
+  const ticketTypeMetrics = calculateTicketTypeMetrics(
+    sales.map((sale) => ({
+      quantity: sale.sold,
+      unitPrice: sale.unitPrice,
+      ticketType: sale.ticketType
+    }))
+  );
+  const expenseCategories = calculateCategoryBreakdown(
+    expenses.map((expense) => ({
+      category: expense.category,
+      amount: expense.amount
+    }))
+  );
+  const additionalRevenueCategories = calculateCategoryBreakdown(
+    additionalRevenues.map((revenue) => ({
+      category: revenue.category,
+      amount: revenue.amount
+    }))
+  );
+  const cashFlowRows = calculateCashFlowByDate({
+    sales: sales.map((sale) => ({
+      quantity: sale.sold,
+      unitPrice: sale.unitPrice,
+      createdAt: sale.soldAt || sale.createdAt
+    })),
+    additionalRevenues: additionalRevenues.map((revenue) => ({
+      amount: revenue.amount,
+      date: revenue.date
+    })),
+    expenses: expenses.map((expense) => ({
+      amount: expense.amount,
+      incurredAt: expense.incurredAt
+    }))
+  });
+  const vipRevenueShare =
+    financeTotals.ticketRevenue > 0 ? Math.round((ticketTypeMetrics.vip.revenue / financeTotals.ticketRevenue) * 100) : 0;
+  const pistaRevenueShare =
+    financeTotals.ticketRevenue > 0 ? Math.round((ticketTypeMetrics.pista.revenue / financeTotals.ticketRevenue) * 100) : 0;
+
   return (
     <SectionCard
       title="Financeiro"
@@ -591,6 +829,98 @@ export function FinancePanel({
                 }`}
               />
           </div>
+
+          {!compact ? (
+            <div className="rounded-[24px] border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-brand-50/40 p-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h3 className="font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
+                    Fechamento da festa
+                  </h3>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                    Visao final consolidada com totais financeiros e quebra comercial por tipo de ingresso.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm text-slate-600 shadow-sm">
+                  Ultima base consolidada em {cashFlowRows.length > 0 ? formatShortDate(cashFlowRows[cashFlowRows.length - 1].date) : "tempo real"}
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <ClosingMetricCard label="Total vendido" value={financeTotals.grossSoldRevenue} />
+                  <ClosingMetricCard label="Vendas extras" value={financeTotals.additionalRevenue} tone="positive" />
+                  <ClosingMetricCard label="Total arrecadado" value={financeTotals.generalRevenue} tone="primary" />
+                  <ClosingMetricCard label="Despesas totais" value={financeTotals.totalExpenses} tone="negative" />
+                  <ClosingMetricCard
+                    label="Lucro final"
+                    value={financeTotals.estimatedProfit}
+                    tone={
+                      financeTotals.estimatedProfit > 0
+                        ? "positive"
+                        : financeTotals.estimatedProfit < 0
+                          ? "negative"
+                          : "neutral"
+                    }
+                    wide
+                  />
+                </div>
+
+                <div className="rounded-[24px] border border-brand-100 bg-white/85 p-4 shadow-sm">
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 px-4 py-3.5">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="rounded-full border border-amber-300 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">
+                          VIP
+                        </span>
+                        <span className="text-sm font-semibold text-amber-800">{ticketTypeMetrics.vip.percentage}% dos ingressos</span>
+                      </div>
+                      <div className="mt-3.5 space-y-1.5 text-sm text-slate-700">
+                        <p><span className="font-semibold text-slate-900">{ticketTypeMetrics.vip.ticketsSold}</span> ingressos vendidos</p>
+                        <p><span className="font-semibold text-slate-900">{formatCurrency(ticketTypeMetrics.vip.revenue)}</span> de receita</p>
+                        <p><span className="font-semibold text-slate-900">{formatCurrency(ticketTypeMetrics.vip.averageTicket)}</span> de ticket medio</p>
+                        <p><span className="font-semibold text-slate-900">{vipRevenueShare}%</span> da receita de ingressos</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white px-4 py-3.5">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="rounded-full border border-rose-300 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">
+                          PISTA
+                        </span>
+                        <span className="text-sm font-semibold text-rose-800">{ticketTypeMetrics.pista.percentage}% dos ingressos</span>
+                      </div>
+                      <div className="mt-3.5 space-y-1.5 text-sm text-slate-700">
+                        <p><span className="font-semibold text-slate-900">{ticketTypeMetrics.pista.ticketsSold}</span> ingressos vendidos</p>
+                        <p><span className="font-semibold text-slate-900">{formatCurrency(ticketTypeMetrics.pista.revenue)}</span> de receita</p>
+                        <p><span className="font-semibold text-slate-900">{formatCurrency(ticketTypeMetrics.pista.averageTicket)}</span> de ticket medio</p>
+                        <p><span className="font-semibold text-slate-900">{pistaRevenueShare}%</span> da receita de ingressos</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {!compact ? (
+            <div className="grid gap-6 xl:grid-cols-2">
+              <CategorySubtotalPanel
+                title="Despesas por categoria"
+                description="Subtotais para enxergar rapidamente onde o caixa da festa foi consumido."
+                tone="expense"
+                items={expenseCategories}
+              />
+              <CategorySubtotalPanel
+                title="Arrecadacoes extras por categoria"
+                description="Subtotais das entradas complementares alem das vendas de ingressos."
+                tone="revenue"
+                items={additionalRevenueCategories}
+              />
+            </div>
+          ) : null}
+
+          {!compact ? <CashFlowPanel rows={cashFlowRows} /> : null}
 
           <div className={`grid gap-6 ${compact ? "" : "xl:grid-cols-[0.95fr_1.05fr]"}`}>
             <div className="space-y-6">

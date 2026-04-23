@@ -2,6 +2,17 @@ export type UserRole = "host" | "organizer" | "seller";
 export type EventRole = "host" | "organizer" | "seller";
 export type EventStatus = "current" | "upcoming" | "past";
 export type TaskStatus = "pending" | "in-progress" | "done";
+export type TicketType = "vip" | "pista";
+export const DEFAULT_EVENT_BATCH_NAMES = ["1\u00ba lote", "2\u00ba lote"] as const;
+export type SaleBatchLabel = string;
+export const SALE_TYPE_OPTIONS = ["normal", "grupo"] as const;
+export type SaleType = (typeof SALE_TYPE_OPTIONS)[number];
+
+export interface EventBatch {
+  id: string;
+  name: string;
+  createdAt: string;
+}
 
 export interface ViewerProfile {
   id: string;
@@ -93,9 +104,14 @@ export interface SalesRecord {
   saleNumber: number;
   sellerUserId: string;
   seller: string;
+  batchId: string;
+  batchLabel: SaleBatchLabel;
+  saleType: SaleType;
+  ticketType: TicketType;
   sold: number;
   unitPrice: number;
   soldAt: string;
+  createdAt: string;
   notes?: string;
   amount: number;
   attendeeNames: string[];
@@ -111,6 +127,9 @@ export interface GuestListEntry {
   sellerUserId?: string;
   sellerName: string;
   guestName: string;
+  batchLabel?: SaleBatchLabel;
+  saleType?: SaleType;
+  ticketType?: TicketType;
   unitPrice?: number;
   checkedInAt?: string;
   createdAt: string;
@@ -205,6 +224,7 @@ export interface PartyEventDetail extends EventSummary {
   sellerContribution: SellerContribution[];
   sellerOptions: SellerOption[];
   participantOptions: SellerOption[];
+  eventBatches: EventBatch[];
   teamMembers: TeamMember[];
   availableUsers: UserDirectoryOption[];
 }

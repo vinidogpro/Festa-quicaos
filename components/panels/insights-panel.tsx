@@ -27,12 +27,17 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
 import {
   calculateAverageTicket,
+  calculateBatchMetrics,
   calculateGuestListStats,
+  calculatePeriodComparison,
+  calculateSalePriceConversion,
   calculateSalePriceMode,
-  calculateSalePriceRanking
+  calculateSalePriceRanking,
+  calculateSaleTypeMetrics,
+  calculateTicketTypeMetrics
 } from "@/lib/event-metrics";
 import { PartyEventDetail, SalesRecord } from "@/lib/types";
-import { formatCurrency, formatCurrencyParts } from "@/lib/utils";
+import { formatCurrency, formatCurrencyParts, formatSaleTypeLabel, formatTicketTypeLabel } from "@/lib/utils";
 
 interface InsightsPanelProps {
   event: PartyEventDetail;
@@ -43,8 +48,13 @@ function groupSalesByDate(sales: SalesRecord[]) {
   const grouped = new Map<string, { label: string; amount: number; tickets: number; timestamp: number }>();
 
   for (const sale of sales) {
-    const soldDate = new Date(sale.soldAt);
-    const key = soldDate.toISOString().slice(0, 10);
+    const key = sale.soldAt;
+    const [year, month, day] = key.split("-").map(Number);
+
+    if (!year || !month || !day) {
+      continue;
+    }
+
     const existing = grouped.get(key);
 
     if (existing) {
@@ -54,10 +64,10 @@ function groupSalesByDate(sales: SalesRecord[]) {
     }
 
     grouped.set(key, {
-      label: new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(soldDate),
+      label: `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}`,
       amount: sale.amount,
       tickets: sale.sold,
-      timestamp: soldDate.getTime()
+      timestamp: year * 10000 + month * 100 + day
     });
   }
 
@@ -75,6 +85,215 @@ function rankHighlight(index: number) {
   if (index === 1) return "border-sky-200 bg-sky-50/80";
   if (index === 2) return "border-amber-200 bg-amber-50/80";
   return "border-slate-200 bg-slate-50/80";
+}
+
+function TicketTypeValue({ value }: { value: string }) {
+  const normalizedValue = value.replace(/\u00a0/g, " ");
+
+  if (!normalizedValue.startsWith("R$")) {
+    return (
+      <p className="mt-4 min-w-0 break-words font-[var(--font-heading)] text-[clamp(1.25rem,2vw,1.75rem)] font-bold leading-tight tracking-tight text-slate-950">
+        {value}
+      </p>
+    );
+  }
+
+  const amountLabel = normalizedValue.replace(/^R\$\s*/, "");
+
+  return (
+    <div className="mt-4 min-w-0 space-y-2">
+      <p className="ds-label">R$</p>
+      <p className="min-w-0 break-words font-[var(--font-heading)] text-[clamp(1.25rem,2vw,1.75rem)] font-bold leading-tight tracking-tight text-slate-950">
+        {amountLabel}
+      </p>
+    </div>
+  );
+}
+
+function InlineStatCard({
+  label,
+  value,
+  helper,
+  tone = "default"
+}: {
+  label: string;
+  value: string;
+  helper?: string;
+  tone?: "default" | "soft";
+}) {
+  return (
+    <div className={`min-w-0 overflow-hidden rounded-2xl px-4 py-4 ${tone === "soft" ? "bg-white/75" : "bg-slate-50"}`}>
+      <p className="ds-label">{label}</p>
+      <p className="mt-2 break-words font-[var(--font-heading)] text-[clamp(1.35rem,1.8vw,1.85rem)] font-bold leading-tight tracking-tight text-slate-950">
+        {value}
+      </p>
+      {helper ? <p className="ds-helper mt-2">{helper}</p> : null}
+    </div>
+  );
+}
+
+function TicketTypeMetricBlock({
+  title,
+  items
+}: {
+  title: string;
+  items: Array<{
+    ticketType: "vip" | "pista";
+    value: string;
+    helper: string;
+    tone: "vip" | "pista";
+  }>;
+}) {
+  return (
+    <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-slate-900">{title}</p>
+          <p className="ds-helper mt-1">Comparativo por tipo de ingresso, usando apenas as vendas registradas.</p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]">
+        {items.map((item) => (
+          <div key={item.ticketType} className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <span
+                className={`ds-badge ${
+                  item.tone === "vip"
+                    ? "ds-badge-vip"
+                    : "ds-badge-pista"
+                }`}
+              >
+                {formatTicketTypeLabel(item.ticketType)}
+              </span>
+            </div>
+            <TicketTypeValue value={item.value} />
+            <p className="ds-helper mt-2">{item.helper}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BatchAnalysisBlock({
+  rows
+}: {
+  rows: Array<{
+    batchLabel: string;
+    ticketsSold: number;
+    revenue: number;
+    averageTicket: number;
+    percentage: number;
+  }>;
+}) {
+  return (
+    <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-slate-900">Lotes</p>
+          <p className="ds-helper mt-1">
+            Leitura comercial por lote para entender volume, arrecadacao e ticket medio.
+          </p>
+        </div>
+        <div className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm">
+          {rows.length} lote(s)
+        </div>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
+          Os lotes aparecem aqui assim que a festa registrar vendas.
+        </div>
+      ) : (
+        <div className="mt-5 space-y-3">
+          {rows.map((row) => (
+            <div key={row.batchLabel} className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="ds-badge ds-badge-batch">
+                  {row.batchLabel}
+                </span>
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  {row.percentage}% do total
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <InlineStatCard label="Ingressos" value={`${row.ticketsSold}`} />
+                <InlineStatCard label="Receita" value={formatCurrency(row.revenue)} />
+                <InlineStatCard label="Ticket medio" value={formatCurrency(row.averageTicket)} />
+                <InlineStatCard label="Participacao" value={`${row.percentage}%`} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SaleTypeAnalysisBlock({
+  metrics
+}: {
+  metrics: Record<
+    "normal" | "grupo",
+    {
+      ticketsSold: number;
+      revenue: number;
+      averageTicket: number;
+      percentage: number;
+    }
+  >;
+}) {
+  const items = [
+    {
+      saleType: "normal" as const,
+      tone: "border-sky-200 bg-sky-50/80 text-sky-900",
+      metrics: metrics.normal
+    },
+    {
+      saleType: "grupo" as const,
+      tone: "border-violet-200 bg-violet-50/80 text-violet-900",
+      metrics: metrics.grupo
+    }
+  ];
+
+  return (
+    <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-slate-900">Tipo de venda</p>
+          <p className="ds-helper mt-1">
+            Compare vendas normais e em grupo para entender impacto em volume e ticket medio.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4">
+        {items.map((item) => (
+          <div key={item.saleType} className={`min-w-0 overflow-hidden rounded-2xl border px-5 py-5 ${item.tone}`}>
+            <div className="flex items-center justify-between gap-3">
+              <span className="ds-badge border-current/20 bg-white/80">
+                {formatSaleTypeLabel(item.saleType)}
+              </span>
+              <span className="ds-label opacity-70">
+                {item.metrics.percentage}% do total
+              </span>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <InlineStatCard label="Ingressos" value={`${item.metrics.ticketsSold}`} tone="soft" />
+              <InlineStatCard label="Receita" value={formatCurrency(item.metrics.revenue)} tone="soft" />
+              <InlineStatCard
+                label="Ticket medio"
+                value={item.metrics.ticketsSold > 0 ? formatCurrency(item.metrics.averageTicket) : "-"}
+                tone="soft"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function MetricTile({
@@ -107,11 +326,11 @@ function MetricTile({
     <div className="min-w-0 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm sm:min-h-[208px] sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="max-w-[13rem] text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{title}</p>
+          <p className="max-w-[13rem] ds-label">{title}</p>
           <div className="mt-3 min-h-[84px] sm:mt-4 sm:min-h-[96px]">
             {currencyPrefix ? (
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{currencyPrefix}</p>
+                <p className="ds-label">{currencyPrefix}</p>
                   <p
                     className={`mt-2 whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.55rem,4vw,2.45rem)] font-bold tracking-tight ${
                       isNegative ? "text-rose-700" : isPositive ? "text-emerald-700" : "text-slate-950"
@@ -131,7 +350,7 @@ function MetricTile({
           <Icon className="h-4 w-4" />
         </div>
       </div>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{helper}</p>
+      <p className="ds-helper mt-2">{helper}</p>
     </div>
   );
 }
@@ -148,10 +367,34 @@ function InsightChart({
   return (
     <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
       <p className="font-semibold text-slate-900">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+      <p className="ds-helper mt-1">{description}</p>
       <div className="mt-5 h-64 sm:h-72">{children}</div>
     </div>
   );
+}
+
+function formatVariation(value: number | null) {
+  if (value === null) {
+    return "Sem base";
+  }
+
+  return `${value > 0 ? "+" : ""}${value}%`;
+}
+
+function variationTone(value: number | null) {
+  if (value === null) {
+    return "text-slate-500";
+  }
+
+  if (value > 0) {
+    return "text-emerald-700";
+  }
+
+  if (value < 0) {
+    return "text-rose-700";
+  }
+
+  return "text-slate-500";
 }
 
 export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
@@ -191,6 +434,60 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
           unitPrice: sale.unitPrice
         }))
       ).slice(0, 5),
+    [visibleSales]
+  );
+  const salePriceConversion = useMemo(
+    () =>
+      calculateSalePriceConversion(
+        visibleSales.map((sale) => ({
+          quantity: sale.sold,
+          unitPrice: sale.unitPrice
+        }))
+      ).slice(0, 5),
+    [visibleSales]
+  );
+  const ticketTypeMetrics = useMemo(
+    () =>
+      calculateTicketTypeMetrics(
+        visibleSales.map((sale) => ({
+          quantity: sale.sold,
+          unitPrice: sale.unitPrice,
+          ticketType: sale.ticketType
+        }))
+      ),
+    [visibleSales]
+  );
+  const batchMetrics = useMemo(
+    () =>
+      calculateBatchMetrics(
+        visibleSales.map((sale) => ({
+          quantity: sale.sold,
+          unitPrice: sale.unitPrice,
+          batchLabel: sale.batchLabel
+        }))
+      ),
+    [visibleSales]
+  );
+  const saleTypeMetrics = useMemo(
+    () =>
+      calculateSaleTypeMetrics(
+        visibleSales.map((sale) => ({
+          quantity: sale.sold,
+          unitPrice: sale.unitPrice,
+          saleType: sale.saleType
+        }))
+      ),
+    [visibleSales]
+  );
+  const periodComparison = useMemo(
+    () =>
+      calculatePeriodComparison(
+        visibleSales.map((sale) => ({
+          quantity: sale.sold,
+          unitPrice: sale.unitPrice,
+          createdAt: sale.soldAt
+        }))
+      ),
     [visibleSales]
   );
   const sellerChartData = useMemo(
@@ -298,7 +595,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
             </div>
           ) : null}
 
-          <div className={`grid gap-4 ${compact ? "2xl:grid-cols-2" : "lg:grid-cols-2 2xl:grid-cols-3"}`}>
+          <div className={`grid gap-4 ${compact ? "[grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]" : "[grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]"}`}>
             <MetricTile
               title="Total arrecadado"
               value={totalRevenueDisplay.amountLabel}
@@ -381,10 +678,140 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
             />
           </div>
 
+          {!compact ? (
+            <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(380px,1fr))]">
+              <TicketTypeMetricBlock
+                title="Ingressos por tipo"
+                items={[
+                  {
+                    ticketType: "vip",
+                    value: `${ticketTypeMetrics.vip.ticketsSold}`,
+                    helper: `${ticketTypeMetrics.vip.ticketsSold} ingresso(s) VIP vendidos (${ticketTypeMetrics.vip.percentage}%)`,
+                    tone: "vip"
+                  },
+                  {
+                    ticketType: "pista",
+                    value: `${ticketTypeMetrics.pista.ticketsSold}`,
+                    helper: `${ticketTypeMetrics.pista.ticketsSold} ingresso(s) PISTA vendidos (${ticketTypeMetrics.pista.percentage}%)`,
+                    tone: "pista"
+                  }
+                ]}
+              />
+              <TicketTypeMetricBlock
+                title="Receita por tipo"
+                items={[
+                  {
+                    ticketType: "vip",
+                    value: formatCurrency(ticketTypeMetrics.vip.revenue),
+                    helper: `Total arrecadado nas vendas VIP`,
+                    tone: "vip"
+                  },
+                  {
+                    ticketType: "pista",
+                    value: formatCurrency(ticketTypeMetrics.pista.revenue),
+                    helper: `Total arrecadado nas vendas PISTA`,
+                    tone: "pista"
+                  }
+                ]}
+              />
+              <TicketTypeMetricBlock
+                title="Ticket medio por tipo"
+                items={[
+                  {
+                    ticketType: "vip",
+                    value: ticketTypeMetrics.vip.ticketsSold > 0 ? formatCurrency(ticketTypeMetrics.vip.averageTicket) : "-",
+                    helper:
+                      ticketTypeMetrics.vip.ticketsSold > 0
+                        ? `${formatCurrency(ticketTypeMetrics.vip.revenue)} divididos por ${ticketTypeMetrics.vip.ticketsSold} ingresso(s) VIP`
+                        : "Sem vendas VIP para calcular o ticket medio",
+                    tone: "vip"
+                  },
+                  {
+                    ticketType: "pista",
+                    value: ticketTypeMetrics.pista.ticketsSold > 0 ? formatCurrency(ticketTypeMetrics.pista.averageTicket) : "-",
+                    helper:
+                      ticketTypeMetrics.pista.ticketsSold > 0
+                        ? `${formatCurrency(ticketTypeMetrics.pista.revenue)} divididos por ${ticketTypeMetrics.pista.ticketsSold} ingresso(s) PISTA`
+                        : "Sem vendas PISTA para calcular o ticket medio",
+                    tone: "pista"
+                  }
+                ]}
+              />
+            </div>
+          ) : null}
+
+          {!compact ? (
+            <div className="grid gap-6">
+              <BatchAnalysisBlock rows={batchMetrics} />
+              <SaleTypeAnalysisBlock metrics={saleTypeMetrics} />
+            </div>
+          ) : null}
+
+          {!compact ? (
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-slate-900">Comparativo por periodo</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    Ritmo de vendas usando a data real da venda para comparar hoje, ontem e os ultimos 7 dias.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]">
+                {[
+                  {
+                    title: "Hoje",
+                    tickets: periodComparison.today.ticketsSold,
+                    revenue: periodComparison.today.revenue,
+                    variation: periodComparison.variations.todayVsYesterdayTickets,
+                    helper: "Comparado com ontem"
+                  },
+                  {
+                    title: "Ontem",
+                    tickets: periodComparison.yesterday.ticketsSold,
+                    revenue: periodComparison.yesterday.revenue,
+                    variation: null,
+                    helper: "Base para comparacao"
+                  },
+                  {
+                    title: "Ultimos 7 dias",
+                    tickets: periodComparison.last7Days.ticketsSold,
+                    revenue: periodComparison.last7Days.revenue,
+                    variation: periodComparison.variations.last7VsPrevious7Tickets,
+                    helper: "Comparado com os 7 dias anteriores"
+                  }
+                ].map((item) => (
+                  <div key={item.title} className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{item.title}</p>
+                        <p className="mt-3 font-[var(--font-heading)] text-[clamp(1.5rem,3vw,2rem)] font-bold tracking-tight text-slate-950">
+                          {item.tickets}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">ingresso(s)</p>
+                      </div>
+                      <div className={`rounded-full px-3 py-1 text-xs font-semibold ${variationTone(item.variation)}`}>
+                        {formatVariation(item.variation)}
+                      </div>
+                    </div>
+                    <div className="mt-4 border-t border-slate-100 pt-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Receita</p>
+                      <p className="mt-2 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
+                        {formatCurrency(item.revenue)}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-500">{item.helper}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className={`grid gap-6 ${compact ? "lg:grid-cols-1" : "xl:grid-cols-[1.1fr_0.9fr]"}`}>
             <InsightChart
-              title="Evolucao de vendas"
-              description="Veja como a receita avanca ao longo do tempo e identifique dias com melhor resposta."
+              title="Evolucao da receita"
+              description="Veja como o valor arrecadado avanca ao longo do tempo e identifique os dias com melhor resposta."
             >
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={timeline}>
@@ -407,6 +834,32 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                     stroke="#2563eb"
                     strokeWidth={3}
                     dot={{ r: 4, strokeWidth: 0, fill: "#2563eb" }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </InsightChart>
+
+            <InsightChart
+              title="Evolucao dos ingressos vendidos"
+              description="Acompanhe a quantidade de ingressos vendidos ao longo do tempo usando a mesma leitura temporal do grafico de receita."
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={timeline}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="label" stroke="#94a3b8" fontSize={12} />
+                  <YAxis stroke="#94a3b8" fontSize={12} width={56} allowDecimals={false} />
+                  <Tooltip
+                    formatter={(value: number) => [`${value} ingresso${value === 1 ? "" : "s"}`, "Ingressos"]}
+                    labelFormatter={(label) => `Periodo ${label}`}
+                    contentStyle={{ borderRadius: 18, borderColor: "#e2e8f0" }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="tickets"
+                    stroke="#d97706"
+                    strokeWidth={3}
+                    dot={{ r: 4, strokeWidth: 0, fill: "#d97706" }}
                     activeDot={{ r: 6 }}
                   />
                 </LineChart>
@@ -522,6 +975,9 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                             {entry.ticketsSold} ingresso{entry.ticketsSold === 1 ? "" : "s"}
                           </p>
                           <p className="mt-1 text-sm text-slate-500">vendidos nesse valor</p>
+                          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                            {salePriceConversion[index]?.percentage ?? 0}% do total
+                          </p>
                         </div>
                       </div>
                     ))

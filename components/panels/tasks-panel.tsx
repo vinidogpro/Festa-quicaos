@@ -109,12 +109,12 @@ function TaskCreateForm({
       <input
         name="title"
         placeholder="Titulo da tarefa"
-        className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        className="ds-input"
         required
       />
       <select
         name="ownerProfileId"
-        className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        className="ds-select"
         defaultValue=""
       >
         <option value="">Sem responsavel</option>
@@ -127,7 +127,7 @@ function TaskCreateForm({
       <select
         name="status"
         defaultValue="pending"
-        className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        className="ds-select"
       >
         <option value="pending">Pendente</option>
         <option value="in-progress">Em andamento</option>
@@ -136,11 +136,11 @@ function TaskCreateForm({
       <input
         name="dueAt"
         type="date"
-        className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        className="ds-input"
       />
       <SubmitButton
         pendingLabel="Criando..."
-        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="ds-button-primary"
       >
         <Plus className="h-4 w-4" />
         Adicionar tarefa
@@ -169,7 +169,7 @@ function TaskStatusForm({ eventId, task }: { eventId: string; task: TaskItem }) 
       <select
         name="status"
         defaultValue={task.status}
-        className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm outline-none transition focus:border-brand-500"
+        className="ds-select"
       >
         <option value="pending">Pendente</option>
         <option value="in-progress">Em andamento</option>
@@ -177,7 +177,7 @@ function TaskStatusForm({ eventId, task }: { eventId: string; task: TaskItem }) 
       </select>
       <SubmitButton
         pendingLabel="Atualizando..."
-        className="min-h-11 rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+        className="ds-button-dark"
       >
         Status
       </SubmitButton>
@@ -218,14 +218,14 @@ function TaskEditForm({
           <input
             name="title"
             defaultValue={task.title}
-            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="ds-input"
             required
           />
           <div className="grid gap-3 sm:grid-cols-3">
             <select
               name="ownerProfileId"
               defaultValue={task.ownerProfileId ?? ""}
-              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+              className="ds-select"
             >
               <option value="">Sem responsavel</option>
               {participantOptions.map((participant) => (
@@ -237,7 +237,7 @@ function TaskEditForm({
             <select
               name="status"
               defaultValue={task.status}
-              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+              className="ds-select"
             >
               <option value="pending">Pendente</option>
               <option value="in-progress">Em andamento</option>
@@ -247,13 +247,13 @@ function TaskEditForm({
               name="dueAt"
               type="date"
               defaultValue={task.dueAt ?? ""}
-              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+              className="ds-input"
             />
           </div>
           <div className="flex justify-end">
             <SubmitButton
               pendingLabel="Salvando..."
-              className="min-h-11 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="ds-button-dark"
             >
               Salvar tarefa
             </SubmitButton>
@@ -273,7 +273,7 @@ function TaskEditForm({
           <input type="hidden" name="taskId" value={task.id} />
           <SubmitButton
             pendingLabel="Excluindo..."
-            className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="ds-button-danger"
           >
             <Trash2 className="h-4 w-4" />
             Excluir tarefa
@@ -294,6 +294,8 @@ export function TasksPanel({
   permissions,
   compact = false
 }: TasksPanelProps) {
+  const visibleTasks = tasks.slice(0, compact ? 2 : tasks.length);
+
   return (
     <SectionCard
       title="Tarefas"
@@ -310,16 +312,16 @@ export function TasksPanel({
           icon={CheckCheck}
         />
       ) : (
-        <div className="space-y-3">
-          {tasks.slice(0, compact ? 3 : tasks.length).map((task) => {
+        <div className={compact ? "space-y-2.5" : "space-y-3"}>
+          {visibleTasks.map((task) => {
             const visualState = getTaskVisualState(task);
 
             return (
               <article
                 key={task.id}
-                className={`rounded-[24px] border p-4 ${visualState.cardClassName}`}
+                className={`rounded-[24px] border ${compact ? "p-3.5" : "p-4"} ${visualState.cardClassName}`}
               >
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div className={`flex flex-col ${compact ? "gap-3" : "gap-4"} xl:flex-row xl:items-start xl:justify-between`}>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold text-slate-900">{task.title}</h3>
@@ -335,13 +337,15 @@ export function TasksPanel({
                         </span>
                       ) : null}
                     </div>
-                    <div className="mt-3 flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:flex-wrap sm:gap-3">
+                    <div className={`flex flex-col text-sm text-slate-500 sm:flex-row sm:flex-wrap sm:gap-3 ${compact ? "mt-2 gap-1.5" : "mt-3 gap-2"}`}>
                       <span className={!visualState.hasOwner ? "text-slate-600" : undefined}>Responsavel: {task.owner}</span>
                       <span className={visualState.dueClassName}>Prazo: {task.dueLabel}</span>
-                      <span className="inline-flex items-center gap-1">
-                        <CalendarDays className="h-4 w-4" />
-                        Criada em {formatDateTime(task.createdAt)}
-                      </span>
+                      {!compact ? (
+                        <span className="inline-flex items-center gap-1">
+                          <CalendarDays className="h-4 w-4" />
+                          Criada em {formatDateTime(task.createdAt)}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
 
@@ -355,6 +359,12 @@ export function TasksPanel({
               </article>
             );
           })}
+
+          {compact && tasks.length > visibleTasks.length ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+              +{tasks.length - visibleTasks.length} tarefa(s) no painel completo
+            </div>
+          ) : null}
         </div>
       )}
     </SectionCard>

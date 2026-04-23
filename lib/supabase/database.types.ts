@@ -72,6 +72,30 @@ export interface Database {
         };
         Relationships: [];
       };
+      event_batches: {
+        Row: {
+          id: string;
+          event_id: string;
+          name: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          name: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          name?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       event_memberships: {
         Row: {
           id: string;
@@ -107,6 +131,9 @@ export interface Database {
           id: string;
           event_id: string;
           seller_user_id: string;
+          batch_id: string;
+          sale_type: "normal" | "grupo";
+          ticket_type: "vip" | "pista";
           quantity: number;
           unit_price: number;
           payment_status: "paid";
@@ -120,6 +147,9 @@ export interface Database {
           id?: string;
           event_id: string;
           seller_user_id: string;
+          batch_id: string;
+          sale_type?: "normal" | "grupo";
+          ticket_type?: "vip" | "pista";
           quantity?: number;
           unit_price?: number;
           payment_status?: "paid";
@@ -133,6 +163,9 @@ export interface Database {
           id?: string;
           event_id?: string;
           seller_user_id?: string;
+          batch_id?: string;
+          sale_type?: "normal" | "grupo";
+          ticket_type?: "vip" | "pista";
           quantity?: number;
           unit_price?: number;
           payment_status?: "paid";
@@ -144,10 +177,10 @@ export interface Database {
         };
         Relationships: [];
       };
-        sale_attendees: {
-          Row: {
-            id: string;
-            event_id: string;
+      sale_attendees: {
+        Row: {
+          id: string;
+          event_id: string;
           sale_id: string;
           seller_user_id: string;
           guest_name: string;
@@ -177,46 +210,46 @@ export interface Database {
           checked_in_by?: string | null;
           created_at?: string;
           updated_at?: string;
-          };
-          Relationships: [];
         };
-        manual_guest_entries: {
-          Row: {
-            id: string;
-            event_id: string;
-            guest_name: string;
-            notes: string | null;
-            source_type: string;
-            created_by: string;
-            created_at: string;
-            updated_at: string;
-          };
-          Insert: {
-            id?: string;
-            event_id: string;
-            guest_name: string;
-            notes?: string | null;
-            source_type?: string;
-            created_by: string;
-            created_at?: string;
-            updated_at?: string;
-          };
-          Update: {
-            id?: string;
-            event_id?: string;
-            guest_name?: string;
-            notes?: string | null;
-            source_type?: string;
-            created_by?: string;
-            created_at?: string;
-            updated_at?: string;
-          };
-          Relationships: [];
+        Relationships: [];
+      };
+      manual_guest_entries: {
+        Row: {
+          id: string;
+          event_id: string;
+          guest_name: string;
+          notes: string | null;
+          source_type: string;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
         };
-        expenses: {
-          Row: {
-            id: string;
-            event_id: string;
+        Insert: {
+          id?: string;
+          event_id: string;
+          guest_name: string;
+          notes?: string | null;
+          source_type?: string;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          guest_name?: string;
+          notes?: string | null;
+          source_type?: string;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      expenses: {
+        Row: {
+          id: string;
+          event_id: string;
           title: string;
           category: string;
           amount: number;

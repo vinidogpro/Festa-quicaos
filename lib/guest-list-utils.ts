@@ -1,9 +1,12 @@
-import type { GuestListEntry } from "./types.ts";
+import type { GuestListEntry, SaleBatchLabel, SaleType, TicketType } from "./types.ts";
 
 export interface GuestListSaleLike {
   id: string;
   seller_user_id: string;
+  batch_id: string;
+  sale_type: SaleType;
   unit_price: number;
+  ticket_type: TicketType;
   created_at: string;
 }
 
@@ -28,6 +31,18 @@ export interface GuestListExportProfileLike {
   full_name: string;
 }
 
+function formatGuestTicketType(ticketType: TicketType) {
+  return ticketType === "vip" ? "VIP" : "PISTA";
+}
+
+function resolveBatchLabel(batchId: string | null | undefined, batchNameMap: Map<string, string>): SaleBatchLabel {
+  if (!batchId) {
+    return "Sem lote";
+  }
+
+  return batchNameMap.get(batchId) ?? "Sem lote";
+}
+
 export function buildSaleSequenceMap(salesRows: Array<Pick<GuestListSaleLike, "id" | "created_at">>) {
   return new Map(
     [...salesRows]
@@ -48,6 +63,7 @@ export function buildGuestListEntries({
   saleAttendeeRows,
   salesRows,
   manualGuestEntryRows,
+  batchNameMap,
   profilesMap,
   viewerId,
   canManageOwnSalesOnly,
@@ -56,6 +72,7 @@ export function buildGuestListEntries({
   saleAttendeeRows: GuestListAttendeeLike[];
   salesRows: GuestListSaleLike[];
   manualGuestEntryRows: ManualGuestEntryLike[];
+  batchNameMap: Map<string, string>;
   profilesMap: Map<string, { full_name?: string | null }>;
   viewerId: string;
   canManageOwnSalesOnly: boolean;
@@ -76,6 +93,9 @@ export function buildGuestListEntries({
         sellerUserId: entry.seller_user_id,
         sellerName: profilesMap.get(entry.seller_user_id)?.full_name ?? "Vendedor",
         guestName: entry.guest_name,
+        batchLabel: resolveBatchLabel(sale?.batch_id, batchNameMap),
+        saleType: sale?.sale_type ?? "normal",
+        ticketType: sale?.ticket_type ?? "pista",
         unitPrice: sale?.unit_price ?? 0,
         checkedInAt: entry.checked_in_at ?? undefined,
         createdAt: entry.created_at,
@@ -106,13 +126,15 @@ export function buildGuestListExportRows({
   attendees,
   manualEntries,
   profileMap,
-  salesRows
+  salesRows,
+  batchNameMap
 }: {
   eventName: string;
   attendees: GuestListAttendeeLike[];
   manualEntries: ManualGuestEntryLike[];
   profileMap: Map<string, GuestListExportProfileLike>;
-  salesRows: Array<Pick<GuestListSaleLike, "id" | "unit_price" | "created_at">>;
+  salesRows: Array<Pick<GuestListSaleLike, "id" | "batch_id" | "sale_type" | "unit_price" | "ticket_type" | "created_at">>;
+  batchNameMap: Map<string, string>;
 }) {
   const saleSequenceMap = buildSaleSequenceMap(salesRows);
   const salesById = new Map(salesRows.map((sale) => [sale.id, sale]));
@@ -120,20 +142,28 @@ export function buildGuestListExportRows({
   return [
     ["Lista de entrada", eventName],
     [""],
-    ["Nome", "Origem", "Venda", "Valor por ingresso", "Check-in", "Observacao"],
-    ...attendees.map((entry) => [
-      entry.guest_name,
-      profileMap.get(entry.seller_user_id)?.full_name ?? "Vendedor",
-      `Venda #${saleSequenceMap.get(entry.sale_id) ?? 0}`,
-      new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-        salesById.get(entry.sale_id)?.unit_price ?? 0
-      ),
-      entry.checked_in_at ? "Sim" : "Nao",
-      ""
-    ]),
+    ["Nome", "Origem", "Tipo ingresso", "Lote", "Tipo da venda", "Venda", "Valor por ingresso", "Check-in", "Observacao"],
+    ...attendees.map((entry) => {
+      const sale = salesById.get(entry.sale_id);
+
+      return [
+        entry.guest_name,
+        profileMap.get(entry.seller_user_id)?.full_name ?? "Vendedor",
+        formatGuestTicketType(sale?.ticket_type ?? "pista"),
+        resolveBatchLabel(sale?.batch_id, batchNameMap),
+        sale?.sale_type === "grupo" ? "Grupo" : "Normal",
+        `Venda #${saleSequenceMap.get(entry.sale_id) ?? 0}`,
+        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(sale?.unit_price ?? 0),
+        entry.checked_in_at ? "Sim" : "Nao",
+        ""
+      ];
+    }),
     ...manualEntries.map((entry) => [
       entry.guest_name,
       "Entrada manual",
+      "MANUAL",
+      "",
+      "",
       "",
       "",
       "",

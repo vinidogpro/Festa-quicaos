@@ -34,10 +34,22 @@ create table if not exists public.event_memberships (
   unique (event_id, user_id)
 );
 
+create table if not exists public.event_batches (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events (id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (event_id, name)
+);
+
 create table if not exists public.sales (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events (id) on delete cascade,
   seller_user_id uuid not null references public.profiles (id) on delete cascade,
+  batch_id uuid not null references public.event_batches (id) on delete restrict,
+  sale_type text not null default 'normal' check (sale_type in ('normal', 'grupo')),
+  ticket_type text not null default 'pista' check (ticket_type in ('vip', 'pista')),
   quantity integer not null default 1 check (quantity > 0),
   unit_price numeric(12,2) not null default 0,
   payment_status text not null default 'paid' check (payment_status = 'paid'),
@@ -136,7 +148,11 @@ alter table public.profiles add column if not exists updated_at timestamptz not 
 alter table public.events add column if not exists updated_at timestamptz not null default timezone('utc', now());
 alter table public.event_memberships add column if not exists updated_at timestamptz not null default timezone('utc', now());
 alter table public.event_memberships drop column if exists ticket_quota;
+alter table public.event_batches add column if not exists updated_at timestamptz not null default timezone('utc', now());
 alter table public.sales add column if not exists updated_at timestamptz not null default timezone('utc', now());
+alter table public.sales add column if not exists batch_id uuid references public.event_batches (id) on delete restrict;
+alter table public.sales add column if not exists sale_type text not null default 'normal';
+alter table public.sales add column if not exists ticket_type text not null default 'pista';
 alter table public.sale_attendees add column if not exists updated_at timestamptz not null default timezone('utc', now());
 alter table public.manual_guest_entries add column if not exists updated_at timestamptz not null default timezone('utc', now());
 alter table public.expenses add column if not exists updated_at timestamptz not null default timezone('utc', now());
@@ -198,6 +214,11 @@ create trigger set_event_memberships_updated_at
   before update on public.event_memberships
   for each row execute procedure public.set_updated_at();
 
+drop trigger if exists set_event_batches_updated_at on public.event_batches;
+create trigger set_event_batches_updated_at
+  before update on public.event_batches
+  for each row execute procedure public.set_updated_at();
+
 drop trigger if exists enforce_event_membership_quota on public.event_memberships;
 
 drop trigger if exists set_sales_updated_at on public.sales;
@@ -246,6 +267,32 @@ alter table public.sales drop constraint if exists sales_unit_price_positive;
 alter table public.sales add constraint sales_unit_price_positive check (unit_price > 0);
 alter table public.sales drop constraint if exists sales_quantity_positive;
 alter table public.sales add constraint sales_quantity_positive check (quantity > 0);
+update public.sales set ticket_type = 'pista' where ticket_type is null;
+update public.sales set sale_type = 'normal' where sale_type is null;
+alter table public.sales alter column sale_type set default 'normal';
+alter table public.sales drop constraint if exists sales_sale_type_check;
+alter table public.sales add constraint sales_sale_type_check check (sale_type in ('normal', 'grupo'));
+alter table public.sales alter column ticket_type set default 'pista';
+alter table public.sales drop constraint if exists sales_ticket_type_check;
+alter table public.sales add constraint sales_ticket_type_check check (ticket_type in ('vip', 'pista'));
+insert into public.event_batches (event_id, name)
+select events.id, '1º lote'
+from public.events
+where not exists (
+  select 1
+  from public.event_batches
+  where event_batches.event_id = events.id
+);
+
+update public.sales
+set batch_id = event_batches.id
+from public.event_batches
+where public.sales.event_id = event_batches.event_id
+  and event_batches.name = '1º lote'
+  and public.sales.batch_id is null;
+
+alter table public.sales alter column batch_id set not null;
+alter table public.sales drop column if exists batch_label;
 update public.sales set payment_status = 'paid' where payment_status is distinct from 'paid';
 alter table public.sales alter column payment_status set default 'paid';
 alter table public.sales drop constraint if exists sales_payment_status_check;
@@ -329,6 +376,7 @@ $$;
 alter table public.profiles enable row level security;
 alter table public.events enable row level security;
 alter table public.event_memberships enable row level security;
+alter table public.event_batches enable row level security;
 alter table public.sales enable row level security;
 alter table public.sale_attendees enable row level security;
 alter table public.manual_guest_entries enable row level security;
@@ -396,6 +444,17 @@ create policy "event_memberships_write_managers"
       or role <> 'host'
     )
   );
+
+drop policy if exists "event_batches_select_accessible" on public.event_batches;
+create policy "event_batches_select_accessible"
+  on public.event_batches for select
+  using (public.can_access_event(event_id));
+
+drop policy if exists "event_batches_write_hosts_only" on public.event_batches;
+create policy "event_batches_write_hosts_only"
+  on public.event_batches for all
+  using (public.current_global_role() = 'host' or public.membership_role(event_id) = 'host')
+  with check (public.current_global_role() = 'host' or public.membership_role(event_id) = 'host');
 
 drop policy if exists "sales_select_accessible" on public.sales;
 create policy "sales_select_accessible"

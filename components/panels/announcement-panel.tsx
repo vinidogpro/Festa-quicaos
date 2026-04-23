@@ -73,13 +73,13 @@ function AnnouncementCreateForm({ eventId }: { eventId: string }) {
       <input
         name="title"
         placeholder="Titulo do comunicado"
-        className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        className="ds-input"
         required
       />
       <textarea
         name="body"
         placeholder="Mensagem para a equipe"
-        className="min-h-28 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+        className="ds-textarea min-h-28"
         required
       />
       <label className="inline-flex items-center gap-2 text-sm text-slate-600">
@@ -89,7 +89,7 @@ function AnnouncementCreateForm({ eventId }: { eventId: string }) {
       <div className="flex justify-end">
         <SubmitButton
           pendingLabel="Publicando..."
-          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit"
+          className="ds-button-primary w-full sm:w-fit"
         >
           <Plus className="h-4 w-4" />
           Publicar aviso
@@ -124,13 +124,13 @@ function AnnouncementEditForm({ eventId, announcement }: { eventId: string; anno
           <input
             name="title"
             defaultValue={announcement.title}
-            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="ds-input"
             required
           />
           <textarea
             name="body"
             defaultValue={announcement.body}
-            className="min-h-28 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="ds-textarea min-h-28"
             required
           />
           <label className="inline-flex items-center gap-2 text-sm text-slate-600">
@@ -145,7 +145,7 @@ function AnnouncementEditForm({ eventId, announcement }: { eventId: string; anno
           <div className="flex justify-end">
             <SubmitButton
               pendingLabel="Salvando..."
-              className="min-h-11 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="ds-button-dark"
             >
               Salvar comunicado
             </SubmitButton>
@@ -165,7 +165,7 @@ function AnnouncementEditForm({ eventId, announcement }: { eventId: string; anno
           <input type="hidden" name="announcementId" value={announcement.id} />
           <SubmitButton
             pendingLabel="Excluindo..."
-            className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="ds-button-danger"
           >
             <Trash2 className="h-4 w-4" />
             Excluir comunicado
@@ -185,6 +185,8 @@ export function AnnouncementPanel({
   permissions,
   compact = false
 }: AnnouncementPanelProps) {
+  const visibleAnnouncements = announcements.slice(0, compact ? 2 : announcements.length);
+
   return (
     <SectionCard
       title="Comunicados"
@@ -199,17 +201,17 @@ export function AnnouncementPanel({
           icon={Pin}
         />
       ) : (
-        <div className="space-y-4">
-          {announcements.slice(0, compact ? 2 : announcements.length).map((item) => (
+        <div className={compact ? "space-y-3" : "space-y-4"}>
+          {visibleAnnouncements.map((item) => (
             <article
               key={item.id}
-              className={`rounded-[24px] border p-5 ${
+              className={`ds-metric-card ${compact ? "p-4" : "p-5"} ${
                 item.pinned
                   ? "border-amber-200 bg-amber-50/65 shadow-sm"
                   : "border-slate-200 bg-slate-50"
               }`}
             >
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className={`flex flex-col ${compact ? "gap-3" : "gap-4"} lg:flex-row lg:items-start lg:justify-between`}>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-semibold text-slate-900">{item.title}</h3>
@@ -220,8 +222,8 @@ export function AnnouncementPanel({
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">{item.body}</p>
-                  <p className="mt-4 text-xs uppercase tracking-[0.18em] text-slate-400">
+                  <p className={`text-sm leading-6 text-slate-600 ${compact ? "mt-2 line-clamp-3" : "mt-3"}`}>{item.body}</p>
+                  <p className={`text-xs uppercase tracking-[0.18em] text-slate-400 ${compact ? "mt-3" : "mt-4"}`}>
                     {item.author ? `${item.author} | ` : ""}
                     {formatDateTime(item.createdAt)}
                   </p>
@@ -235,6 +237,12 @@ export function AnnouncementPanel({
               </div>
             </article>
           ))}
+
+          {compact && announcements.length > visibleAnnouncements.length ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+              +{announcements.length - visibleAnnouncements.length} comunicado(s) no painel completo
+            </div>
+          ) : null}
         </div>
       )}
     </SectionCard>

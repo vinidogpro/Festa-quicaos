@@ -37,3 +37,113 @@ body {
     text-wrap: balance;
   }
 }
+
+@layer components {
+  .ds-section-card {
+    @apply rounded-[28px] border border-white/60 bg-white/85 p-5 shadow-soft backdrop-blur sm:p-6;
+  }
+
+  .ds-section-header {
+    @apply mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between;
+  }
+
+  .ds-section-title {
+    @apply font-[var(--font-heading)] text-xl font-bold leading-tight tracking-tight text-slate-950;
+  }
+
+  .ds-section-description {
+    @apply mt-1 text-sm leading-6 text-slate-500;
+  }
+
+  .ds-metric-card {
+    @apply min-w-0 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5;
+  }
+
+  .ds-label {
+    @apply text-xs font-semibold uppercase tracking-[0.18em] text-slate-400;
+  }
+
+  .ds-value {
+    @apply font-[var(--font-heading)] font-bold leading-[0.98] tracking-tight text-slate-950;
+  }
+
+  .ds-value-lg {
+    @apply ds-value text-[clamp(1.7rem,2.2vw,2.35rem)];
+  }
+
+  .ds-value-xl {
+    @apply ds-value text-[clamp(1.95rem,2.5vw,2.7rem)];
+  }
+
+  .ds-helper {
+    @apply text-sm leading-6 text-slate-500;
+  }
+
+  .ds-badge {
+    @apply inline-flex min-h-7 items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em];
+  }
+
+  .ds-badge-neutral {
+    @apply border-slate-200 bg-slate-50 text-slate-700;
+  }
+
+  .ds-badge-positive {
+    @apply border-emerald-200 bg-emerald-50 text-emerald-700;
+  }
+
+  .ds-badge-warning {
+    @apply border-amber-200 bg-amber-50 text-amber-800;
+  }
+
+  .ds-badge-danger {
+    @apply border-rose-200 bg-rose-50 text-rose-700;
+  }
+
+  .ds-badge-vip {
+    @apply border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-900 shadow-sm;
+  }
+
+  .ds-badge-pista {
+    @apply border-rose-200 bg-rose-50 text-rose-800;
+  }
+
+  .ds-badge-batch {
+    @apply border-brand-200 bg-brand-50 text-brand-800;
+  }
+
+  .ds-button {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .ds-button-primary {
+    @apply ds-button bg-brand-600 text-white hover:bg-brand-700;
+  }
+
+  .ds-button-success {
+    @apply ds-button bg-emerald-600 text-white hover:bg-emerald-700;
+  }
+
+  .ds-button-dark {
+    @apply ds-button bg-slate-950 text-white hover:bg-slate-800;
+  }
+
+  .ds-button-secondary {
+    @apply ds-button border border-slate-200 bg-white text-slate-700 hover:bg-slate-50;
+  }
+
+  .ds-button-danger {
+    @apply ds-button border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100;
+  }
+
+  .ds-input {
+    @apply min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500;
+  }
+
+  .ds-select {
+    @apply ds-input appearance-none;
+  }
+
+  .ds-textarea {
+    @apply rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500;
+  }
+}

@@ -100,8 +100,15 @@ values
   ('44444444-4444-4444-4444-444444444446', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-3333-3333-3333-333333333333', 'seller', true)
 on conflict (id) do nothing;
 
-insert into public.sales (event_id, seller_user_id, quantity, unit_price, sold_at, notes, created_by)
+insert into public.event_batches (id, event_id, name)
 values
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', 24, 120, '2026-04-02', 'Equipe Lucas', '33333333-3333-3333-3333-333333333333'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', 12, 120, '2026-04-03', 'Follow-up quente', '22222222-2222-2222-2222-222222222222'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-3333-3333-3333-333333333333', 8, 140, '2026-04-03', 'Pre-sale', '33333333-3333-3333-3333-333333333333');
+  ('55555555-5555-5555-5555-555555555551', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '1º lote'),
+  ('55555555-5555-5555-5555-555555555552', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '2º lote'),
+  ('55555555-5555-5555-5555-555555555553', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Lote promocional')
+on conflict (id) do nothing;
+
+insert into public.sales (event_id, seller_user_id, batch_id, sale_type, ticket_type, quantity, unit_price, sold_at, notes, created_by)
+values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', '55555555-5555-5555-5555-555555555551', 'normal', 'pista', 24, 120, '2026-04-02', 'Equipe Lucas', '33333333-3333-3333-3333-333333333333'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', '55555555-5555-5555-5555-555555555552', 'grupo', 'vip', 12, 120, '2026-04-03', 'Follow-up quente', '22222222-2222-2222-2222-222222222222'),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-3333-3333-3333-333333333333', '55555555-5555-5555-5555-555555555553', 'normal', 'pista', 8, 140, '2026-04-03', 'Pre-sale', '33333333-3333-3333-3333-333333333333');

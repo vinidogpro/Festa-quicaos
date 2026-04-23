@@ -16,9 +16,23 @@ import {
   updateSaleAttendeeNameAction
 } from "@/lib/actions/event-management";
 import { GuestListEntry, ViewerPermissions } from "@/lib/types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatSaleTypeLabel, formatTicketTypeLabel } from "@/lib/utils";
 
 type SortOption = "name" | "seller" | "sale-asc" | "recent";
+
+function TicketTypeBadge({ ticketType }: { ticketType: NonNullable<GuestListEntry["ticketType"]> }) {
+  return (
+    <span
+      className={`ds-badge ${
+        ticketType === "vip"
+          ? "ds-badge-vip"
+          : "ds-badge-pista"
+      }`}
+    >
+      {formatTicketTypeLabel(ticketType)}
+    </span>
+  );
+}
 
 function getEntryTimestamp(entry: GuestListEntry) {
   const timestamp = Date.parse(entry.createdAt);
@@ -119,13 +133,13 @@ function ManualGuestEntryForm({ eventId }: { eventId: string }) {
           <input
             name="guestName"
             placeholder="Nome da pessoa"
-            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="ds-input"
             required
           />
           <input
             name="notes"
             placeholder="Observacao opcional"
-            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+            className="ds-input"
           />
           <SubmitButton
             pendingLabel="Salvando..."
@@ -181,14 +195,14 @@ function SaleGuestNameEditForm({
         <div className="flex flex-col gap-2 sm:flex-row">
           <SubmitButton
             pendingLabel="Salvando..."
-            className="min-h-11 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="ds-button-dark"
           >
             Salvar alteracoes
           </SubmitButton>
           <button
             type="button"
             onClick={() => detailsRef.current?.removeAttribute("open")}
-            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            className="ds-button-secondary"
           >
             Cancelar
           </button>
@@ -242,7 +256,7 @@ function ManualGuestEntryEditForm({
         <div className="flex flex-col gap-2 sm:flex-row">
           <SubmitButton
             pendingLabel="Salvando..."
-            className="min-h-11 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="ds-button-dark"
           >
             Salvar alteracoes
           </SubmitButton>
@@ -357,7 +371,10 @@ export function GuestListPanel({
           return (
             entry.guestName.toLowerCase().includes(normalizedSearch) ||
             entry.sellerName.toLowerCase().includes(normalizedSearch) ||
-            saleNumberMatch
+            saleNumberMatch ||
+            (entry.batchLabel ? entry.batchLabel.toLowerCase().includes(normalizedSearch) : false) ||
+            (entry.saleType ? formatSaleTypeLabel(entry.saleType).toLowerCase().includes(normalizedSearch) : false) ||
+            (entry.ticketType ? formatTicketTypeLabel(entry.ticketType).toLowerCase().includes(normalizedSearch) : false)
           );
         });
 
@@ -380,7 +397,7 @@ export function GuestListPanel({
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar por nome, origem, vendedor ou numero da venda"
+          placeholder="Buscar por nome, vendedor, lote, tipo ou numero da venda"
           className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
         />
         <select
@@ -436,12 +453,41 @@ export function GuestListPanel({
                       >
                         {entry.sourceType === "manual" ? "Manual" : `Venda #${entry.saleNumber ?? 0}`}
                       </span>
+                      {entry.sourceType === "sale" && entry.ticketType ? <TicketTypeBadge ticketType={entry.ticketType} /> : null}
+                      {entry.sourceType === "sale" && entry.batchLabel ? (
+                        <span className="rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-800">
+                          {entry.batchLabel}
+                        </span>
+                      ) : null}
+                      {entry.sourceType === "sale" && entry.saleType ? (
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-700">
+                          {formatSaleTypeLabel(entry.saleType)}
+                        </span>
+                      ) : null}
                     </div>
 
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-slate-500">
                       <span>{entry.sellerName}</span>
                       {entry.sourceType === "sale" ? (
                         <>
+                          {entry.ticketType ? (
+                            <>
+                              <span className="text-slate-300">&bull;</span>
+                              <span>{formatTicketTypeLabel(entry.ticketType)}</span>
+                            </>
+                          ) : null}
+                          {entry.batchLabel ? (
+                            <>
+                              <span className="text-slate-300">&bull;</span>
+                              <span>{entry.batchLabel}</span>
+                            </>
+                          ) : null}
+                          {entry.saleType ? (
+                            <>
+                              <span className="text-slate-300">&bull;</span>
+                              <span>{formatSaleTypeLabel(entry.saleType).toLowerCase()}</span>
+                            </>
+                          ) : null}
                           <span className="text-slate-300">&bull;</span>
                           <span>{formatCurrency(entry.unitPrice ?? 0)}</span>
                         </>

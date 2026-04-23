@@ -14,7 +14,7 @@ function SummaryValue({
 }) {
   if (isCurrency === false) {
     return (
-      <p className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.7rem,2.2vw,2.35rem)] font-bold tracking-tight text-slate-950">
+      <p className="ds-value-lg min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-slate-950">
         {value}
       </p>
     );
@@ -24,11 +24,11 @@ function SummaryValue({
 
   return (
     <div className="min-w-0 space-y-3 overflow-hidden">
-      <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+      <span className="ds-label block">
         {currencyLabel}
       </span>
         <span
-          className={`block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-[var(--font-heading)] text-[clamp(1.6rem,2.15vw,2.2rem)] font-bold tracking-tight ${
+          className={`ds-value-lg block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap ${
             isNegative ? "text-rose-700" : isPositive ? "text-emerald-700" : "text-slate-950"
           }`}
         >

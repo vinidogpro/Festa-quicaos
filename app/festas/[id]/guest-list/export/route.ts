@@ -6,6 +6,7 @@ import { Database } from "@/lib/supabase/database.types";
 type MembershipRow = Database["public"]["Tables"]["event_memberships"]["Row"];
 type SaleAttendeeRow = Database["public"]["Tables"]["sale_attendees"]["Row"];
 type SaleRow = Database["public"]["Tables"]["sales"]["Row"];
+type EventBatchRow = Database["public"]["Tables"]["event_batches"]["Row"];
 type ManualGuestEntryRow = Database["public"]["Tables"]["manual_guest_entries"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
@@ -33,19 +34,25 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     return NextResponse.json({ error: "Nao foi possivel carregar os dados da exportacao." }, { status: 404 });
   }
 
-  const [{ data: memberships, error: membershipsError }, { data: sales, error: salesError }] = await Promise.all([
+  const [
+    { data: memberships, error: membershipsError },
+    { data: eventBatches, error: eventBatchesError },
+    { data: sales, error: salesError }
+  ] = await Promise.all([
     supabase.from("event_memberships").select("user_id, role").eq("event_id", event.id),
+    supabase.from("event_batches").select("id, name").eq("event_id", event.id),
     supabase
       .from("sales")
-      .select("id, unit_price, created_at")
+      .select("id, batch_id, sale_type, unit_price, ticket_type, created_at")
       .eq("event_id", event.id)
   ]);
 
-  if (membershipsError || salesError) {
+  if (membershipsError || eventBatchesError || salesError) {
     return NextResponse.json(
       {
         error:
           membershipsError?.message ||
+          eventBatchesError?.message ||
           salesError?.message ||
           "Nao foi possivel carregar a lista de entrada para exportacao."
       },
@@ -54,7 +61,9 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   }
 
   const membershipRows = (memberships ?? []) as MembershipRow[];
+  const eventBatchRows = (eventBatches ?? []) as Array<Pick<EventBatchRow, "id" | "name">>;
   const salesRows = (sales ?? []) as SaleRow[];
+  const batchNameMap = new Map(eventBatchRows.map((batch) => [batch.id, batch.name]));
   const viewerMembership = membershipRows.find((membership) => membership.user_id === user.id);
 
   if (!viewerMembership && profile.role !== "host") {
@@ -120,7 +129,8 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     attendees: visibleAttendees,
     manualEntries: visibleManualEntries,
     profileMap,
-    salesRows
+    salesRows,
+    batchNameMap
   });
 
   const csv = `\uFEFF${rows.map((row) => row.map(csvEscape).join(";")).join("\n")}`;

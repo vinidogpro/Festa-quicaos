@@ -53,7 +53,7 @@ export function RankingPanel({
         {ranking.slice(0, compact ? 3 : ranking.length).map((seller, index) => (
           <div
             key={seller.id}
-            className={`rounded-[24px] border p-4 transition hover:-translate-y-0.5 hover:shadow-lg ${
+            className={`ds-metric-card p-4 transition hover:-translate-y-0.5 hover:shadow-lg ${
               index === 0
                 ? "border-brand-200 bg-brand-50/70"
                 : index === 1
@@ -78,13 +78,13 @@ export function RankingPanel({
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0">
-                <p className="text-sm text-slate-500">Arrecadacao</p>
-                <p className="font-[var(--font-heading)] text-2xl font-bold text-slate-950">
+                <p className="ds-label text-slate-500">Arrecadacao</p>
+                <p className="ds-value-lg text-slate-950">
                   {formatCurrency(seller.revenue)}
                 </p>
               </div>
               <div className="grid gap-2 sm:text-right">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Venda registrada</p>
+                <p className="ds-label text-emerald-700">Venda registrada</p>
               </div>
             </div>
           </div>

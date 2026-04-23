@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { EventStatus } from "@/lib/types";
+import { EventStatus, SaleType, TicketType } from "@/lib/types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -39,4 +39,12 @@ export function getEventStatusLabel(status: EventStatus) {
     upcoming: "Proxima festa",
     past: "Festa passada"
   }[status];
+}
+
+export function formatTicketTypeLabel(ticketType: TicketType) {
+  return ticketType === "vip" ? "VIP" : "PISTA";
+}
+
+export function formatSaleTypeLabel(saleType: SaleType) {
+  return saleType === "grupo" ? "Grupo" : "Normal";
 }

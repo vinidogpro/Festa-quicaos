@@ -95,6 +95,37 @@ function ExportCsvButton({
   );
 }
 
+function ExportSummaryActions({
+  xlsxHref,
+  csvHref,
+  disabled
+}: {
+  xlsxHref: string;
+  csvHref: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:items-end">
+      <ExportCsvButton
+        href={xlsxHref}
+        label="Exportar resumo (.xlsx)"
+        pendingLabel="Gerando XLSX..."
+        successMessage="Resumo gerencial exportado com sucesso."
+        fallbackFileName="resumo-evento.xlsx"
+        disabled={disabled}
+      />
+      <ExportCsvButton
+        href={csvHref}
+        label="Baixar CSV"
+        pendingLabel="Gerando CSV..."
+        successMessage="Resumo em CSV exportado com sucesso."
+        fallbackFileName="resumo-evento.csv"
+        disabled={disabled}
+      />
+    </div>
+  );
+}
+
 export function ExportSummaryButton({
   eventId,
   disabled = false
@@ -103,12 +134,9 @@ export function ExportSummaryButton({
   disabled?: boolean;
 }) {
   return (
-    <ExportCsvButton
-      href={`/festas/${eventId}/export`}
-      label="Exportar resumo"
-      pendingLabel="Gerando resumo..."
-      successMessage="Resumo exportado com sucesso."
-      fallbackFileName={`resumo-evento-${eventId}.csv`}
+    <ExportSummaryActions
+      xlsxHref={`/festas/${eventId}/export?format=xlsx`}
+      csvHref={`/festas/${eventId}/export?format=csv`}
       disabled={disabled}
     />
   );

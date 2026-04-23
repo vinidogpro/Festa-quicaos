@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { initialEventActionState } from "@/lib/actions/action-state";
 import { deleteEventAction, updateEventAction } from "@/lib/actions/event-management";
+import { EventBatch } from "@/lib/types";
 import { SubmitButton } from "@/components/forms/submit-button";
 
 function ActionFeedback({
@@ -38,7 +39,8 @@ export function EventSettingsPanel({
   venue,
   eventDate,
   goalValue,
-  description
+  description,
+  eventBatches
 }: {
   eventId: string;
   name: string;
@@ -46,10 +48,14 @@ export function EventSettingsPanel({
   eventDate: string;
   goalValue: number;
   description?: string;
+  eventBatches: EventBatch[];
 }) {
   const router = useRouter();
   const [updateState, updateAction] = useFormState(updateEventAction, initialEventActionState);
   const [deleteState, deleteAction] = useFormState(deleteEventAction, initialEventActionState);
+  const [batches, setBatches] = useState<Array<{ id?: string; name: string }>>(
+    eventBatches.map((batch) => ({ id: batch.id, name: batch.name }))
+  );
 
   useEffect(() => {
     if (updateState.status === "success" && updateState.redirectTo) {
@@ -73,7 +79,7 @@ export function EventSettingsPanel({
       </summary>
 
       <div className="space-y-4 border-t border-slate-100 p-4">
-        <form action={updateAction} className="grid gap-3">
+        <form action={updateAction} className="grid gap-4">
           <input type="hidden" name="eventId" value={eventId} />
           <div className="grid gap-3 sm:grid-cols-2">
             <input
@@ -116,6 +122,51 @@ export function EventSettingsPanel({
               required
             />
           </div>
+
+          <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Lotes desta festa</p>
+                <p className="mt-1 text-sm text-slate-500">Voce pode renomear, adicionar ou remover lotes nao usados.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBatches((current) => [...current, { name: `Lote ${current.length + 1}` }])}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar lote
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              {batches.map((batch, index) => (
+                <div key={batch.id ?? `new-${index}`} className="flex flex-col gap-3 sm:flex-row">
+                  {batch.id ? <input type="hidden" name="batchIds" value={batch.id} /> : null}
+                  {!batch.id ? <input type="hidden" name="batchIds" value="" /> : null}
+                  <input
+                    name="batchNames"
+                    defaultValue={batch.name}
+                    placeholder={`Lote ${index + 1}`}
+                    className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setBatches((current) => (current.length > 1 ? current.filter((_, currentIndex) => currentIndex !== index) : current))
+                    }
+                    disabled={batches.length <= 1}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remover
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="flex justify-end">
             <SubmitButton
               pendingLabel="Salvando evento..."

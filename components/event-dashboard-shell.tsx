@@ -94,6 +94,18 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
   } | null>(null);
   const [guestListStatus, setGuestListStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [guestListError, setGuestListError] = useState("");
+  const overviewTasksGridClass =
+    event.tasks.length >= 4
+      ? "lg:grid-cols-[1fr_1fr]"
+      : event.tasks.length >= 2
+        ? "lg:grid-cols-[1.15fr_0.85fr]"
+        : "lg:grid-cols-[1.3fr_0.7fr]";
+  const overviewAnnouncementsGridClass =
+    event.announcements.length >= 4
+      ? "xl:grid-cols-[1fr_1fr]"
+      : event.announcements.length >= 2
+        ? "xl:grid-cols-[0.95fr_1.05fr]"
+        : "xl:grid-cols-[0.78fr_1.22fr]";
   const navItems = baseNavItems.filter((item) => {
     if (item.id === "team" && !event.permissions.canManageTeam) {
       return false;
@@ -289,6 +301,7 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                 sales={event.salesControl}
                 permissions={event.permissions}
                 sellerOptions={event.sellerOptions}
+                eventBatches={event.eventBatches}
               />
             )}
             {activeTab === "team" && (
@@ -344,6 +357,7 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                   totalRevenue={event.totalRevenue}
                   totalExpenses={event.totalExpenses}
                   estimatedProfit={event.estimatedProfit}
+                  sales={event.salesControl}
                   expenses={event.expenses}
                   additionalRevenues={event.additionalRevenues}
                 />
@@ -390,20 +404,22 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                   sales={event.salesControl.slice(0, 4)}
                   permissions={event.permissions}
                   sellerOptions={event.sellerOptions}
+                  eventBatches={event.eventBatches}
                   compact
                 />
-                <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className={`grid gap-6 ${overviewTasksGridClass}`}>
                   <FinancePanel
                     eventId={event.id}
                     permissions={event.permissions}
-                    ticketRevenue={event.ticketRevenue}
-                    additionalRevenue={event.additionalRevenue}
-                    totalRevenue={event.totalRevenue}
-                    totalExpenses={event.totalExpenses}
-                    estimatedProfit={event.estimatedProfit}
-                    expenses={event.expenses}
-                    additionalRevenues={event.additionalRevenues}
-                    compact
+                  ticketRevenue={event.ticketRevenue}
+                  additionalRevenue={event.additionalRevenue}
+                  totalRevenue={event.totalRevenue}
+                  totalExpenses={event.totalExpenses}
+                  estimatedProfit={event.estimatedProfit}
+                  sales={event.salesControl}
+                  expenses={event.expenses}
+                  additionalRevenues={event.additionalRevenues}
+                  compact
                   />
                   <TasksPanel
                     eventId={event.id}
@@ -413,7 +429,7 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                     compact
                   />
                 </div>
-                <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+                <div className={`grid gap-6 ${overviewAnnouncementsGridClass}`}>
                   <AnnouncementPanel
                     eventId={event.id}
                     announcements={event.announcements}

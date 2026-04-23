@@ -3,6 +3,7 @@ import {
   calculateFinanceTotals,
   calculateGoalProgress,
   calculateGuestListStats,
+  calculatePeriodComparison,
   calculateSellerMetrics
 } from "@/lib/event-metrics";
 import { buildPermissions } from "@/lib/permissions";
@@ -34,6 +35,7 @@ import {
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
 type EventMembershipRow = Database["public"]["Tables"]["event_memberships"]["Row"];
+type EventBatchRow = Database["public"]["Tables"]["event_batches"]["Row"];
 type ExpenseRow = Database["public"]["Tables"]["expenses"]["Row"];
 type AdditionalRevenueRow = Database["public"]["Tables"]["additional_revenues"]["Row"];
 type SaleRow = Database["public"]["Tables"]["sales"]["Row"];
@@ -327,6 +329,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
 
     const [
       { data: memberships },
+      { data: eventBatches },
       { data: sales },
       { data: saleAttendees },
       { data: expenses },
@@ -340,8 +343,13 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
         .eq("event_id", event.id)
         .order("created_at", { ascending: true }),
       supabase
+        .from("event_batches")
+        .select("id, event_id, name, created_at")
+        .eq("event_id", event.id)
+        .order("created_at", { ascending: true }),
+      supabase
         .from("sales")
-        .select("id, event_id, seller_user_id, quantity, unit_price, sold_at, notes, created_at")
+        .select("id, event_id, seller_user_id, batch_id, sale_type, ticket_type, quantity, unit_price, sold_at, notes, created_at")
         .eq("event_id", event.id)
         .order("created_at", { ascending: false }),
       supabase
@@ -372,6 +380,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     ]);
 
     const membershipRows = (memberships ?? []) as EventMembershipRow[];
+    const eventBatchRows = (eventBatches ?? []) as EventBatchRow[];
     const salesRows = (sales ?? []) as SaleRow[];
     const saleAttendeeRows = (saleAttendees ?? []) as SaleAttendeeRow[];
     const expenseRows = (expenses ?? []) as ExpenseRow[];
@@ -385,6 +394,12 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
       ])
     ];
     const profilesMap = await getProfilesMap(profileIds);
+    const batchNameMap = new Map(eventBatchRows.map((batch) => [batch.id, batch.name]));
+    const eventBatchItems = eventBatchRows.map((batch) => ({
+      id: batch.id,
+      name: batch.name,
+      createdAt: batch.created_at
+    }));
 
     const viewerMembership = membershipRows.find((membership) => membership.user_id === context.viewer.id);
     const eventRole = viewerMembership?.role;
@@ -441,9 +456,14 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
       saleNumber: saleSequenceMap.get(sale.id) ?? 0,
       sellerUserId: sale.seller_user_id,
       seller: profile?.full_name ?? "Vendedor",
+      batchId: sale.batch_id,
+      batchLabel: batchNameMap.get(sale.batch_id) ?? "Sem lote",
+      saleType: sale.sale_type,
+      ticketType: sale.ticket_type,
       sold: sale.quantity,
       unitPrice: sale.unit_price,
       soldAt: sale.sold_at,
+      createdAt: sale.created_at,
       notes: sale.notes ?? undefined,
       amount: sale.quantity * sale.unit_price,
       attendeeNames,
@@ -572,6 +592,13 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
       attendeeCount: sale.attendeeCount
     }))
   );
+  const periodComparison = calculatePeriodComparison(
+    salesRows.map((sale) => ({
+      quantity: sale.quantity,
+      unitPrice: sale.unit_price,
+      createdAt: sale.sold_at
+    }))
+  );
 
   if (summary.progress < 60) {
     attentionItems.push({
@@ -589,6 +616,65 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
       description: `${guestListStats.missingNames} nome(s) ainda nao foram vinculados as vendas desta festa.`,
       tone: guestListStats.missingNames > Math.max(5, Math.round(guestListStats.totalExpectedNames * 0.15)) ? "critical" : "warning"
     });
+  }
+
+  if (
+    (periodComparison.previous3Days.ticketsSold >= 6 &&
+      periodComparison.last3Days.ticketsSold <= Math.round(periodComparison.previous3Days.ticketsSold * 0.5)) ||
+    (summary.totalTicketsSold > 0 && periodComparison.last3Days.ticketsSold === 0)
+  ) {
+    attentionItems.push({
+      id: "low-sales-pace",
+      title: "Pouca venda nos ultimos dias",
+      description:
+        periodComparison.last3Days.ticketsSold === 0
+          ? "Nenhum ingresso foi registrado nos ultimos 3 dias. Vale reativar a operacao comercial."
+          : `Os ultimos 3 dias somaram ${periodComparison.last3Days.ticketsSold} ingresso(s), abaixo do ritmo anterior de ${periodComparison.previous3Days.ticketsSold}.`,
+      tone:
+        periodComparison.last3Days.ticketsSold === 0 ||
+        periodComparison.last3Days.ticketsSold <= Math.round(periodComparison.previous3Days.ticketsSold * 0.3)
+          ? "critical"
+          : "warning"
+    });
+  }
+
+  const expenseRatio = summary.totalRevenue > 0 ? totalExpenses / summary.totalRevenue : totalExpenses > 0 ? 1 : 0;
+  if (expenseRatio >= 0.7) {
+    attentionItems.push({
+      id: "expenses-high",
+      title: "Despesas altas para o momento",
+      description:
+        summary.totalRevenue > 0
+          ? `As despesas ja representam ${Math.round(expenseRatio * 100)}% do total arrecadado da festa.`
+          : "Ja existem despesas registradas, mas a festa ainda nao gerou receita suficiente para equilibrar o caixa.",
+      tone: expenseRatio >= 0.9 ? "critical" : "warning"
+    });
+  }
+
+  const eventStart = new Date(event.created_at);
+  const eventEnd = new Date(event.event_date);
+  const now = new Date();
+  if (
+    !Number.isNaN(eventStart.getTime()) &&
+    !Number.isNaN(eventEnd.getTime()) &&
+    eventEnd.getTime() > eventStart.getTime() &&
+    now.getTime() > eventStart.getTime()
+  ) {
+    const elapsedRatio = Math.min(
+      Math.max((now.getTime() - eventStart.getTime()) / (eventEnd.getTime() - eventStart.getTime()), 0),
+      1
+    );
+    const expectedProgress = Math.round(elapsedRatio * 100);
+    const lag = expectedProgress - summary.progress;
+
+    if (expectedProgress >= 25 && lag >= 15) {
+      attentionItems.push({
+        id: "goal-pacing",
+        title: "Festa abaixo do ritmo esperado",
+        description: `Pelo tempo decorrido, a meta deveria estar perto de ${expectedProgress}%, mas a festa esta em ${summary.progress}%.`,
+        tone: lag >= 30 ? "critical" : "warning"
+      });
+    }
   }
 
   const health = buildHealthSnapshot({
@@ -645,6 +731,7 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     sellerContribution,
     sellerOptions,
     participantOptions,
+    eventBatches: eventBatchItems,
     teamMembers,
     availableUsers
   };
@@ -678,19 +765,27 @@ export async function getEventGuestListSectionById(id: string): Promise<
       return undefined;
     }
 
-    const [{ data: memberships }, { data: sales }] = await Promise.all([
+    const [{ data: memberships }, { data: eventBatches }, { data: sales }] = await Promise.all([
       supabase
         .from("event_memberships")
         .select("user_id, role")
         .eq("event_id", event.id),
       supabase
+        .from("event_batches")
+        .select("id, name")
+        .eq("event_id", event.id),
+      supabase
         .from("sales")
-        .select("id, seller_user_id, unit_price, created_at")
+        .select("id, seller_user_id, batch_id, sale_type, unit_price, ticket_type, created_at")
         .eq("event_id", event.id)
     ]);
 
     const membershipRows = (memberships ?? []) as Array<Pick<EventMembershipRow, "user_id" | "role">>;
-    const salesRows = (sales ?? []) as Array<Pick<SaleRow, "id" | "seller_user_id" | "unit_price" | "created_at">>;
+    const eventBatchRows = (eventBatches ?? []) as Array<Pick<EventBatchRow, "id" | "name">>;
+    const salesRows = (sales ?? []) as Array<
+      Pick<SaleRow, "id" | "seller_user_id" | "batch_id" | "sale_type" | "unit_price" | "ticket_type" | "created_at">
+    >;
+    const batchNameMap = new Map(eventBatchRows.map((batch) => [batch.id, batch.name]));
     const viewerMembership = membershipRows.find((membership) => membership.user_id === context.viewer.id);
     const permissions = buildPermissions(context.viewer.role, viewerMembership?.role, context.viewer.id);
     const canViewManualGuests = permissions.canManageManualGuests;
@@ -735,6 +830,7 @@ export async function getEventGuestListSectionById(id: string): Promise<
       saleAttendeeRows,
       salesRows,
       manualGuestEntryRows,
+      batchNameMap,
       profilesMap,
       viewerId: context.viewer.id,
       canManageOwnSalesOnly: permissions.canManageOwnSalesOnly,
