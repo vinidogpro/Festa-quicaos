@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Download, LoaderCircle } from "lucide-react";
 
-function ExportCsvButton({
+function ExportFileButton({
   href,
   label,
   pendingLabel,
@@ -95,37 +95,6 @@ function ExportCsvButton({
   );
 }
 
-function ExportSummaryActions({
-  xlsxHref,
-  csvHref,
-  disabled
-}: {
-  xlsxHref: string;
-  csvHref: string;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex flex-col gap-2 sm:items-end">
-      <ExportCsvButton
-        href={xlsxHref}
-        label="Exportar resumo (.xlsx)"
-        pendingLabel="Gerando XLSX..."
-        successMessage="Resumo gerencial exportado com sucesso."
-        fallbackFileName="resumo-evento.xlsx"
-        disabled={disabled}
-      />
-      <ExportCsvButton
-        href={csvHref}
-        label="Baixar CSV"
-        pendingLabel="Gerando CSV..."
-        successMessage="Resumo em CSV exportado com sucesso."
-        fallbackFileName="resumo-evento.csv"
-        disabled={disabled}
-      />
-    </div>
-  );
-}
-
 export function ExportSummaryButton({
   eventId,
   disabled = false
@@ -134,28 +103,12 @@ export function ExportSummaryButton({
   disabled?: boolean;
 }) {
   return (
-    <ExportSummaryActions
-      xlsxHref={`/festas/${eventId}/export?format=xlsx`}
-      csvHref={`/festas/${eventId}/export?format=csv`}
-      disabled={disabled}
-    />
-  );
-}
-
-export function ExportGuestListButton({
-  eventId,
-  disabled = false
-}: {
-  eventId: string;
-  disabled?: boolean;
-}) {
-  return (
-    <ExportCsvButton
-      href={`/festas/${eventId}/guest-list/export`}
-      label="Exportar lista"
-      pendingLabel="Gerando lista..."
-      successMessage="Lista exportada com sucesso."
-      fallbackFileName={`lista-evento-${eventId}.csv`}
+    <ExportFileButton
+      href={`/festas/${eventId}/export`}
+      label="Exportar resumo (.xlsx)"
+      pendingLabel="Gerando XLSX..."
+      successMessage="Resumo gerencial exportado com sucesso."
+      fallbackFileName="resumo-evento.xlsx"
       disabled={disabled}
     />
   );
@@ -169,23 +122,13 @@ export function ExportPortariaButton({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2 sm:items-end">
-      <ExportCsvButton
-        href={`/festas/${eventId}/guest-list/export?mode=portaria&format=xlsx`}
-        label="Exportar lista da portaria"
-        pendingLabel="Gerando lista..."
-        successMessage="Lista da portaria exportada com sucesso."
-        fallbackFileName={`lista-portaria-${eventId}.xlsx`}
-        disabled={disabled}
-      />
-      <ExportCsvButton
-        href={`/festas/${eventId}/guest-list/export?mode=portaria&format=csv`}
-        label="CSV fallback"
-        pendingLabel="Gerando CSV..."
-        successMessage="CSV da portaria exportado com sucesso."
-        fallbackFileName={`lista-portaria-${eventId}.csv`}
-        disabled={disabled}
-      />
-    </div>
+    <ExportFileButton
+      href={`/festas/${eventId}/guest-list/export`}
+      label="Exportar lista da portaria"
+      pendingLabel="Gerando lista..."
+      successMessage="Lista da portaria exportada com sucesso."
+      fallbackFileName={`lista-portaria-${eventId}.xlsx`}
+      disabled={disabled}
+    />
   );
 }

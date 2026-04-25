@@ -60,6 +60,16 @@ export interface BatchMetricItem {
   revenue: number;
   averageTicket: number;
   percentage: number;
+  revenuePercentage: number;
+  ticketTypes: Record<
+    "vip" | "pista",
+    {
+      ticketsSold: number;
+      revenue: number;
+      averageTicket: number;
+      revenuePercentage: number;
+    }
+  >;
 }
 
 export interface SaleTypeMetricSnapshot {
@@ -511,30 +521,83 @@ export function calculateCashFlowByDate({
 }
 
 export function calculateBatchMetrics(
-  sales: Array<Pick<MetricSale, "quantity" | "unitPrice" | "batchLabel">>
+  sales: Array<Pick<MetricSale, "quantity" | "unitPrice" | "batchLabel"> & Partial<Pick<MetricSale, "ticketType">>>
 ) {
-  const ranking = new Map<string, { batchLabel: string; ticketsSold: number; revenue: number }>();
+  const ranking = new Map<
+    string,
+    {
+      batchLabel: string;
+      ticketsSold: number;
+      revenue: number;
+      ticketTypes: Record<"vip" | "pista", { ticketsSold: number; revenue: number }>;
+    }
+  >();
 
   for (const sale of sales) {
     const batchKey = getNormalizedBatchKey(sale.batchLabel);
     const batchLabel = formatBatchLabel(sale.batchLabel);
-    const current = ranking.get(batchKey) ?? { batchLabel, ticketsSold: 0, revenue: 0 };
+    const current =
+      ranking.get(batchKey) ?? {
+        batchLabel,
+        ticketsSold: 0,
+        revenue: 0,
+        ticketTypes: {
+          vip: { ticketsSold: 0, revenue: 0 },
+          pista: { ticketsSold: 0, revenue: 0 }
+        }
+      };
+    const ticketType = sale.ticketType === "vip" ? "vip" : "pista";
+    const amount = getSaleAmount(sale);
 
     current.ticketsSold += sale.quantity;
-    current.revenue += getSaleAmount(sale);
+    current.revenue += amount;
+    current.ticketTypes[ticketType].ticketsSold += sale.quantity;
+    current.ticketTypes[ticketType].revenue += amount;
     ranking.set(batchKey, current);
   }
 
   const totalTicketsSold = sales.reduce((sum, sale) => sum + sale.quantity, 0);
+  const totalRevenue = sales.reduce((sum, sale) => sum + getSaleAmount(sale), 0);
 
   return Array.from(ranking.values())
-    .map((item) => ({
-      batchLabel: item.batchLabel,
-      ticketsSold: item.ticketsSold,
-      revenue: item.revenue,
-      averageTicket: calculateAverageTicket(item.revenue, item.ticketsSold),
-      percentage: totalTicketsSold > 0 ? Math.round((item.ticketsSold / totalTicketsSold) * 100) : 0
-    }))
+    .map((item) => {
+      const vipRevenue = item.ticketTypes.vip.revenue;
+      const pistaRevenue = item.ticketTypes.pista.revenue;
+
+      const metric = {
+        batchLabel: item.batchLabel,
+        ticketsSold: item.ticketsSold,
+        revenue: item.revenue,
+        averageTicket: calculateAverageTicket(item.revenue, item.ticketsSold),
+        percentage: totalTicketsSold > 0 ? Math.round((item.ticketsSold / totalTicketsSold) * 100) : 0
+      };
+
+      Object.defineProperties(metric, {
+        revenuePercentage: {
+          value: totalRevenue > 0 ? Math.round((item.revenue / totalRevenue) * 100) : 0,
+          enumerable: false
+        },
+        ticketTypes: {
+          value: {
+            vip: {
+              ticketsSold: item.ticketTypes.vip.ticketsSold,
+              revenue: vipRevenue,
+              averageTicket: calculateAverageTicket(vipRevenue, item.ticketTypes.vip.ticketsSold),
+              revenuePercentage: item.revenue > 0 ? Math.round((vipRevenue / item.revenue) * 100) : 0
+            },
+            pista: {
+              ticketsSold: item.ticketTypes.pista.ticketsSold,
+              revenue: pistaRevenue,
+              averageTicket: calculateAverageTicket(pistaRevenue, item.ticketTypes.pista.ticketsSold),
+              revenuePercentage: item.revenue > 0 ? Math.round((pistaRevenue / item.revenue) * 100) : 0
+            }
+          },
+          enumerable: false
+        }
+      });
+
+      return metric as BatchMetricItem;
+    })
     .sort((left, right) => {
       if (right.ticketsSold !== left.ticketsSold) {
         return right.ticketsSold - left.ticketsSold;

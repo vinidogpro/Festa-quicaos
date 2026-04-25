@@ -1,4 +1,5 @@
 import type { EventBatch, SalesRecord, TicketType, SaleType } from "./types";
+import { getNormalizedBatchKey } from "./utils";
 
 const GENERIC_INVALID_NAMES = new Set([".", "ok", "teste"]);
 
@@ -11,29 +12,14 @@ function normalizeText(value: string) {
 }
 
 function normalizeBatchLabel(value: string) {
-  const normalized = normalizeText(value)
-    .replace(/º/g, "o")
-    .replace(/\s+/g, " ")
-    .trim();
+  const normalized = getNormalizedBatchKey(value);
 
-  if (normalized.includes("promocional")) {
+  if (normalized === "lote-promocional") {
     return "promo";
   }
 
-  if (normalized.includes("lote 1") || normalized.includes("1o lote")) {
-    return "lote-1";
-  }
-
-  if (normalized.includes("lote 2") || normalized.includes("2o lote")) {
-    return "lote-2";
-  }
-
-  if (normalized.includes("lote 3") || normalized.includes("3o lote")) {
-    return "lote-3";
-  }
-
-  if (normalized.includes("lote 4") || normalized.includes("4o lote")) {
-    return "lote-4";
+  if (normalized === "lote-1" || normalized === "lote-2" || normalized === "lote-3" || normalized === "lote-4") {
+    return normalized;
   }
 
   return normalized;

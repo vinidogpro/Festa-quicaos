@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ListChecks, Pencil, Plus, Trash2 } from "lucide-react";
-import { ExportGuestListButton, ExportPortariaButton } from "@/components/export-summary-button";
+import { ExportPortariaButton } from "@/components/export-summary-button";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { SaleEditForm } from "@/components/panels/sales-control-panel";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -451,7 +451,6 @@ export function GuestListPanel({
       }
       action={
         <div className="flex flex-col gap-2 sm:items-end">
-          <ExportGuestListButton eventId={eventId} />
           {permissions.eventRole === "host" || permissions.eventRole === "organizer" ? (
             <ExportPortariaButton eventId={eventId} />
           ) : null}

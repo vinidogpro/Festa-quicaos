@@ -186,8 +186,23 @@ function BatchAnalysisBlock({
     revenue: number;
     averageTicket: number;
     percentage: number;
+    revenuePercentage: number;
+    ticketTypes: Record<
+      "vip" | "pista",
+      {
+        ticketsSold: number;
+        revenue: number;
+        averageTicket: number;
+        revenuePercentage: number;
+      }
+    >;
   }>;
 }) {
+  const ticketTypeBreakdown = [
+    { key: "vip" as const, badgeClassName: "ds-badge-vip", panelClassName: "border-amber-200 bg-amber-50/60" },
+    { key: "pista" as const, badgeClassName: "ds-badge-pista", panelClassName: "border-rose-200 bg-rose-50/60" }
+  ];
+
   return (
     <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
@@ -215,7 +230,7 @@ function BatchAnalysisBlock({
                   {row.batchLabel}
                 </span>
                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  {row.percentage}% do total
+                  {row.revenuePercentage}% da receita
                 </span>
               </div>
 
@@ -223,7 +238,41 @@ function BatchAnalysisBlock({
                 <InlineStatCard label="Ingressos" value={`${row.ticketsSold}`} />
                 <InlineStatCard label="Receita" value={formatCurrency(row.revenue)} />
                 <InlineStatCard label="Ticket medio" value={formatCurrency(row.averageTicket)} />
-                <InlineStatCard label="Participacao" value={`${row.percentage}%`} />
+                <InlineStatCard label="Participacao na receita" value={`${row.revenuePercentage}%`} />
+              </div>
+
+              <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                {ticketTypeBreakdown.map((item) => {
+                  const metric = row.ticketTypes[item.key];
+
+                  return (
+                    <div key={item.key} className={`rounded-2xl border p-4 ${item.panelClassName}`}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className={`ds-badge ${item.badgeClassName}`}>
+                          {formatTicketTypeLabel(item.key)}
+                        </span>
+                        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          {metric.revenuePercentage}% do lote
+                        </span>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        <div>
+                          <p className="ds-label">Ingressos</p>
+                          <p className="mt-1 text-xl font-bold text-slate-950">{metric.ticketsSold}</p>
+                        </div>
+                        <div>
+                          <p className="ds-label">Receita</p>
+                          <p className="mt-1 text-xl font-bold text-slate-950">{formatCurrency(metric.revenue)}</p>
+                        </div>
+                        <div>
+                          <p className="ds-label">Ticket medio</p>
+                          <p className="mt-1 text-xl font-bold text-slate-950">{formatCurrency(metric.averageTicket)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -474,7 +523,8 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
         visibleSales.map((sale) => ({
           quantity: sale.sold,
           unitPrice: sale.unitPrice,
-          batchLabel: sale.batchLabel
+          batchLabel: sale.batchLabel,
+          ticketType: sale.ticketType
         }))
       ),
     [visibleSales]

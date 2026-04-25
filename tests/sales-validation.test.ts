@@ -13,6 +13,14 @@ test("getStandardSalePrice respeita a tabela de lote e tipo", () => {
   assert.equal(getStandardSalePrice("Comissao", "pista"), null);
 });
 
+test("getStandardSalePrice reutiliza normalizacao central de lotes equivalentes", () => {
+  assert.equal(getStandardSalePrice("Lote 01", "pista"), 45);
+  assert.equal(getStandardSalePrice("01 lote", "pista"), 45);
+  assert.equal(getStandardSalePrice("1o lote", "vip"), 65);
+  assert.equal(getStandardSalePrice("2 lote", "pista"), 50);
+  assert.equal(getStandardSalePrice("2Âº lote", "vip"), 70);
+});
+
 test("validateSaleDraft detecta preco fora do padrao, possivel grupo e inconsistencias de nomes", () => {
   const result = validateSaleDraft({
     quantity: 2,

@@ -479,3 +479,30 @@ test("calculateOperationalTimeline retorna vazio sem dados operacionais", () => 
     []
   );
 });
+
+test("calculateBatchMetrics detalha VIP e PISTA dentro de cada lote", () => {
+  const metrics = calculateBatchMetrics([
+    { quantity: 3, unitPrice: 80, batchLabel: "Lote 1", ticketType: "vip" },
+    { quantity: 2, unitPrice: 40, batchLabel: "1 lote", ticketType: "pista" },
+    { quantity: 5, unitPrice: 50, batchLabel: "Lote 2", ticketType: "pista" }
+  ]);
+  const firstBatch = metrics.find((item) => item.batchLabel === "1º lote");
+
+  assert.ok(firstBatch);
+  assert.equal(firstBatch.ticketsSold, 5);
+  assert.equal(firstBatch.revenue, 320);
+  assert.equal(firstBatch.averageTicket, 64);
+  assert.equal(firstBatch.revenuePercentage, 56);
+  assert.deepEqual(firstBatch.ticketTypes.vip, {
+    ticketsSold: 3,
+    revenue: 240,
+    averageTicket: 80,
+    revenuePercentage: 75
+  });
+  assert.deepEqual(firstBatch.ticketTypes.pista, {
+    ticketsSold: 2,
+    revenue: 80,
+    averageTicket: 40,
+    revenuePercentage: 25
+  });
+});

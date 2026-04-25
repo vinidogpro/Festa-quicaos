@@ -12,7 +12,7 @@ import {
 import { buildGuestListEntries, buildSaleSequenceMap } from "@/lib/guest-list-utils";
 import { Database } from "@/lib/supabase/database.types";
 import { createSupabaseRouteClient } from "@/lib/supabase/server";
-import { formatBatchLabel, formatCurrency, formatDate, formatSaleTypeLabel, formatTicketTypeLabel } from "@/lib/utils";
+import { formatBatchLabel, formatDate, formatSaleTypeLabel, formatTicketTypeLabel } from "@/lib/utils";
 
 export const runtime = "nodejs";
 
@@ -41,11 +41,6 @@ const PISTA_FILL = "881337";
 const PISTA_FONT = "FFFFFF";
 const MANUAL_FILL = "E2E8F0";
 const MANUAL_FONT = "334155";
-
-function csvEscape(value: string | number) {
-  const stringValue = String(value ?? "");
-  return `"${stringValue.replace(/"/g, '""')}"`;
-}
 
 function formatShortDate(date?: string | null) {
   if (!date) {
@@ -223,12 +218,7 @@ function autoFitColumns(worksheet: ExcelJS.Worksheet, minimumWidth = 12, maximum
   });
 }
 
-function buildCsv(rows: Array<Array<string | number>>) {
-  return `\uFEFF${rows.map((row) => row.map(csvEscape).join(";")).join("\n")}`;
-}
-
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const format = new URL(request.url).searchParams.get("format") === "xlsx" ? "xlsx" : "csv";
+export async function GET(_: Request, { params }: { params: { id: string } }) {
   const supabase = createSupabaseRouteClient() as any;
 
   const {
@@ -413,80 +403,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
       incurredAt: expense.incurred_at
     }))
   });
-
-  if (format === "csv") {
-    const rows: Array<Array<string | number>> = [
-      ["Resumo financeiro", event.name],
-      ["Evento", event.name],
-      ["Local", event.venue ?? "-"],
-      ["Data", event.event_date ? formatDate(event.event_date) : "-"],
-      [""],
-      ["Indicador", "Valor"],
-      ["Total vendido", formatCurrency(financeTotals.grossSoldRevenue)],
-      ["Vendas extras", formatCurrency(financeTotals.additionalRevenue)],
-      ["Total arrecadado", formatCurrency(financeTotals.generalRevenue)],
-      ["Despesas", formatCurrency(financeTotals.totalExpenses)],
-      ["Lucro final", formatCurrency(financeTotals.estimatedProfit)],
-      ["Ticket medio geral", formatCurrency(financeTotals.averageTicket)],
-      ["Meta atingida", `${percentGoal}%`],
-      [""],
-      ["Relatorio pos-evento", ""],
-      ["Lote campeao", postEventReport.commercial.bestBatchLabel],
-      ["Tipo dominante", postEventReport.commercial.dominantTicketType === "vip" ? "VIP" : "PISTA"],
-      ["Preco mais eficiente", formatCurrency(postEventReport.commercial.mostEfficientPrice)],
-      ["Margem", `${postEventReport.financial.marginPercentage}%`],
-      [""],
-      ...(event.has_vip
-        ? [
-            ["Tipo ingresso", "Ingressos", "Receita", "Ticket medio"] as Array<string | number>,
-            [
-              "VIP",
-              ticketTypeMetrics.vip.ticketsSold,
-              formatCurrency(ticketTypeMetrics.vip.revenue),
-              formatCurrency(ticketTypeMetrics.vip.averageTicket)
-            ] as Array<string | number>,
-            [
-              "PISTA",
-              ticketTypeMetrics.pista.ticketsSold,
-              formatCurrency(ticketTypeMetrics.pista.revenue),
-              formatCurrency(ticketTypeMetrics.pista.averageTicket)
-            ] as Array<string | number>
-          ]
-        : [])
-    ];
-
-    if (isManager) {
-      rows.push(
-        [""],
-        ["Categoria despesa", "Subtotal"],
-        ...expenseCategories.map((item) => [item.category, formatCurrency(item.total)]),
-        [""],
-        ["Categoria arrecadacao extra", "Subtotal"],
-        ...additionalRevenueCategories.map((item) => [item.category, formatCurrency(item.total)]),
-        [""],
-        ["Fluxo de caixa", ""],
-        ["Data", "Entradas", "Saidas", "Saldo", "Saldo acumulado"],
-        ...cashFlowRows.map((item) => [
-          formatShortDate(item.date),
-          formatCurrency(item.inflow),
-          formatCurrency(item.outflow),
-          formatCurrency(item.balance),
-          formatCurrency(item.cumulativeBalance)
-        ])
-      );
-    }
-
-    const csv = buildCsv(rows);
-
-    return new NextResponse(csv, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="resumo-${event.slug}.csv"`,
-        "Cache-Control": "no-store"
-      }
-    });
-  }
 
   const [{ data: attendees, error: attendeesError }, manualEntriesResult] = await Promise.all([
     supabase

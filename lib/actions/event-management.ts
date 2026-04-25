@@ -581,97 +581,6 @@ function validateExpenseFields({
   return null;
 }
 
-async function replaceSaleAttendees({
-  supabase,
-  eventId,
-  saleId,
-  sellerUserId,
-  guestNames,
-  expectedQuantity
-}: {
-  supabase: any;
-  eventId: string;
-  saleId: string;
-  sellerUserId: string;
-  guestNames: string[];
-  expectedQuantity: number;
-}) {
-  const { error: deleteError } = await supabase.from("sale_attendees").delete().eq("sale_id", saleId);
-
-  if (deleteError) {
-    throw new Error(deleteError.message);
-  }
-
-  if (guestNames.length !== expectedQuantity) {
-    throw new Error("Quantidade e nomes precisam bater antes de salvar a venda.");
-  }
-
-  if (guestNames.length === 0) {
-    return [];
-  }
-
-  const { data: insertedAttendees, error: insertError } = await supabase
-    .from("sale_attendees")
-    .insert(
-      guestNames.map((guestName) => ({
-        event_id: eventId,
-        sale_id: saleId,
-        seller_user_id: sellerUserId,
-        guest_name: guestName
-      }))
-    )
-    .select("id");
-
-  if (insertError) {
-    throw new Error(insertError.message);
-  }
-
-  if ((insertedAttendees?.length ?? 0) !== expectedQuantity) {
-    throw new Error("A venda foi recusada porque nem todos os nomes foram vinculados a lista.");
-  }
-
-  return insertedAttendees ?? [];
-}
-
-async function restoreSaleAttendees({
-  supabase,
-  eventId,
-  saleId,
-  attendees
-}: {
-  supabase: any;
-  eventId: string;
-  saleId: string;
-  attendees: Array<{
-    seller_user_id: string;
-    guest_name: string;
-    checked_in_at?: string | null;
-  }>;
-}) {
-  await supabase.from("sale_attendees").delete().eq("sale_id", saleId);
-
-  if (attendees.length === 0) {
-    return;
-  }
-
-  const { error } = await supabase.from("sale_attendees").insert(
-    attendees.map((attendee) => ({
-      event_id: eventId,
-      sale_id: saleId,
-      seller_user_id: attendee.seller_user_id,
-      guest_name: attendee.guest_name,
-      checked_in_at: attendee.checked_in_at ?? null
-    }))
-  );
-
-  if (error) {
-    console.error("[sales] Falha ao restaurar nomes da venda apos erro de edicao", {
-      saleId,
-      error: error.message
-    });
-  }
-}
-
 async function logActivity(
   supabase: any,
   {
@@ -751,62 +660,42 @@ export async function createEventAction(
 
     const slug = await generateUniqueEventSlug(supabase, name);
 
-    const { data: event, error } = await supabase
-      .from("events")
-      .insert({
-        name,
-        slug,
-        venue,
-        description: description || null,
-        event_date: eventDate,
-        goal_value: goalValue,
-        has_vip: hasVip,
-        has_group_sales: hasGroupSales,
-        status,
-        created_by: profile.id
-      })
-      .select("id, slug")
-      .single();
-
-    if (error || !event) {
-      throw new Error(error?.message ?? "Nao foi possivel criar a festa.");
-    }
-
-    const { error: membershipError } = await supabase.from("event_memberships").insert({
-      event_id: event.id,
-      user_id: profile.id,
-      role: "host"
+    const { data: createdEvents, error } = await supabase.rpc("create_event_with_config", {
+      p_name: name,
+      p_slug: slug,
+      p_venue: venue,
+      p_description: description || "",
+      p_event_date: eventDate,
+      p_goal_value: goalValue,
+      p_has_vip: hasVip,
+      p_has_group_sales: hasGroupSales,
+      p_status: status,
+      p_created_by: profile.id,
+      p_batches: batchConfigs.map((batch, index) => ({
+        name: batch.name,
+        pistaPrice: batch.pistaPrice,
+        vipPrice: batch.vipPrice,
+        isActive: batch.isActive,
+        sortOrder: Number.isFinite(batch.sortOrder) ? batch.sortOrder : index
+      }))
     });
 
-    if (membershipError) {
-      throw new Error(membershipError.message);
-    }
+    const event = Array.isArray(createdEvents) ? createdEvents[0] : null;
 
-    const { error: batchInsertError } = await supabase.from("event_batches").insert(
-      batchConfigs.map((batch, index) => ({
-        event_id: event.id,
-        name: batch.name,
-        pista_price: batch.pistaPrice,
-        vip_price: batch.vipPrice,
-        is_active: batch.isActive,
-        sort_order: Number.isFinite(batch.sortOrder) ? batch.sortOrder : index
-      }))
-    );
-
-    if (batchInsertError) {
-      throw new Error(batchInsertError.message);
+    if (error || !event?.event_id) {
+      throw new Error(error?.message ?? "Nao foi possivel criar a festa.");
     }
 
     await logActivity(supabase, {
       actorUserId: profile.id,
-      eventId: event.id,
+      eventId: event.event_id,
       action: "event.created",
       entityType: "event",
-      entityId: event.id,
+      entityId: event.event_id,
       message: `${profile.full_name} criou a festa "${name}".`,
       metadata: {
         eventName: name,
-        eventSlug: event.slug,
+        eventSlug: event.event_slug,
         status,
         batchCount: batchConfigs.filter((batch) => batch.isActive).length,
         hasVip,
@@ -820,7 +709,7 @@ export async function createEventAction(
     return {
       status: "success",
       message: "Festa criada com sucesso.",
-      redirectTo: `/festas/${event.slug}`
+      redirectTo: `/festas/${event.event_slug}`
     };
   } catch (error) {
     return {
@@ -921,55 +810,22 @@ export async function createSaleAction(
       };
     }
 
-    const { data: createdSale, error } = await supabase
-      .from("sales")
-      .insert({
-        event_id: event.id,
-        seller_user_id: sellerUserId,
-        batch_id: eventBatch.id,
-        sale_type: saleType,
-        ticket_type: ticketType,
-        quantity,
-        unit_price: unitPrice,
-        payment_status: "paid",
-        sold_at: soldAt,
-        notes: notes || null,
-        created_by: profile.id
-      })
-      .select("id")
-      .single();
+    const { data: createdSaleId, error } = await supabase.rpc("create_sale_with_attendees", {
+      p_event_id: event.id,
+      p_seller_user_id: sellerUserId,
+      p_batch_id: eventBatch.id,
+      p_sale_type: saleType,
+      p_ticket_type: ticketType,
+      p_quantity: quantity,
+      p_unit_price: unitPrice,
+      p_sold_at: soldAt,
+      p_notes: notes,
+      p_created_by: profile.id,
+      p_guest_names: guestNames
+    });
 
-    if (error || !createdSale) {
+    if (error || !createdSaleId) {
       throw new Error(error?.message ?? "Nao foi possivel registrar a venda.");
-    }
-
-    try {
-      const insertedAttendees = await replaceSaleAttendees({
-        supabase,
-        eventId: event.id,
-        saleId: createdSale.id,
-        sellerUserId,
-        guestNames,
-        expectedQuantity: quantity
-      });
-
-      console.info("[sales] Venda criada com nomes vinculados", {
-        eventId: event.id,
-        saleId: createdSale.id,
-        quantity,
-        attendeeCount: insertedAttendees.length
-      });
-    } catch (attendeeError) {
-      console.error("[sales] Falha ao vincular nomes; revertendo venda criada", {
-        eventId: event.id,
-        saleId: createdSale.id,
-        quantity,
-        attendeeCount: guestNames.length,
-        error: attendeeError instanceof Error ? attendeeError.message : String(attendeeError)
-      });
-
-      await supabase.from("sales").delete().eq("id", createdSale.id);
-      throw attendeeError;
     }
 
     await logActivity(supabase, {
@@ -977,7 +833,7 @@ export async function createSaleAction(
       eventId: event.id,
       action: "sale.created",
       entityType: "sale",
-      entityId: createdSale.id,
+      entityId: createdSaleId,
       message: `${profile.full_name} registrou uma venda de ${quantity} ingresso(s).`,
       metadata: {
         sellerUserId,
@@ -1119,80 +975,22 @@ export async function updateSaleAction(
       };
     }
 
-    const { data: previousAttendees, error: previousAttendeesError } = await supabase
-      .from("sale_attendees")
-      .select("seller_user_id, guest_name, checked_in_at")
-      .eq("sale_id", saleId);
-
-    if (previousAttendeesError) {
-      throw new Error(previousAttendeesError.message);
-    }
-
-    const { error } = await supabase
-      .from("sales")
-      .update({
-        seller_user_id: sellerUserId,
-        batch_id: eventBatch.id,
-        sale_type: saleType,
-        ticket_type: ticketType,
-        quantity,
-        unit_price: unitPrice,
-        payment_status: "paid",
-        sold_at: soldAt,
-        notes: notes || null
-      })
-      .eq("id", saleId);
+    const { error } = await supabase.rpc("update_sale_with_attendees", {
+      p_sale_id: saleId,
+      p_seller_user_id: sellerUserId,
+      p_batch_id: eventBatch.id,
+      p_sale_type: saleType,
+      p_ticket_type: ticketType,
+      p_quantity: quantity,
+      p_unit_price: unitPrice,
+      p_sold_at: soldAt,
+      p_notes: notes,
+      p_actor_user_id: profile.id,
+      p_guest_names: guestNames
+    });
 
     if (error) {
       throw new Error(error.message);
-    }
-
-    try {
-      const insertedAttendees = await replaceSaleAttendees({
-        supabase,
-        eventId: sale.event_id,
-        saleId,
-        sellerUserId,
-        guestNames,
-        expectedQuantity: quantity
-      });
-
-      console.info("[sales] Venda atualizada com nomes consistentes", {
-        eventId: sale.event_id,
-        saleId,
-        quantity,
-        attendeeCount: insertedAttendees.length
-      });
-    } catch (attendeeError) {
-      console.error("[sales] Falha ao recriar nomes; restaurando nomes anteriores", {
-        eventId: sale.event_id,
-        saleId,
-        quantity,
-        attendeeCount: guestNames.length,
-        error: attendeeError instanceof Error ? attendeeError.message : String(attendeeError)
-      });
-
-      await supabase
-        .from("sales")
-        .update({
-          seller_user_id: sale.seller_user_id,
-          batch_id: sale.batch_id,
-          sale_type: sale.sale_type,
-          ticket_type: sale.ticket_type,
-          quantity: sale.quantity,
-          unit_price: sale.unit_price,
-          payment_status: sale.payment_status,
-          sold_at: sale.sold_at,
-          notes: sale.notes
-        })
-        .eq("id", saleId);
-      await restoreSaleAttendees({
-        supabase,
-        eventId: sale.event_id,
-        saleId,
-        attendees: previousAttendees ?? []
-      });
-      throw attendeeError;
     }
 
     await logActivity(supabase, {

@@ -265,12 +265,30 @@ export async function getEvents(): Promise<EventSummary[]> {
 
     const eventIds = events.map((event) => event.id);
 
-    const [{ data: sales }, { data: expenses }, { data: additionalRevenues }, { data: memberships }] = await Promise.all([
+    const [
+      { data: sales, error: salesError },
+      { data: expenses, error: expensesError },
+      { data: additionalRevenues, error: additionalRevenuesError },
+      { data: memberships, error: membershipsError }
+    ] = await Promise.all([
       supabase.from("sales").select("*").in("event_id", eventIds),
       supabase.from("expenses").select("*").in("event_id", eventIds),
       supabase.from("additional_revenues").select("*").in("event_id", eventIds),
       supabase.from("event_memberships").select("*").in("event_id", eventIds)
     ]);
+
+    if (salesError || expensesError || additionalRevenuesError || membershipsError) {
+      throw new Error(
+        [
+          salesError?.message,
+          expensesError?.message,
+          additionalRevenuesError?.message,
+          membershipsError?.message
+        ]
+          .filter(Boolean)
+          .join(" | ") || "Nao foi possivel carregar os dados das festas."
+      );
+    }
 
     const salesRows = (sales ?? []) as SaleRow[];
     const expenseRows = (expenses ?? []) as ExpenseRow[];
@@ -348,7 +366,12 @@ export async function getStrategicOverview(preloadedEvents?: EventSummary[]): Pr
       };
     }
 
-    const [{ data: eventBatches }, { data: sales }, { data: expenses }, { data: additionalRevenues }] = await Promise.all([
+    const [
+      { data: eventBatches, error: eventBatchesError },
+      { data: sales, error: salesError },
+      { data: expenses, error: expensesError },
+      { data: additionalRevenues, error: additionalRevenuesError }
+    ] = await Promise.all([
       supabase.from("event_batches").select("id, event_id, name").in("event_id", eventIds),
       supabase
         .from("sales")
@@ -357,6 +380,19 @@ export async function getStrategicOverview(preloadedEvents?: EventSummary[]): Pr
       supabase.from("expenses").select("event_id, amount, category").in("event_id", eventIds),
       supabase.from("additional_revenues").select("event_id, amount, category").in("event_id", eventIds)
     ]);
+
+    if (eventBatchesError || salesError || expensesError || additionalRevenuesError) {
+      throw new Error(
+        [
+          eventBatchesError?.message,
+          salesError?.message,
+          expensesError?.message,
+          additionalRevenuesError?.message
+        ]
+          .filter(Boolean)
+          .join(" | ") || "Nao foi possivel carregar o comparativo entre eventos."
+      );
+    }
 
     const batchRows = (eventBatches ?? []) as Array<Pick<EventBatchRow, "id" | "event_id" | "name">>;
     const salesRows = (sales ?? []) as Array<
