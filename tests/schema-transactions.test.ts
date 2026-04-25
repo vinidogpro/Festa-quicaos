@@ -35,3 +35,11 @@ test("queries principais checam erros de Supabase antes de montar relatorios", (
   assert.match(queries, /eventBatchesError \|\| salesError \|\| expensesError \|\| additionalRevenuesError/);
   assert.match(queries, /throw new Error\(/);
 });
+
+test("schema e actions suportam fechamento operacional da festa", () => {
+  assert.match(schema, /closed_at timestamptz/);
+  assert.match(schema, /closed_by uuid references public\.profiles/);
+  assert.match(eventActions, /updateEventClosureAction/);
+  assert.match(eventActions, /assertCanMutateClosedEvent/);
+  assert.match(eventActions, /Apenas host ou organizador podem fazer correcoes pos-evento/);
+});

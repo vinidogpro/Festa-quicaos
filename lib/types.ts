@@ -225,6 +225,9 @@ export interface EventSummary {
   description?: string;
   hasVip: boolean;
   hasGroupSales: boolean;
+  isClosed: boolean;
+  closedAt?: string;
+  closedBy?: string;
   totalRevenue: number;
   ticketRevenue: number;
   additionalRevenue: number;
@@ -320,6 +323,14 @@ export interface StrategicExpenseCategoryLearning {
   revenueShare: number;
 }
 
+export interface StrategicConclusion {
+  id: string;
+  label: string;
+  value: string;
+  description: string;
+  tone: "positive" | "warning" | "danger" | "primary" | "neutral";
+}
+
 export interface PostEventReportSnapshot {
   eventId: string;
   eventName: string;
@@ -367,5 +378,6 @@ export interface StrategicOverviewSnapshot {
     grupo: StrategicSaleTypeMetric;
   };
   expenseCategoryLearning: StrategicExpenseCategoryLearning[];
+  strategicConclusions: StrategicConclusion[];
   postEventReports: PostEventReportSnapshot[];
 }

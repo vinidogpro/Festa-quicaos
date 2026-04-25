@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildSalesChecklistSummary,
+  getReferenceSalePrice,
   getStandardSalePrice,
   validateSaleDraft
 } from "../lib/sales-validation.ts";
@@ -19,6 +20,23 @@ test("getStandardSalePrice reutiliza normalizacao central de lotes equivalentes"
   assert.equal(getStandardSalePrice("1o lote", "vip"), 65);
   assert.equal(getStandardSalePrice("2 lote", "pista"), 50);
   assert.equal(getStandardSalePrice("2Âº lote", "vip"), 70);
+});
+
+test("getReferenceSalePrice prioriza preco configurado no lote do evento", () => {
+  const batches = [
+    {
+      id: "batch-1",
+      name: "Lote 2",
+      pistaPrice: 45,
+      vipPrice: 70,
+      isActive: true,
+      sortOrder: 1,
+      createdAt: "2026-04-25T00:00:00.000Z"
+    }
+  ];
+
+  assert.equal(getReferenceSalePrice(batches, "2º lote", "pista"), 45);
+  assert.equal(getReferenceSalePrice(batches, "2 lote", "vip"), 70);
 });
 
 test("validateSaleDraft detecta preco fora do padrao, possivel grupo e inconsistencias de nomes", () => {

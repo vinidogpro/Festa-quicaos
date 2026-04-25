@@ -7,6 +7,7 @@ import {
   calculateGuestListStats,
   calculatePostEventReport,
   calculatePeriodComparison,
+  calculateStrategicConclusions,
   calculateSaleTypeMetrics,
   calculateSellerMetrics,
   calculateTicketTypeMetrics
@@ -229,6 +230,9 @@ function buildSummaryFromRows({
     description: event.description ?? undefined,
     hasVip: event.has_vip ?? true,
     hasGroupSales: event.has_group_sales ?? true,
+    isClosed: Boolean(event.closed_at),
+    closedAt: event.closed_at ?? undefined,
+    closedBy: event.closed_by ?? undefined,
     totalRevenue,
     ticketRevenue: financeTotals.ticketRevenue,
     additionalRevenue: financeTotals.additionalRevenue,
@@ -334,6 +338,12 @@ export async function getStrategicOverview(preloadedEvents?: EventSummary[]): Pr
         ticketTypeLearning: calculateTicketTypeMetrics([]),
         saleTypeLearning: calculateSaleTypeMetrics([]),
         expenseCategoryLearning: [],
+        strategicConclusions: calculateStrategicConclusions({
+          eventSnapshots: [],
+          sales: [],
+          batchLearning: [],
+          expenseCategoryLearning: []
+        }),
         postEventReports: []
       };
     }
@@ -347,6 +357,12 @@ export async function getStrategicOverview(preloadedEvents?: EventSummary[]): Pr
         ticketTypeLearning: calculateTicketTypeMetrics([]),
         saleTypeLearning: calculateSaleTypeMetrics([]),
         expenseCategoryLearning: [],
+        strategicConclusions: calculateStrategicConclusions({
+          eventSnapshots: [],
+          sales: [],
+          batchLearning: [],
+          expenseCategoryLearning: []
+        }),
         postEventReports: []
       };
     }
@@ -362,6 +378,12 @@ export async function getStrategicOverview(preloadedEvents?: EventSummary[]): Pr
         ticketTypeLearning: calculateTicketTypeMetrics([]),
         saleTypeLearning: calculateSaleTypeMetrics([]),
         expenseCategoryLearning: [],
+        strategicConclusions: calculateStrategicConclusions({
+          eventSnapshots: [],
+          sales: [],
+          batchLearning: [],
+          expenseCategoryLearning: []
+        }),
         postEventReports: []
       };
     }
@@ -434,6 +456,15 @@ export async function getStrategicOverview(preloadedEvents?: EventSummary[]): Pr
       totalPortfolioRevenue,
       events.length
     );
+    const strategicConclusions = calculateStrategicConclusions({
+      eventSnapshots,
+      sales: salesRows.map((sale) => ({
+        quantity: sale.quantity,
+        unitPrice: sale.unit_price
+      })),
+      batchLearning,
+      expenseCategoryLearning
+    });
 
     const postEventReports: PostEventReportSnapshot[] = eventSnapshots.map((event) => {
       const sourceEventId = internalEventIdBySlug.get(event.id) ?? event.id;
@@ -487,6 +518,7 @@ export async function getStrategicOverview(preloadedEvents?: EventSummary[]): Pr
       ticketTypeLearning,
       saleTypeLearning,
       expenseCategoryLearning,
+      strategicConclusions,
       postEventReports
     };
   } catch (error) {

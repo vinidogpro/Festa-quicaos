@@ -14,6 +14,7 @@ import { createSupabaseActionClient } from "@/lib/supabase/server";
 import { DEFAULT_EVENT_BATCH_NAMES, DEFAULT_EVENT_BATCH_PRESETS } from "@/lib/types";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type EventRow = Database["public"]["Tables"]["events"]["Row"];
 type EventMembershipRow = Database["public"]["Tables"]["event_memberships"]["Row"];
 type EventBatchRow = Database["public"]["Tables"]["event_batches"]["Row"];
 type TicketType = Database["public"]["Tables"]["sales"]["Row"]["ticket_type"];
@@ -111,6 +112,16 @@ async function getEventRowBySlug(slug: string) {
   return event;
 }
 
+async function getEventRowById(supabase: any, id: string) {
+  const { data: event, error } = await supabase.from("events").select("*").eq("id", id).single();
+
+  if (error || !event) {
+    throw new Error("Evento nao encontrado.");
+  }
+
+  return event as EventRow;
+}
+
 async function getMembership(supabase: any, eventId: string, userId: string) {
   const { data } = await supabase
     .from("event_memberships")
@@ -155,6 +166,24 @@ function ensureCanManageEvent(profile: ProfileRow, membership: EventMembershipRo
 
 function canManageFinance(profile: ProfileRow, membership: EventMembershipRow | null) {
   return canManageEvent(profile, membership);
+}
+
+function canOverrideClosedEvent(profile: ProfileRow, membership: EventMembershipRow | null) {
+  return canManageEvent(profile, membership);
+}
+
+function getClosedEventMessage() {
+  return "Esta festa esta fechada. Apenas host ou organizador podem fazer correcoes pos-evento.";
+}
+
+function assertCanMutateClosedEvent(
+  event: Pick<EventRow, "closed_at">,
+  profile: ProfileRow,
+  membership: EventMembershipRow | null
+) {
+  if (event.closed_at && !canOverrideClosedEvent(profile, membership)) {
+    throw new Error(getClosedEventMessage());
+  }
 }
 
 function canManageManualGuests(profile: ProfileRow, membership: EventMembershipRow | null) {
@@ -728,6 +757,7 @@ export async function createSaleAction(
     const eventSlug = String(formData.get("eventId") ?? "");
     const event = await getEventRowBySlug(eventSlug);
     const membership = await getMembership(supabase, event.id, profile.id);
+    assertCanMutateClosedEvent(event, profile, membership);
 
     let sellerUserId = String(formData.get("sellerId") ?? "");
 
@@ -882,6 +912,8 @@ export async function updateSaleAction(
     }
 
     const membership = await getMembership(supabase, sale.event_id, profile.id);
+    const eventRow = await getEventRowById(supabase, sale.event_id);
+    assertCanMutateClosedEvent(eventRow, profile, membership);
     const canManageThisSale =
       profile.role === "host" ||
       canManageEvent(profile, membership) ||
@@ -947,7 +979,6 @@ export async function updateSaleAction(
       };
     }
 
-    const eventRow = await getEventRowBySlug(eventSlug || "");
     const saleType = eventRow.has_group_sales ? selectedSaleType : "normal";
     const ticketType = eventRow.has_vip ? selectedTicketType : "pista";
 
@@ -1047,6 +1078,8 @@ export async function deleteSaleAction(
     }
 
     const membership = await getMembership(supabase, sale.event_id, profile.id);
+    const eventRow = await getEventRowById(supabase, sale.event_id);
+    assertCanMutateClosedEvent(eventRow, profile, membership);
     const canDeleteThisSale =
       profile.role === "host" ||
       canManageEvent(profile, membership) ||
@@ -1114,6 +1147,8 @@ export async function updateSaleAttendeeNameAction(
 
     const attendee = await getSaleAttendeeRowById(supabase, attendeeId);
     const membership = await getMembership(supabase, attendee.event_id, profile.id);
+    const eventRow = await getEventRowById(supabase, attendee.event_id);
+    assertCanMutateClosedEvent(eventRow, profile, membership);
     const canEditAttendeeName =
       profile.role === "host" ||
       canManageEvent(profile, membership) ||
@@ -1173,6 +1208,7 @@ export async function createManualGuestEntryAction(
     const notes = String(formData.get("notes") ?? "").trim();
     const event = await getEventRowBySlug(eventSlug);
     const membership = await getMembership(supabase, event.id, profile.id);
+    assertCanMutateClosedEvent(event, profile, membership);
 
     if (!canManageManualGuests(profile, membership)) {
       return {
@@ -1243,6 +1279,8 @@ export async function updateManualGuestEntryAction(
     const notes = String(formData.get("notes") ?? "").trim();
     const entry = await getManualGuestEntryRowById(supabase, entryId);
     const membership = await getMembership(supabase, entry.event_id, profile.id);
+    const eventRow = await getEventRowById(supabase, entry.event_id);
+    assertCanMutateClosedEvent(eventRow, profile, membership);
 
     if (!canManageManualGuests(profile, membership)) {
       return {
@@ -1309,6 +1347,8 @@ export async function deleteManualGuestEntryAction(
     const entryId = String(formData.get("entryId") ?? "").trim();
     const entry = await getManualGuestEntryRowById(supabase, entryId);
     const membership = await getMembership(supabase, entry.event_id, profile.id);
+    const eventRow = await getEventRowById(supabase, entry.event_id);
+    assertCanMutateClosedEvent(eventRow, profile, membership);
 
     if (!canManageManualGuests(profile, membership)) {
       return {
@@ -1360,6 +1400,7 @@ export async function createExpenseAction(
     const eventSlug = String(formData.get("eventId") ?? "");
     const event = await getEventRowBySlug(eventSlug);
     const membership = await getMembership(supabase, event.id, profile.id);
+    assertCanMutateClosedEvent(event, profile, membership);
 
     if (!canManageFinance(profile, membership)) {
       return {
@@ -1441,6 +1482,8 @@ export async function updateExpenseAction(
     const expenseId = String(formData.get("expenseId") ?? "");
     const expense = await getExpenseRowById(supabase, expenseId);
     const membership = await getMembership(supabase, expense.event_id, profile.id);
+    const eventRow = await getEventRowById(supabase, expense.event_id);
+    assertCanMutateClosedEvent(eventRow, profile, membership);
 
     if (!canManageFinance(profile, membership)) {
       return {
@@ -1524,6 +1567,7 @@ export async function createAdditionalRevenueAction(
     const eventSlug = String(formData.get("eventId") ?? "");
     const event = await getEventRowBySlug(eventSlug);
     const membership = await getMembership(supabase, event.id, profile.id);
+    assertCanMutateClosedEvent(event, profile, membership);
 
     if (!canManageFinance(profile, membership)) {
       return {
@@ -1616,6 +1660,8 @@ export async function updateAdditionalRevenueAction(
     const revenueId = String(formData.get("revenueId") ?? "");
     const revenue = await getAdditionalRevenueRowById(supabase, revenueId);
     const membership = await getMembership(supabase, revenue.event_id, profile.id);
+    const eventRow = await getEventRowById(supabase, revenue.event_id);
+    assertCanMutateClosedEvent(eventRow, profile, membership);
 
     if (!canManageFinance(profile, membership)) {
       return {
@@ -1705,6 +1751,8 @@ export async function deleteAdditionalRevenueAction(
     const revenueId = String(formData.get("revenueId") ?? "");
     const revenue = await getAdditionalRevenueRowById(supabase, revenueId);
     const membership = await getMembership(supabase, revenue.event_id, profile.id);
+    const eventRow = await getEventRowById(supabase, revenue.event_id);
+    assertCanMutateClosedEvent(eventRow, profile, membership);
 
     if (!canManageFinance(profile, membership)) {
       return {
@@ -1760,6 +1808,8 @@ export async function deleteExpenseAction(
     const expenseId = String(formData.get("expenseId") ?? "");
     const expense = await getExpenseRowById(supabase, expenseId);
     const membership = await getMembership(supabase, expense.event_id, profile.id);
+    const eventRow = await getEventRowById(supabase, expense.event_id);
+    assertCanMutateClosedEvent(eventRow, profile, membership);
 
     if (!canManageFinance(profile, membership)) {
       return {
@@ -1904,6 +1954,77 @@ export async function updateEventAction(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "Nao foi possivel atualizar o evento."
+    };
+  }
+}
+
+export async function updateEventClosureAction(
+  _prevState: EventActionState,
+  formData: FormData
+): Promise<EventActionState> {
+  try {
+    const { supabase, profile } = await getActionProfile();
+    const eventSlug = String(formData.get("eventId") ?? "").trim();
+    const intent = String(formData.get("intent") ?? "").trim();
+    const confirmation = String(formData.get("confirmation") ?? "").trim();
+    const event = await getEventRowBySlug(eventSlug);
+    const membership = await getMembership(supabase, event.id, profile.id);
+
+    if (!(profile.role === "host" || membership?.role === "host")) {
+      return {
+        status: "error",
+        message: "Somente host pode fechar ou reabrir esta festa."
+      };
+    }
+
+    if (confirmation !== event.name) {
+      return {
+        status: "error",
+        message: "Digite o nome exato da festa para confirmar esta alteracao."
+      };
+    }
+
+    const shouldClose = intent === "close";
+
+    const { error } = await supabase
+      .from("events")
+      .update({
+        closed_at: shouldClose ? new Date().toISOString() : null,
+        closed_by: shouldClose ? profile.id : null
+      })
+      .eq("id", event.id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await logActivity(supabase, {
+      actorUserId: profile.id,
+      eventId: event.id,
+      action: shouldClose ? "event.closed" : "event.reopened",
+      entityType: "event",
+      entityId: event.id,
+      message: shouldClose
+        ? `${profile.full_name} fechou a festa "${event.name}".`
+        : `${profile.full_name} reabriu a festa "${event.name}".`,
+      metadata: {
+        eventName: event.name,
+        eventSlug: event.slug
+      }
+    });
+
+    revalidatePath("/");
+    revalidatePath("/festas");
+    revalidatePath(`/festas/${eventSlug}`);
+
+    return {
+      status: "success",
+      message: shouldClose ? "Festa fechada com sucesso." : "Festa reaberta com sucesso."
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Nao foi possivel atualizar o fechamento da festa."
     };
   }
 }

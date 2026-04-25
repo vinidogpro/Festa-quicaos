@@ -111,6 +111,26 @@ export interface PostEventReportMetricInput {
   peerAverageTicket?: number;
 }
 
+export interface StrategicConclusionMetricInput {
+  eventSnapshots: Array<{
+    totalRevenue: number;
+    estimatedProfit: number;
+    averageTicket: number;
+    totalTicketsSold: number;
+  }>;
+  sales: Array<Pick<MetricSale, "quantity" | "unitPrice">>;
+  batchLearning: Array<Pick<BatchMetricItem, "batchLabel" | "ticketsSold" | "revenue" | "averageTicket" | "percentage">>;
+  expenseCategoryLearning: PortfolioExpenseCategoryInsight[];
+}
+
+export interface StrategicConclusion {
+  id: string;
+  label: string;
+  value: string;
+  description: string;
+  tone: "positive" | "warning" | "danger" | "primary" | "neutral";
+}
+
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -1005,6 +1025,100 @@ export function calculateMostEfficientPrice(
   });
 
   return pricedRows[0];
+}
+
+export function calculateStrategicConclusions(input: StrategicConclusionMetricInput): StrategicConclusion[] {
+  const conclusions: StrategicConclusion[] = [];
+  const totalRevenue = input.eventSnapshots.reduce((sum, event) => sum + event.totalRevenue, 0);
+  const totalProfit = input.eventSnapshots.reduce((sum, event) => sum + event.estimatedProfit, 0);
+  const validMargins = input.eventSnapshots
+    .filter((event) => event.totalRevenue > 0)
+    .map((event) => Math.round((event.estimatedProfit / event.totalRevenue) * 100));
+  const averageMargin = validMargins.length
+    ? Math.round(validMargins.reduce((sum, margin) => sum + margin, 0) / validMargins.length)
+    : 0;
+  const portfolioMargin = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0;
+  const topPrice = calculateMostEfficientPrice(input.sales);
+  const topBatch = [...input.batchLearning].sort((left, right) => {
+    if (right.ticketsSold !== left.ticketsSold) {
+      return right.ticketsSold - left.ticketsSold;
+    }
+
+    return right.revenue - left.revenue;
+  })[0];
+  const heaviestExpense = input.expenseCategoryLearning[0];
+
+  if (topPrice.ticketsSold > 0) {
+    conclusions.push({
+      id: "recurring-price",
+      label: "Melhor faixa recorrente",
+      value: topPrice.unitPrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+      description: `${topPrice.ticketsSold} ingresso(s) vendidos nessa faixa, gerando ${topPrice.revenue.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+      })}.`,
+      tone: "primary"
+    });
+  }
+
+  if (topBatch && topBatch.ticketsSold > 0) {
+    conclusions.push({
+      id: "historical-top-batch",
+      label: "Lote que mais vende",
+      value: topBatch.batchLabel,
+      description: `${topBatch.ticketsSold} ingresso(s), ${topBatch.percentage}% do volume historico e ticket medio de ${topBatch.averageTicket.toLocaleString(
+        "pt-BR",
+        { style: "currency", currency: "BRL" }
+      )}.`,
+      tone: "positive"
+    });
+  }
+
+  if (heaviestExpense) {
+    conclusions.push({
+      id: "heaviest-expense",
+      label: "Despesa mais pesada",
+      value: heaviestExpense.category,
+      description: `${heaviestExpense.revenueShare}% da receita consolidada foi consumida por essa categoria.`,
+      tone: heaviestExpense.revenueShare >= 30 ? "danger" : heaviestExpense.revenueShare >= 18 ? "warning" : "neutral"
+    });
+  }
+
+  conclusions.push({
+    id: "average-margin",
+    label: "Margem media",
+    value: `${averageMargin}%`,
+    description: `Margem media por festa; no consolidado da carteira, a margem esta em ${portfolioMargin}%.`,
+    tone: averageMargin >= 25 ? "positive" : averageMargin >= 10 ? "warning" : "danger"
+  });
+
+  const nextLearning = heaviestExpense && heaviestExpense.revenueShare >= 25
+    ? {
+        value: `Rever ${heaviestExpense.category}`,
+        description: "Essa categoria pesa muito no resultado. Vale negociar fornecedor, limite ou contrapartida antes da proxima festa.",
+        tone: "warning" as const
+      }
+    : topBatch && topBatch.ticketsSold > 0
+      ? {
+          value: `Reforcar ${topBatch.batchLabel}`,
+          description: "Esse lote concentra tracao historica. Use-o como referencia para comunicacao, preco e ritmo de abertura.",
+          tone: "positive" as const
+        }
+      : {
+          value: "Criar base historica",
+          description: "Ainda faltam vendas suficientes para uma recomendacao comercial forte entre eventos.",
+          tone: "neutral" as const
+        };
+
+  conclusions.push({
+    id: "next-event-learning",
+    label: "Aprendizado para a proxima",
+    value: nextLearning.value,
+    description: nextLearning.description,
+    tone: nextLearning.tone
+  });
+
+  return conclusions;
 }
 
 export function calculatePostEventReport(input: PostEventReportMetricInput) {

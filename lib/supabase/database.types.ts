@@ -41,6 +41,8 @@ export interface Database {
           goal_value: number;
           has_vip: boolean;
           has_group_sales: boolean;
+          closed_at: string | null;
+          closed_by: string | null;
           status: "current" | "upcoming" | "past";
           created_by: string;
           created_at: string;
@@ -56,6 +58,8 @@ export interface Database {
           goal_value?: number;
           has_vip?: boolean;
           has_group_sales?: boolean;
+          closed_at?: string | null;
+          closed_by?: string | null;
           status?: "current" | "upcoming" | "past";
           created_by: string;
           created_at?: string;
@@ -71,6 +75,8 @@ export interface Database {
           goal_value?: number;
           has_vip?: boolean;
           has_group_sales?: boolean;
+          closed_at?: string | null;
+          closed_by?: string | null;
           status?: "current" | "upcoming" | "past";
           created_by?: string;
           created_at?: string;

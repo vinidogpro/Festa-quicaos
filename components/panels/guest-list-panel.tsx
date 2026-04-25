@@ -20,6 +20,8 @@ import { EventBatch, GuestListEntry, SellerOption, ViewerPermissions } from "@/l
 import { formatCurrency, formatSaleTypeLabel, formatTicketTypeLabel } from "@/lib/utils";
 
 type SortOption = "name" | "seller" | "sale-asc" | "recent";
+type SourceFilter = "all" | "sale" | "manual";
+type DuplicateFilter = "all" | "duplicates";
 
 function TicketTypeBadge({ ticketType }: { ticketType: NonNullable<GuestListEntry["ticketType"]> }) {
   return (
@@ -38,6 +40,14 @@ function TicketTypeBadge({ ticketType }: { ticketType: NonNullable<GuestListEntr
 function getEntryTimestamp(entry: GuestListEntry) {
   const timestamp = Date.parse(entry.createdAt);
   return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function normalizeFilterText(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 function compareGuestListEntries(left: GuestListEntry, right: GuestListEntry, sortBy: SortOption) {
@@ -418,28 +428,132 @@ export function GuestListPanel({
 }) {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("name");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [sellerFilter, setSellerFilter] = useState("all");
+  const [batchFilter, setBatchFilter] = useState("all");
+  const [ticketTypeFilter, setTicketTypeFilter] = useState<"all" | "vip" | "pista">("all");
+  const [saleTypeFilter, setSaleTypeFilter] = useState<"all" | "normal" | "grupo">("all");
+  const [duplicateFilter, setDuplicateFilter] = useState<DuplicateFilter>("all");
+
+  const sellerFilterOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          entries
+            .filter((entry) => entry.sourceType === "sale" && entry.sellerUserId)
+            .map((entry) => [entry.sellerUserId, entry.sellerName])
+        ).entries()
+      ).sort((left, right) => left[1].localeCompare(right[1], "pt-BR")),
+    [entries]
+  );
+  const batchFilterOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          entries
+            .filter((entry) => entry.sourceType === "sale" && entry.batchId && entry.batchLabel)
+            .map((entry) => [entry.batchId, entry.batchLabel ?? "Sem lote"])
+        ).entries()
+      ).sort((left, right) => left[1].localeCompare(right[1], "pt-BR")),
+    [entries]
+  );
+  const duplicatedNameKeys = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    for (const entry of entries) {
+      const key = normalizeFilterText(entry.guestName);
+
+      if (!key) {
+        continue;
+      }
+
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    return new Set(Array.from(counts.entries()).filter(([, count]) => count > 1).map(([key]) => key));
+  }, [entries]);
+  const duplicateCount = useMemo(
+    () => entries.filter((entry) => duplicatedNameKeys.has(normalizeFilterText(entry.guestName))).length,
+    [duplicatedNameKeys, entries]
+  );
 
   const filteredEntries = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-    const nextEntries = !normalizedSearch
-      ? [...entries]
-      : entries.filter((entry) => {
-          const saleNumberMatch = entry.saleNumber ? String(entry.saleNumber).includes(normalizedSearch) : false;
+    const normalizedSearch = normalizeFilterText(search);
+    const nextEntries = entries.filter((entry) => {
+      if (sourceFilter !== "all" && entry.sourceType !== sourceFilter) {
+        return false;
+      }
 
-          return (
-            entry.guestName.toLowerCase().includes(normalizedSearch) ||
-            entry.sellerName.toLowerCase().includes(normalizedSearch) ||
-            saleNumberMatch ||
-            (entry.batchLabel ? entry.batchLabel.toLowerCase().includes(normalizedSearch) : false) ||
-            (entry.saleType ? formatSaleTypeLabel(entry.saleType).toLowerCase().includes(normalizedSearch) : false) ||
-            (entry.ticketType ? formatTicketTypeLabel(entry.ticketType).toLowerCase().includes(normalizedSearch) : false)
-          );
-        });
+      if (sellerFilter !== "all" && entry.sellerUserId !== sellerFilter) {
+        return false;
+      }
+
+      if (batchFilter !== "all" && entry.batchId !== batchFilter) {
+        return false;
+      }
+
+      if (ticketTypeFilter !== "all" && entry.ticketType !== ticketTypeFilter) {
+        return false;
+      }
+
+      if (saleTypeFilter !== "all" && entry.saleType !== saleTypeFilter) {
+        return false;
+      }
+
+      if (duplicateFilter === "duplicates" && !duplicatedNameKeys.has(normalizeFilterText(entry.guestName))) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      const saleNumberMatch = entry.saleNumber ? String(entry.saleNumber).includes(normalizedSearch) : false;
+
+      return (
+        normalizeFilterText(entry.guestName).includes(normalizedSearch) ||
+        normalizeFilterText(entry.sellerName).includes(normalizedSearch) ||
+        saleNumberMatch ||
+        (entry.batchLabel ? normalizeFilterText(entry.batchLabel).includes(normalizedSearch) : false) ||
+        (entry.saleType ? normalizeFilterText(formatSaleTypeLabel(entry.saleType)).includes(normalizedSearch) : false) ||
+        (entry.ticketType ? normalizeFilterText(formatTicketTypeLabel(entry.ticketType)).includes(normalizedSearch) : false)
+      );
+    });
 
     nextEntries.sort((left, right) => compareGuestListEntries(left, right, sortBy));
 
     return nextEntries;
-  }, [entries, search, sortBy]);
+  }, [
+    batchFilter,
+    duplicateFilter,
+    duplicatedNameKeys,
+    entries,
+    saleTypeFilter,
+    search,
+    sellerFilter,
+    sortBy,
+    sourceFilter,
+    ticketTypeFilter
+  ]);
+
+  const hasActiveFilters =
+    Boolean(search.trim()) ||
+    sourceFilter !== "all" ||
+    sellerFilter !== "all" ||
+    batchFilter !== "all" ||
+    ticketTypeFilter !== "all" ||
+    saleTypeFilter !== "all" ||
+    duplicateFilter !== "all";
+
+  function clearFilters() {
+    setSearch("");
+    setSourceFilter("all");
+    setSellerFilter("all");
+    setBatchFilter("all");
+    setTicketTypeFilter("all");
+    setSaleTypeFilter("all");
+    setDuplicateFilter("all");
+  }
 
   return (
     <SectionCard
@@ -457,26 +571,105 @@ export function GuestListPanel({
         </div>
       }
     >
-      <div className="grid gap-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4 xl:grid-cols-[1fr_240px_auto]">
-        <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar por nome, vendedor, lote, tipo ou numero da venda"
-          className="ds-input"
-        />
-        <select
-          value={sortBy}
-          onChange={(event) => setSortBy(event.target.value as SortOption)}
-          className="ds-select"
-        >
-          <option value="name">Ordem alfabetica</option>
-          <option value="seller">Ordenar por vendedor</option>
-          <option value="sale-asc">Ordenar por venda crescente</option>
-          <option value="recent">Vendas recentes</option>
-        </select>
-        <div className="flex min-h-11 items-center rounded-2xl bg-white px-4 py-3 text-sm text-slate-500">
-          {filteredEntries.length} nome(s)
+      <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+        <div className="grid gap-3 xl:grid-cols-[minmax(220px,1.4fr)_minmax(180px,0.7fr)_auto]">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Buscar por nome, vendedor, lote, tipo ou numero da venda"
+            className="ds-input"
+          />
+          <select
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value as SortOption)}
+            className="ds-select"
+          >
+            <option value="name">Ordem alfabetica</option>
+            <option value="seller">Ordenar por vendedor</option>
+            <option value="sale-asc">Ordenar por venda crescente</option>
+            <option value="recent">Vendas recentes</option>
+          </select>
+          <div className="flex min-h-11 items-center rounded-2xl bg-white px-4 py-3 text-sm text-slate-500">
+            {filteredEntries.length} de {entries.length} nome(s)
+          </div>
         </div>
+
+        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <select
+            value={sourceFilter}
+            onChange={(event) => setSourceFilter(event.target.value as SourceFilter)}
+            className="ds-select"
+          >
+            <option value="all">Todos os tipos</option>
+            <option value="sale">Vindos de venda</option>
+            <option value="manual">Entradas manuais</option>
+          </select>
+          <select
+            value={sellerFilter}
+            onChange={(event) => setSellerFilter(event.target.value)}
+            className="ds-select"
+          >
+            <option value="all">Todos vendedores</option>
+            {sellerFilterOptions.map(([sellerId, sellerName]) => (
+              <option key={sellerId} value={sellerId ?? ""}>
+                {sellerName}
+              </option>
+            ))}
+          </select>
+          <select
+            value={batchFilter}
+            onChange={(event) => setBatchFilter(event.target.value)}
+            className="ds-select"
+          >
+            <option value="all">Todos lotes</option>
+            {batchFilterOptions.map(([batchId, batchLabel]) => (
+              <option key={batchId} value={batchId ?? ""}>
+                {batchLabel}
+              </option>
+            ))}
+          </select>
+          <select
+            value={ticketTypeFilter}
+            onChange={(event) => setTicketTypeFilter(event.target.value as "all" | "vip" | "pista")}
+            className="ds-select"
+            disabled={!hasVip}
+          >
+            <option value="all">{hasVip ? "VIP e PISTA" : "Tipo ingresso"}</option>
+            <option value="vip">VIP</option>
+            <option value="pista">PISTA</option>
+          </select>
+          <select
+            value={saleTypeFilter}
+            onChange={(event) => setSaleTypeFilter(event.target.value as "all" | "normal" | "grupo")}
+            className="ds-select"
+            disabled={!hasGroupSales}
+          >
+            <option value="all">{hasGroupSales ? "Normal e grupo" : "Tipo venda"}</option>
+            <option value="normal">Normal</option>
+            <option value="grupo">Grupo</option>
+          </select>
+          <select
+            value={duplicateFilter}
+            onChange={(event) => setDuplicateFilter(event.target.value as DuplicateFilter)}
+            className="ds-select"
+          >
+            <option value="all">Todos nomes</option>
+            <option value="duplicates">Possiveis duplicados ({duplicateCount})</option>
+          </select>
+        </div>
+
+        {hasActiveFilters ? (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-slate-500">Filtros ativos na lista de entrada.</p>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              Limpar filtros
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {permissions.canManageManualGuests ? <ManualGuestEntryForm eventId={eventId} /> : null}

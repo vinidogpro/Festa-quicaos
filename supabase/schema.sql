@@ -19,6 +19,8 @@ create table if not exists public.events (
   goal_value numeric(12,2) not null default 0,
   has_vip boolean not null default true,
   has_group_sales boolean not null default true,
+  closed_at timestamptz,
+  closed_by uuid references public.profiles (id) on delete set null,
   status text not null check (status in ('current', 'upcoming', 'past')),
   created_by uuid not null references public.profiles (id) on delete restrict,
   created_at timestamptz not null default timezone('utc', now()),
@@ -154,6 +156,8 @@ alter table public.profiles add column if not exists updated_at timestamptz not 
 alter table public.events add column if not exists updated_at timestamptz not null default timezone('utc', now());
 alter table public.events add column if not exists has_vip boolean not null default true;
 alter table public.events add column if not exists has_group_sales boolean not null default true;
+alter table public.events add column if not exists closed_at timestamptz;
+alter table public.events add column if not exists closed_by uuid references public.profiles (id) on delete set null;
 alter table public.event_memberships add column if not exists updated_at timestamptz not null default timezone('utc', now());
 alter table public.event_memberships drop column if exists ticket_quota;
 alter table public.event_batches add column if not exists updated_at timestamptz not null default timezone('utc', now());

@@ -5,7 +5,7 @@ import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
 import { initialEventActionState } from "@/lib/actions/action-state";
-import { deleteEventAction, updateEventAction } from "@/lib/actions/event-management";
+import { deleteEventAction, updateEventAction, updateEventClosureAction } from "@/lib/actions/event-management";
 import { EventBatch } from "@/lib/types";
 import { CommercialConfigSection } from "@/components/forms/commercial-config-section";
 import { SubmitButton } from "@/components/forms/submit-button";
@@ -43,7 +43,9 @@ export function EventSettingsPanel({
   description,
   eventBatches,
   hasVip,
-  hasGroupSales
+  hasGroupSales,
+  isClosed,
+  closedAt
 }: {
   eventId: string;
   name: string;
@@ -54,10 +56,13 @@ export function EventSettingsPanel({
   eventBatches: EventBatch[];
   hasVip: boolean;
   hasGroupSales: boolean;
+  isClosed: boolean;
+  closedAt?: string;
 }) {
   const router = useRouter();
   const [updateState, updateAction] = useFormState(updateEventAction, initialEventActionState);
   const [deleteState, deleteAction] = useFormState(deleteEventAction, initialEventActionState);
+  const [closureState, closureAction] = useFormState(updateEventClosureAction, initialEventActionState);
 
   useEffect(() => {
     if (updateState.status === "success" && updateState.redirectTo) {
@@ -72,6 +77,12 @@ export function EventSettingsPanel({
       router.refresh();
     }
   }, [router, deleteState]);
+
+  useEffect(() => {
+    if (closureState.status === "success") {
+      router.refresh();
+    }
+  }, [router, closureState.status]);
 
   return (
     <details className="rounded-2xl border border-slate-200 bg-white">
@@ -142,6 +153,56 @@ export function EventSettingsPanel({
           </div>
           <ActionFeedback status={updateState.status} message={updateState.message} />
         </form>
+
+        <div className={`rounded-[24px] border p-4 ${isClosed ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-slate-50"}`}>
+          <div className="flex items-start gap-3">
+            <div className={`mt-1 rounded-xl p-2 ${isClosed ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"}`}>
+              <Pencil className="h-4 w-4" />
+            </div>
+            <div className="flex-1">
+              <h3 className={isClosed ? "font-semibold text-amber-950" : "font-semibold text-slate-950"}>
+                {isClosed ? "Festa fechada" : "Fechamento da festa"}
+              </h3>
+              <p className={`mt-1 text-sm leading-6 ${isClosed ? "text-amber-900/85" : "text-slate-600"}`}>
+                {isClosed
+                  ? `Esta festa foi fechada${closedAt ? ` em ${new Intl.DateTimeFormat("pt-BR").format(new Date(closedAt))}` : ""}. Sellers nao podem alterar vendas ou nomes; hosts podem reabrir para ajustes.`
+                  : "Ao fechar a festa, sellers ficam bloqueados de alterar vendas e nomes. Hosts e organizadores ainda conseguem fazer correcoes pos-evento."}
+              </p>
+            </div>
+          </div>
+
+          <form
+            action={closureAction}
+            className="mt-4 grid gap-3"
+            onSubmit={(event) => {
+              const actionText = isClosed ? "reabrir" : "fechar";
+
+              if (!window.confirm(`Tem certeza que deseja ${actionText} esta festa?`)) {
+                event.preventDefault();
+              }
+            }}
+          >
+            <input type="hidden" name="eventId" value={eventId} />
+            <input type="hidden" name="intent" value={isClosed ? "open" : "close"} />
+            <input
+              name="confirmation"
+              placeholder={`Digite "${name}" para confirmar`}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+              required
+            />
+            <div className="flex justify-end">
+              <SubmitButton
+                pendingLabel={isClosed ? "Reabrindo..." : "Fechando..."}
+                className={`rounded-2xl px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  isClosed ? "bg-slate-950 hover:bg-slate-800" : "bg-amber-700 hover:bg-amber-800"
+                }`}
+              >
+                {isClosed ? "Reabrir festa" : "Fechar festa"}
+              </SubmitButton>
+            </div>
+            <ActionFeedback status={closureState.status} message={closureState.message} />
+          </form>
+        </div>
 
         <div className="rounded-[24px] border border-rose-200 bg-rose-50 p-4">
           <div className="flex items-start gap-3">

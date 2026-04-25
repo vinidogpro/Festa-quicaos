@@ -260,6 +260,12 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
         <div className="min-w-0 flex-1">
           <EventHeader event={event} />
 
+          {event.isClosed ? (
+            <div className="mt-4 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+              <strong>Festa fechada.</strong> Sellers nao podem alterar vendas ou nomes. Hosts e organizadores devem revisar com cuidado antes de fazer correcoes pos-evento.
+            </div>
+          ) : null}
+
           <div className="mt-4 hidden md:block xl:hidden">
             <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {navItems.map((item) => {

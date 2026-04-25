@@ -462,8 +462,15 @@ function SaleQuickForm({
 
     if (!batchId || !eventBatches.some((batch) => batch.id === batchId)) {
       setBatchId(nextDefaultBatchId);
+      const nextSuggestedPrice = getSuggestedBatchPrice({
+        eventBatches,
+        batchId: nextDefaultBatchId,
+        ticketType: hasVip ? ticketType : "pista",
+        hasVip
+      });
+      setUnitPrice(nextSuggestedPrice !== null ? String(nextSuggestedPrice) : "");
     }
-  }, [activeEventBatches, batchId, eventBatches]);
+  }, [activeEventBatches, batchId, eventBatches, hasVip, ticketType]);
 
   useEffect(() => {
     if (state.status === "success" && handledSuccessNonceRef.current < submitNonceRef.current) {
@@ -491,6 +498,27 @@ function SaleQuickForm({
     setGuestNames((currentValues) => currentValues.map((name, currentIndex) => (currentIndex === index ? value : name)));
   }
 
+  function applySuggestedUnitPrice(nextBatchId: string, nextTicketType: TicketType) {
+    const nextSuggestedPrice = getSuggestedBatchPrice({
+      eventBatches,
+      batchId: nextBatchId,
+      ticketType: hasVip ? nextTicketType : "pista",
+      hasVip
+    });
+
+    setUnitPrice(nextSuggestedPrice !== null ? String(nextSuggestedPrice) : "");
+  }
+
+  function handleBatchChange(nextBatchId: string) {
+    setBatchId(nextBatchId);
+    applySuggestedUnitPrice(nextBatchId, ticketType);
+  }
+
+  function handleTicketTypeChange(nextTicketType: TicketType) {
+    setTicketType(nextTicketType);
+    applySuggestedUnitPrice(batchId, nextTicketType);
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     const filledNames = guestNames.map((name) => name.trim()).filter(Boolean);
 
@@ -515,7 +543,7 @@ function SaleQuickForm({
 
     const confirmations: string[] = [];
 
-    if (hasTypedUnitPrice && validation.isPriceOutOfStandard && standardPriceLabel) {
+    if (hasTypedUnitPrice && !validation.isBelowStandardPrice && validation.isPriceOutOfStandard && standardPriceLabel) {
       confirmations.push(`Este valor esta diferente do preco padrao deste lote (${standardPriceLabel}). Deseja continuar?`);
     }
 
@@ -639,7 +667,7 @@ function SaleQuickForm({
                   value={batchId}
                   required
                   onChange={(event) => {
-                    setBatchId(event.target.value);
+                    handleBatchChange(event.target.value);
                   }}
                   className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-base font-semibold text-slate-950 outline-none transition focus:border-brand-500"
                 >
@@ -676,17 +704,18 @@ function SaleQuickForm({
                 name="ticketType"
                 defaultValue="pista"
                 value={ticketType}
-                onChange={setTicketType}
+                onChange={handleTicketTypeChange}
                 required
               />
             ) : (
               <input type="hidden" name="ticketType" value="pista" />
             )}
 
-            {hasTypedUnitPrice && hasGroupSales && validation.isBelowStandardPrice && saleType !== "grupo" && standardPriceLabel ? (
+            {hasTypedUnitPrice && validation.isBelowStandardPrice && standardPriceLabel ? (
               <InlineAdvisory
                 actions={
-                  <>
+                  hasGroupSales && saleType !== "grupo" ? (
+                    <>
                     <button
                       type="button"
                       onClick={() => {
@@ -704,14 +733,15 @@ function SaleQuickForm({
                     >
                       Manter como normal
                     </button>
-                  </>
+                    </>
+                  ) : null
                 }
               >
-                Valor abaixo do padrão do {batchLabel || "lote"} ({standardPriceLabel}). Verifique se é uma venda em grupo.
+                Valor abaixo do preço padrão deste lote. Verifique se é uma venda em grupo ou desconto autorizado.
               </InlineAdvisory>
-            ) : hasTypedUnitPrice && validation.isPriceOutOfStandard && standardPriceLabel ? (
+            ) : hasTypedUnitPrice && !validation.isBelowStandardPrice && validation.isPriceOutOfStandard && standardPriceLabel ? (
               <InlineAdvisory>
-                Valor diferente do padrão do {batchLabel || "lote"} ({standardPriceLabel})
+                Valor diferente do preço padrão deste lote ({standardPriceLabel})
                 {hasVip && validation.matchesOppositeTicketTypePrice
                   ? ". Ele também corresponde ao outro tipo de ingresso selecionado."
                   : "."}
@@ -967,6 +997,28 @@ export function SaleEditForm({
     setGuestNames((currentValues) => currentValues.map((name, currentIndex) => (currentIndex === index ? value : name)));
   }
 
+  function applySuggestedUnitPrice(nextBatchId: string, nextTicketType: TicketType) {
+    const nextSuggestedPrice = getSuggestedBatchPrice({
+      eventBatches,
+      batchId: nextBatchId,
+      fallbackBatchLabel: batchLabelMap.get(nextBatchId) ?? row.batchLabel,
+      ticketType: hasVip ? nextTicketType : "pista",
+      hasVip
+    });
+
+    setUnitPrice(nextSuggestedPrice !== null ? String(nextSuggestedPrice) : "");
+  }
+
+  function handleBatchChange(nextBatchId: string) {
+    setBatchId(nextBatchId);
+    applySuggestedUnitPrice(nextBatchId, ticketType);
+  }
+
+  function handleTicketTypeChange(nextTicketType: TicketType) {
+    setTicketType(nextTicketType);
+    applySuggestedUnitPrice(batchId, nextTicketType);
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     const filledNames = guestNames.map((name) => name.trim()).filter(Boolean);
 
@@ -978,7 +1030,7 @@ export function SaleEditForm({
       return;
     }
 
-    if (hasTypedUnitPrice && validation.isBelowStandardPrice && saleType !== "grupo" && !confirmedNormalDiscount) {
+    if (hasTypedUnitPrice && hasGroupSales && validation.isBelowStandardPrice && saleType !== "grupo" && !confirmedNormalDiscount) {
       const shouldKeepNormal = window.confirm(
         `Valor abaixo do padrão do ${batchLabel || "lote"}${standardPriceLabel ? ` (${standardPriceLabel})` : ""}. Deseja manter esta venda como normal?`
       );
@@ -1084,7 +1136,7 @@ export function SaleEditForm({
               value={batchId}
               required
               onChange={(event) => {
-                setBatchId(event.target.value);
+                handleBatchChange(event.target.value);
               }}
               className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-brand-500"
             >
@@ -1121,17 +1173,18 @@ export function SaleEditForm({
             name="ticketType"
             defaultValue={row.ticketType}
             value={ticketType}
-            onChange={setTicketType}
+            onChange={handleTicketTypeChange}
             required
           />
         ) : (
           <input type="hidden" name="ticketType" value="pista" />
         )}
 
-        {hasTypedUnitPrice && hasGroupSales && validation.isBelowStandardPrice && saleType !== "grupo" && standardPriceLabel ? (
+        {hasTypedUnitPrice && validation.isBelowStandardPrice && standardPriceLabel ? (
           <InlineAdvisory
             actions={
-              <>
+              hasGroupSales && saleType !== "grupo" ? (
+                <>
                 <button
                   type="button"
                   onClick={() => {
@@ -1149,14 +1202,15 @@ export function SaleEditForm({
                 >
                   Manter como normal
                 </button>
-              </>
+                </>
+              ) : null
             }
           >
-            Valor abaixo do padrão do {batchLabel || "lote"} ({standardPriceLabel}). Verifique se é uma venda em grupo.
+            Valor abaixo do preço padrão deste lote. Verifique se é uma venda em grupo ou desconto autorizado.
           </InlineAdvisory>
         ) : hasTypedUnitPrice && !validation.isBelowStandardPrice && validation.isPriceOutOfStandard && standardPriceLabel ? (
           <InlineAdvisory>
-            Valor diferente do padrão do {batchLabel || "lote"} ({standardPriceLabel})
+            Valor diferente do preço padrão deste lote ({standardPriceLabel})
             {hasVip && validation.matchesOppositeTicketTypePrice
               ? ". Ele também corresponde ao outro tipo de ingresso selecionado."
               : "."}

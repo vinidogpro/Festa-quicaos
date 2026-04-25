@@ -18,6 +18,7 @@ import {
   calculateSalePriceRanking,
   calculateSaleTypeMetrics,
   calculateSellerMetrics,
+  calculateStrategicConclusions,
   calculateTicketTypeMetrics
 } from "../lib/event-metrics.ts";
 import { formatBatchLabel, getNormalizedBatchKey } from "../lib/utils.ts";
@@ -408,6 +409,34 @@ test("calculateMostEfficientPrice escolhe o preco com maior arrecadacao", () => 
       revenue: 400
     }
   );
+});
+
+test("calculateStrategicConclusions resume aprendizados entre eventos", () => {
+  const conclusions = calculateStrategicConclusions({
+    eventSnapshots: [
+      { totalRevenue: 5000, estimatedProfit: 1500, averageTicket: 50, totalTicketsSold: 100 },
+      { totalRevenue: 3000, estimatedProfit: 300, averageTicket: 40, totalTicketsSold: 75 }
+    ],
+    sales: [
+      { quantity: 40, unitPrice: 45 },
+      { quantity: 20, unitPrice: 50 },
+      { quantity: 10, unitPrice: 35 }
+    ],
+    batchLearning: [
+      { batchLabel: "2Âº lote", ticketsSold: 45, revenue: 2100, averageTicket: 46.66, percentage: 40 },
+      { batchLabel: "1Âº lote", ticketsSold: 25, revenue: 1000, averageTicket: 40, percentage: 22 }
+    ],
+    expenseCategoryLearning: [
+      { category: "Estrutura", total: 2200, count: 2, percentage: 65, averagePerEvent: 1100, revenueShare: 28 }
+    ]
+  });
+
+  assert.equal(conclusions.length, 5);
+  assert.match(conclusions.find((item) => item.id === "recurring-price")?.value ?? "", /45,00/);
+  assert.equal(conclusions.find((item) => item.id === "historical-top-batch")?.value, "2Âº lote");
+  assert.equal(conclusions.find((item) => item.id === "heaviest-expense")?.value, "Estrutura");
+  assert.equal(conclusions.find((item) => item.id === "average-margin")?.value, "20%");
+  assert.equal(conclusions.find((item) => item.id === "next-event-learning")?.value, "Rever Estrutura");
 });
 
 test("calculatePostEventReport consolida leitura executiva da festa", () => {

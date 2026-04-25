@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, BadgePercent, Crown, Goal, PiggyBank, Sparkles, TrendingUp } from "lucide-react";
+import { ArrowUpRight, BadgePercent, Crown, Goal, Lightbulb, PiggyBank, Sparkles, TrendingUp } from "lucide-react";
 import { EventStatusBadge } from "@/components/event-status-badge";
 import { SectionCard } from "@/components/ui/section-card";
 import { StrategicOverviewSnapshot } from "@/lib/types";
@@ -142,6 +142,29 @@ export function StrategicIntelligenceSection({ strategic }: { strategic: Strateg
         description="Descubra os padroes que mais ajudam a montar as proximas festas com mais clareza comercial."
       >
         <div className="rounded-[28px] border border-[color:var(--ds-border)] bg-[linear-gradient(180deg,rgba(246,249,252,0.96),rgba(255,255,255,0.92)_36%,rgba(245,248,251,0.98))] p-3 shadow-[0_20px_50px_rgba(15,23,42,0.04)] sm:p-4">
+        <div className="mb-6 rounded-[26px] border border-[color:var(--ds-primary-border)] bg-[linear-gradient(135deg,rgba(240,246,250,0.98),rgba(255,251,240,0.76)_52%,rgba(248,245,252,0.95))] p-4 shadow-[0_18px_45px_rgba(15,23,42,0.05)] sm:p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="rounded-2xl border border-[color:var(--ds-primary-border)] bg-white/80 p-2 text-[color:var(--ds-primary-text)] shadow-sm">
+                  <Lightbulb className="h-4 w-4" />
+                </span>
+                <p className="font-semibold text-slate-950">Conclusoes automaticas</p>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Leitura estrategica consolidada para decidir preco, lote, custos e foco da proxima festa.
+              </p>
+            </div>
+            <span className="ds-badge ds-badge-primary w-fit">Analise entre eventos</span>
+          </div>
+
+          <div className="mt-4 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(210px,1fr))]">
+            {strategic.strategicConclusions.map((conclusion) => (
+              <StrategicConclusionCard key={conclusion.id} conclusion={conclusion} />
+            ))}
+          </div>
+        </div>
+
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">
             <div className="rounded-[24px] border border-[color:color-mix(in_srgb,var(--ds-border)_78%,var(--ds-primary-border)_22%)] bg-[linear-gradient(180deg,rgba(240,246,250,0.94),rgba(255,255,255,0.9)_42%,rgba(244,248,251,0.98))] p-4 shadow-[0_18px_45px_rgba(15,23,42,0.05)] sm:p-5">
@@ -327,6 +350,33 @@ export function StrategicIntelligenceSection({ strategic }: { strategic: Strateg
         </div>
       </SectionCard>
     </div>
+  );
+}
+
+function StrategicConclusionCard({
+  conclusion
+}: {
+  conclusion: StrategicOverviewSnapshot["strategicConclusions"][number];
+}) {
+  const toneClass =
+    conclusion.tone === "positive"
+      ? "border-[color:var(--ds-success-border)] bg-[color:var(--ds-success-bg)] text-[color:var(--ds-success-text)]"
+      : conclusion.tone === "warning"
+        ? "border-[color:var(--ds-warning-border)] bg-[color:var(--ds-warning-bg)] text-[color:var(--ds-warning-text)]"
+        : conclusion.tone === "danger"
+          ? "border-[color:var(--ds-danger-border)] bg-[color:var(--ds-danger-bg)] text-[color:var(--ds-danger-text)]"
+          : conclusion.tone === "primary"
+            ? "border-[color:var(--ds-primary-border)] bg-[color:var(--ds-primary-bg)] text-[color:var(--ds-primary-text)]"
+            : "border-[color:var(--ds-border)] bg-white/80 text-slate-700";
+
+  return (
+    <article className={`rounded-2xl border p-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)] ${toneClass}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-75">{conclusion.label}</p>
+      <p className="mt-3 break-words font-[var(--font-heading)] text-[clamp(1.25rem,3vw,1.75rem)] font-bold leading-tight tracking-tight">
+        {conclusion.value}
+      </p>
+      <p className="mt-3 text-sm leading-6 opacity-80">{conclusion.description}</p>
+    </article>
   );
 }
 

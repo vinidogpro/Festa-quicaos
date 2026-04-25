@@ -23,6 +23,11 @@ export function EventHeader({ event }: { event: PartyEventDetail }) {
               Voltar para festas
             </Link>
             <EventStatusBadge status={event.status} />
+            {event.isClosed ? (
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-800">
+                Fechada
+              </span>
+            ) : null}
           </div>
           <h1 className="mt-4 font-[var(--font-heading)] text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
             {event.name}
@@ -55,6 +60,8 @@ export function EventHeader({ event }: { event: PartyEventDetail }) {
                 eventBatches={event.eventBatches}
                 hasVip={event.hasVip}
                 hasGroupSales={event.hasGroupSales}
+                isClosed={event.isClosed}
+                closedAt={event.closedAt}
               />
             </div>
           ) : null}

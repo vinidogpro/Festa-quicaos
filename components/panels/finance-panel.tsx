@@ -67,13 +67,13 @@ function FinanceMetricCard({
   const currencyParts = isCurrency && typeof rawValue === "number" ? formatCurrencyParts(rawValue) : null;
 
   return (
-    <div className={`min-w-0 rounded-[24px] p-4 sm:min-h-[188px] sm:p-5 ${cardClassName}`}>
+    <div className={`min-w-0 rounded-[22px] p-4 sm:min-h-[188px] sm:rounded-[24px] sm:p-5 ${cardClassName}`}>
       <div className="flex items-start justify-between gap-3">
         <p className="max-w-[13rem] text-sm leading-5">{label}</p>
         <div className="mt-0.5 shrink-0 opacity-80">{icon}</div>
       </div>
 
-      <div className="mt-6 min-w-0 sm:mt-8">
+      <div className="mt-4 min-w-0 sm:mt-8">
         {isCurrency ? (
           <div className="min-w-0">
             <p className="ds-label opacity-70">
@@ -144,7 +144,7 @@ function ClosingMetricCard({
       </div>
       <div className="mt-2.5 min-w-0">
         <p className="ds-label text-slate-400">{currencyParts.currencyLabel}</p>
-        <p className={`ds-value-lg mt-1.5 break-words whitespace-normal sm:whitespace-nowrap ${amountToneClass}`}>
+        <p className={`mt-1.5 break-words whitespace-normal font-[var(--font-heading)] text-[clamp(1.45rem,8vw,2.35rem)] font-bold leading-[0.98] tracking-tight sm:whitespace-nowrap ${amountToneClass}`}>
           {currencyParts.amountLabel}
         </p>
       </div>
@@ -203,8 +203,8 @@ function CategorySubtotalPanel({
         };
 
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4 sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="font-semibold text-slate-900">{title}</h3>
           <p className="mt-1 text-sm text-slate-500">{description}</p>
@@ -266,7 +266,42 @@ function CashFlowPanel({
           O fluxo de caixa aparece assim que houver entradas ou saidas registradas.
         </div>
       ) : (
-        <div className="mt-4 overflow-x-auto">
+        <>
+        <div className="mt-4 space-y-3 md:hidden">
+          {rows.map((row) => (
+            <article key={row.date} className="rounded-2xl border border-white bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-semibold text-slate-950">{formatShortDate(row.date)}</p>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${row.balance >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                  {row.balance >= 0 ? "Saldo positivo" : "Saldo negativo"}
+                </span>
+              </div>
+              <div className="mt-4 grid gap-3">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-slate-500">Entradas</span>
+                  <span className="font-semibold text-emerald-700">+ {formatCurrency(row.inflow)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-slate-500">Saidas</span>
+                  <span className="font-semibold text-rose-700">- {formatCurrency(row.outflow)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3 text-sm">
+                  <span className="font-medium text-slate-700">Saldo do dia</span>
+                  <span className={`font-semibold ${row.balance >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                    {row.balance >= 0 ? "+" : "-"} {formatCurrency(Math.abs(row.balance))}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-slate-500">Acumulado</span>
+                  <span className={`font-semibold ${row.cumulativeBalance >= 0 ? "text-slate-900" : "text-rose-800"}`}>
+                    {row.cumulativeBalance >= 0 ? "" : "-"}{formatCurrency(Math.abs(row.cumulativeBalance))}
+                  </span>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+        <div className="mt-4 hidden overflow-x-auto md:block">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-[0.18em] text-slate-400">
@@ -294,6 +329,7 @@ function CashFlowPanel({
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );
@@ -312,14 +348,14 @@ function ExpenseForm({ eventId }: { eventId: string }) {
   }, [router, state.status]);
 
   return (
-    <div className="mb-6 rounded-[28px] border border-rose-200 bg-gradient-to-br from-rose-50 via-white to-slate-50 p-4 sm:p-5">
+    <div className="mb-5 rounded-[24px] border border-rose-200 bg-gradient-to-br from-rose-50 via-white to-slate-50 p-4 sm:mb-6 sm:rounded-[28px] sm:p-5">
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-700 text-white shadow-lg shadow-rose-200/60">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-700 text-white shadow-lg shadow-rose-200/60 sm:h-12 sm:w-12">
           <Plus className="h-5 w-5" />
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-rose-700">Nova despesa</p>
-          <h3 className="mt-1 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
+          <h3 className="mt-1 font-[var(--font-heading)] text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
             Registrar saida financeira
           </h3>
         </div>
@@ -367,7 +403,7 @@ function ExpenseForm({ eventId }: { eventId: string }) {
           </p>
           <SubmitButton
             pendingLabel="Salvando despesa..."
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-rose-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-rose-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             Adicionar despesa
@@ -392,14 +428,14 @@ function AdditionalRevenueForm({ eventId }: { eventId: string }) {
   }, [router, state.status]);
 
   return (
-    <div className="mb-6 rounded-[28px] border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-slate-50 p-4 sm:p-5">
+    <div className="mb-5 rounded-[24px] border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-slate-50 p-4 sm:mb-6 sm:rounded-[28px] sm:p-5">
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-200/60">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-200/60 sm:h-12 sm:w-12">
           <Plus className="h-5 w-5" />
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">Nova arrecadacao</p>
-          <h3 className="mt-1 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
+          <h3 className="mt-1 font-[var(--font-heading)] text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
             Registrar entrada extra
           </h3>
         </div>
@@ -441,7 +477,7 @@ function AdditionalRevenueForm({ eventId }: { eventId: string }) {
           </p>
           <SubmitButton
             pendingLabel="Salvando arrecadacao..."
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             Adicionar arrecadacao
@@ -471,13 +507,13 @@ function ExpenseDeleteForm({ eventId, expenseId }: { eventId: string; expenseId:
           event.preventDefault();
         }
       }}
-      className="flex flex-col items-end gap-2"
+      className="flex flex-col items-stretch gap-2 sm:items-end"
     >
       <input type="hidden" name="eventId" value={eventId} />
       <input type="hidden" name="expenseId" value={expenseId} />
       <SubmitButton
         pendingLabel="Excluindo..."
-        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
       >
         <Trash2 className="h-4 w-4" />
         Excluir
@@ -567,7 +603,7 @@ function ExpenseEditForm({
           <div className="flex flex-col gap-2 sm:flex-row">
             <SubmitButton
               pendingLabel="Salvando..."
-              className="min-h-11 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               Salvar alteracoes
             </SubmitButton>
@@ -576,7 +612,7 @@ function ExpenseEditForm({
               onClick={() => {
                 detailsRef.current?.removeAttribute("open");
               }}
-              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              className="min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:w-auto"
             >
               Cancelar
             </button>
@@ -606,13 +642,13 @@ function AdditionalRevenueDeleteForm({ eventId, revenueId }: { eventId: string; 
           event.preventDefault();
         }
       }}
-      className="flex flex-col items-end gap-2"
+      className="flex flex-col items-stretch gap-2 sm:items-end"
     >
       <input type="hidden" name="eventId" value={eventId} />
       <input type="hidden" name="revenueId" value={revenueId} />
       <SubmitButton
         pendingLabel="Excluindo..."
-        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
       >
         <Trash2 className="h-4 w-4" />
         Excluir
@@ -680,7 +716,7 @@ function AdditionalRevenueEditForm({
         </div>
         <SubmitButton
           pendingLabel="Salvando..."
-          className="min-h-11 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-11 w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           Salvar alteracoes
         </SubmitButton>
@@ -771,7 +807,7 @@ export function FinancePanel({
           icon={Wallet}
         />
       ) : (
-        <div className="grid gap-6">
+        <div className="grid gap-4 sm:gap-6">
           <div
             className={`grid gap-4 ${
               compact ? "xl:grid-cols-2" : "sm:grid-cols-2 2xl:grid-cols-3"
@@ -784,7 +820,7 @@ export function FinancePanel({
               isCurrency
               icon={<Ticket className="h-5 w-5 text-white/60" />}
               cardClassName="bg-slate-950 text-white"
-              valueClassName="text-[clamp(1.45rem,7vw,2.35rem)] leading-[0.95] text-white"
+              valueClassName="text-[clamp(1.55rem,10vw,2.35rem)] leading-[0.95] text-white"
             />
 
             <FinanceMetricCard
@@ -794,7 +830,7 @@ export function FinancePanel({
               isCurrency
               icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
               cardClassName="border border-emerald-200 bg-emerald-50 text-emerald-800"
-              valueClassName="text-[clamp(1.45rem,7vw,2.35rem)] leading-[0.95] text-emerald-900"
+              valueClassName="text-[clamp(1.55rem,10vw,2.35rem)] leading-[0.95] text-emerald-900"
             />
 
             <FinanceMetricCard
@@ -804,7 +840,7 @@ export function FinancePanel({
               isCurrency
               icon={<CircleDollarSign className="h-5 w-5 text-white/60" />}
               cardClassName="bg-brand-700 text-white"
-              valueClassName="text-[clamp(1.5rem,7vw,2.5rem)] leading-[0.95] text-white"
+              valueClassName="text-[clamp(1.55rem,10vw,2.5rem)] leading-[0.95] text-white"
             />
 
             <FinanceMetricCard
@@ -814,7 +850,7 @@ export function FinancePanel({
               isCurrency
               icon={<ReceiptText className="h-5 w-5 text-rose-500" />}
               cardClassName="border border-rose-200 bg-rose-50/75 text-rose-700"
-              valueClassName="text-[clamp(1.45rem,7vw,2.35rem)] leading-[0.95] text-rose-900"
+              valueClassName="text-[clamp(1.55rem,10vw,2.35rem)] leading-[0.95] text-rose-900"
             />
 
               <FinanceMetricCard
@@ -824,14 +860,14 @@ export function FinancePanel({
                 isCurrency
                 icon={<Wallet className="h-5 w-5 text-brand-600" />}
                 cardClassName={estimatedProfit < 0 ? "border border-rose-200 bg-rose-50 text-slate-500" : "bg-brand-50 text-slate-500"}
-                valueClassName={`text-[clamp(1.45rem,7vw,2.35rem)] leading-[0.95] ${
+                valueClassName={`text-[clamp(1.55rem,10vw,2.35rem)] leading-[0.95] ${
                   estimatedProfit < 0 ? "text-rose-900" : estimatedProfit > 0 ? "text-emerald-900" : "text-slate-950"
                 }`}
               />
           </div>
 
           {!compact ? (
-            <div className="rounded-[24px] border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-brand-50/40 p-5">
+            <div className="rounded-[24px] border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-brand-50/40 p-4 sm:p-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <h3 className="font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
@@ -866,7 +902,7 @@ export function FinancePanel({
                   />
                 </div>
 
-                <div className="rounded-[24px] border border-brand-100 bg-white/85 p-4 shadow-sm">
+                <div className="rounded-[24px] border border-brand-100 bg-white/85 p-3 shadow-sm sm:p-4">
                   <div className="grid gap-3 lg:grid-cols-2">
                     <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 px-4 py-3.5">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -924,13 +960,13 @@ export function FinancePanel({
 
           <div className={`grid gap-6 ${compact ? "" : "xl:grid-cols-[0.95fr_1.05fr]"}`}>
             <div className="space-y-6">
-              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-                <div className="flex items-center justify-between gap-3">
+              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4 sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h3 className="font-semibold text-slate-900">Arrecadacoes adicionais</h3>
                     <p className="mt-1 text-sm text-slate-500">Entradas extras do evento alem dos ingressos.</p>
                   </div>
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
+                  <span className="w-fit rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
                     {additionalRevenues.length} lancamentos
                   </span>
                 </div>
@@ -942,9 +978,9 @@ export function FinancePanel({
                 ) : (
                   <div className="mt-4 space-y-3">
                     {additionalRevenues.map((revenue) => (
-                      <article key={revenue.id} className="rounded-2xl border border-emerald-100 bg-white px-4 py-4">
+                      <article key={revenue.id} className="rounded-2xl border border-emerald-100 bg-white px-4 py-4 shadow-sm">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
+                          <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <h4 className="font-medium text-slate-900">{revenue.title}</h4>
                               {revenue.category ? (
@@ -955,8 +991,8 @@ export function FinancePanel({
                             </div>
                             <p className="mt-2 text-sm text-slate-500">Data: {revenue.date}</p>
                           </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-emerald-700">{formatCurrency(revenue.amount)}</p>
+                          <div className="text-left sm:text-right">
+                            <p className="font-[var(--font-heading)] text-xl font-bold text-emerald-700 sm:text-base sm:font-semibold">{formatCurrency(revenue.amount)}</p>
                             {permissions.canManageFinance && !compact ? (
                               <div className="mt-3 space-y-2">
                                 <AdditionalRevenueEditForm eventId={eventId} revenue={revenue} />
@@ -973,13 +1009,13 @@ export function FinancePanel({
             </div>
 
             <div className="space-y-6">
-              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-                <div className="flex items-center justify-between gap-3">
+              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4 sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h3 className="font-semibold text-slate-900">Despesas da festa</h3>
                     <p className="mt-1 text-sm text-slate-500">Cada lancamento impacta o lucro estimado automaticamente.</p>
                   </div>
-                  <span className="rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700">
+                  <span className="w-fit rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700">
                     {expenses.length} lancamentos
                   </span>
                 </div>
@@ -991,9 +1027,9 @@ export function FinancePanel({
                 ) : (
                   <div className="mt-4 space-y-3">
                     {expenses.map((expense) => (
-                      <article key={expense.id} className="rounded-2xl border border-rose-100 bg-white px-4 py-4">
+                      <article key={expense.id} className="rounded-2xl border border-rose-100 bg-white px-4 py-4 shadow-sm">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
+                          <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <h4 className="font-medium text-slate-900">{expense.title}</h4>
                               <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">
@@ -1005,8 +1041,8 @@ export function FinancePanel({
                               <p className="mt-2 text-sm leading-6 text-slate-500">{expense.notes}</p>
                             ) : null}
                           </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-rose-800">{formatCurrency(expense.amount)}</p>
+                          <div className="text-left sm:text-right">
+                            <p className="font-[var(--font-heading)] text-xl font-bold text-rose-800 sm:text-base sm:font-semibold">{formatCurrency(expense.amount)}</p>
                             {permissions.canManageFinance && !compact ? (
                               <div className="mt-3 space-y-2">
                                 <ExpenseEditForm eventId={eventId} expense={expense} />
