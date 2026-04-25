@@ -5,8 +5,11 @@ export interface GuestListSaleLike {
   seller_user_id: string;
   batch_id: string;
   sale_type: SaleType;
+  quantity: number;
   unit_price: number;
   ticket_type: TicketType;
+  sold_at: string;
+  notes?: string | null;
   created_at: string;
 }
 
@@ -80,11 +83,20 @@ export function buildGuestListEntries({
 }): GuestListEntry[] {
   const saleSequenceMap = buildSaleSequenceMap(salesRows);
   const salesById = new Map(salesRows.map((sale) => [sale.id, sale]));
+  const attendeeNamesBySaleId = new Map<string, string[]>();
+
+  for (const attendee of saleAttendeeRows) {
+    const currentNames = attendeeNamesBySaleId.get(attendee.sale_id) ?? [];
+    currentNames.push(attendee.guest_name);
+    attendeeNamesBySaleId.set(attendee.sale_id, currentNames);
+  }
 
   const saleGuestEntries: GuestListEntry[] = saleAttendeeRows
     .filter((entry) => !canManageOwnSalesOnly || entry.seller_user_id === viewerId)
     .map((entry) => {
       const sale = salesById.get(entry.sale_id);
+      const attendeeNames = attendeeNamesBySaleId.get(entry.sale_id) ?? [];
+      const soldQuantity = sale?.quantity ?? attendeeNames.length;
 
       return {
         id: entry.id,
@@ -93,13 +105,21 @@ export function buildGuestListEntries({
         sellerUserId: entry.seller_user_id,
         sellerName: profilesMap.get(entry.seller_user_id)?.full_name ?? "Vendedor",
         guestName: entry.guest_name,
+        batchId: sale?.batch_id,
         batchLabel: resolveBatchLabel(sale?.batch_id, batchNameMap),
         saleType: sale?.sale_type ?? "normal",
         ticketType: sale?.ticket_type ?? "pista",
+        sold: soldQuantity,
         unitPrice: sale?.unit_price ?? 0,
+        soldAt: sale?.sold_at ?? entry.created_at,
+        amount: soldQuantity * (sale?.unit_price ?? 0),
+        attendeeNames,
+        attendeeCount: attendeeNames.length,
+        missingAttendeeCount: Math.max(soldQuantity - attendeeNames.length, 0),
         checkedInAt: entry.checked_in_at ?? undefined,
         createdAt: entry.created_at,
         isOwnedByViewer: entry.seller_user_id === viewerId,
+        notes: sale?.notes ?? undefined,
         sourceType: "sale"
       };
     });
@@ -170,4 +190,39 @@ export function buildGuestListExportRows({
       entry.notes ?? ""
     ])
   ];
+}
+
+export function buildPortariaExportRows({
+  attendees,
+  manualEntries,
+  salesRows
+}: {
+  attendees: GuestListAttendeeLike[];
+  manualEntries: ManualGuestEntryLike[];
+  salesRows: Array<Pick<GuestListSaleLike, "id" | "ticket_type">>;
+}) {
+  const salesById = new Map(salesRows.map((sale) => [sale.id, sale]));
+
+  return [
+    ...attendees.map((entry) => ({
+      guestName: entry.guest_name.trim(),
+      ticketType: formatGuestTicketType(salesById.get(entry.sale_id)?.ticket_type ?? "pista")
+    })),
+    ...manualEntries.map((entry) => ({
+      guestName: entry.guest_name.trim(),
+      ticketType: "PISTA"
+    }))
+  ]
+    .filter((entry) => entry.guestName)
+    .sort((left, right) => {
+      const nameComparison = left.guestName.localeCompare(right.guestName, "pt-BR", {
+        sensitivity: "base"
+      });
+
+      if (nameComparison !== 0) {
+        return nameComparison;
+      }
+
+      return left.ticketType.localeCompare(right.ticketType, "pt-BR");
+    });
 }

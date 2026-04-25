@@ -76,16 +76,16 @@ export function RankingPanel({
               {index < 3 ? <Crown className="h-5 w-5 text-amber-500" /> : null}
             </div>
 
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="mt-5 grid gap-3">
               <div className="min-w-0">
                 <p className="ds-label text-slate-500">Arrecadacao</p>
-                <p className="ds-value-lg text-slate-950">
+                <p className="ds-value-lg min-w-0 break-words leading-none text-slate-950">
                   {formatCurrency(seller.revenue)}
                 </p>
               </div>
-              <div className="grid gap-2 sm:text-right">
-                <p className="ds-label text-emerald-700">Venda registrada</p>
-              </div>
+              <span className="inline-flex w-fit rounded-full border border-emerald-200 bg-white/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                Venda registrada
+              </span>
             </div>
           </div>
         ))}

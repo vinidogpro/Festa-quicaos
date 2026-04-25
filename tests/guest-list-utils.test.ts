@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildGuestListEntries, buildGuestListExportRows, buildSaleSequenceMap } from "../lib/guest-list-utils.ts";
+import {
+  buildGuestListEntries,
+  buildGuestListExportRows,
+  buildPortariaExportRows,
+  buildSaleSequenceMap
+} from "../lib/guest-list-utils.ts";
 
 test("buildSaleSequenceMap gera numeracao amigavel por created_at com desempate por id", () => {
   const sequenceMap = buildSaleSequenceMap([
@@ -38,8 +43,30 @@ test("buildGuestListEntries restringe seller ao proprio escopo e remove nomes ma
       }
     ],
     salesRows: [
-      { id: "sale-1", seller_user_id: "seller-1", batch_id: "batch-1", sale_type: "normal", unit_price: 40, ticket_type: "pista", created_at: "2026-04-10T09:00:00.000Z" },
-      { id: "sale-2", seller_user_id: "seller-2", batch_id: "batch-2", sale_type: "grupo", unit_price: 50, ticket_type: "vip", created_at: "2026-04-11T09:00:00.000Z" }
+      {
+        id: "sale-1",
+        seller_user_id: "seller-1",
+        batch_id: "batch-1",
+        sale_type: "normal",
+        quantity: 1,
+        unit_price: 40,
+        ticket_type: "pista",
+        sold_at: "2026-04-10",
+        notes: null,
+        created_at: "2026-04-10T09:00:00.000Z"
+      },
+      {
+        id: "sale-2",
+        seller_user_id: "seller-2",
+        batch_id: "batch-2",
+        sale_type: "grupo",
+        quantity: 1,
+        unit_price: 50,
+        ticket_type: "vip",
+        sold_at: "2026-04-11",
+        notes: null,
+        created_at: "2026-04-11T09:00:00.000Z"
+      }
     ],
     manualGuestEntryRows: [
       {
@@ -82,7 +109,20 @@ test("buildGuestListEntries inclui nomes manuais apenas quando permitido", () =>
         created_at: "2026-04-10T10:00:00.000Z"
       }
     ],
-    salesRows: [{ id: "sale-1", seller_user_id: "seller-1", batch_id: "batch-promo", sale_type: "grupo", unit_price: 45, ticket_type: "vip", created_at: "2026-04-10T09:00:00.000Z" }],
+    salesRows: [
+      {
+        id: "sale-1",
+        seller_user_id: "seller-1",
+        batch_id: "batch-promo",
+        sale_type: "grupo",
+        quantity: 1,
+        unit_price: 45,
+        ticket_type: "vip",
+        sold_at: "2026-04-10",
+        notes: null,
+        created_at: "2026-04-10T09:00:00.000Z"
+      }
+    ],
     manualGuestEntryRows: [
       {
         id: "manual-1",
@@ -111,6 +151,61 @@ test("buildGuestListEntries inclui nomes manuais apenas quando permitido", () =>
   assert.equal(entries.find((entry) => entry.sourceType === "sale")?.ticketType, "vip");
   assert.equal(entries.find((entry) => entry.sourceType === "sale")?.batchLabel, "Lote promocional");
   assert.equal(entries.find((entry) => entry.sourceType === "sale")?.saleType, "grupo");
+});
+
+test("buildGuestListEntries preserva venda com multiplos nomes na lista", () => {
+  const entries = buildGuestListEntries({
+    saleAttendeeRows: [
+      {
+        id: "attendee-1",
+        sale_id: "sale-1",
+        seller_user_id: "seller-1",
+        guest_name: "Ana",
+        created_at: "2026-04-10T10:00:00.000Z"
+      },
+      {
+        id: "attendee-2",
+        sale_id: "sale-1",
+        seller_user_id: "seller-1",
+        guest_name: "Bruno",
+        created_at: "2026-04-10T10:01:00.000Z"
+      },
+      {
+        id: "attendee-3",
+        sale_id: "sale-1",
+        seller_user_id: "seller-1",
+        guest_name: "Carla",
+        created_at: "2026-04-10T10:02:00.000Z"
+      }
+    ],
+    salesRows: [
+      {
+        id: "sale-1",
+        seller_user_id: "seller-1",
+        batch_id: "batch-1",
+        sale_type: "grupo",
+        quantity: 3,
+        unit_price: 37,
+        ticket_type: "pista",
+        sold_at: "2026-04-10",
+        notes: null,
+        created_at: "2026-04-10T09:00:00.000Z"
+      }
+    ],
+    manualGuestEntryRows: [],
+    batchNameMap: new Map([["batch-1", "Lote 2"]]),
+    profilesMap: new Map([["seller-1", { full_name: "Seller One" }]]),
+    viewerId: "host-user",
+    canManageOwnSalesOnly: false,
+    canViewManualGuests: true
+  });
+
+  assert.deepEqual(entries.map((entry) => entry.guestName), ["Ana", "Bruno", "Carla"]);
+  assert.equal(entries.every((entry) => entry.saleId === "sale-1"), true);
+  assert.equal(entries.every((entry) => entry.sold === 3), true);
+  assert.equal(entries.every((entry) => entry.attendeeCount === 3), true);
+  assert.equal(entries.every((entry) => entry.unitPrice === 37), true);
+  assert.equal(entries.every((entry) => entry.saleType === "grupo"), true);
 });
 
 test("buildGuestListExportRows mantem o mesmo numero de colunas para vendas e entradas manuais", () => {
@@ -151,4 +246,42 @@ test("buildGuestListExportRows mantem o mesmo numero de colunas para vendas e en
   assert.equal(attendeeRow?.[4], "Grupo");
   assert.equal(manualRow?.[2], "MANUAL");
   assert.equal(manualRow?.[8], "Observacao");
+});
+
+test("buildPortariaExportRows ordena alfabeticamente e usa PISTA como padrao para entradas manuais", () => {
+  const rows = buildPortariaExportRows({
+    attendees: [
+      {
+        id: "attendee-1",
+        sale_id: "sale-1",
+        seller_user_id: "seller-1",
+        guest_name: "Zeca",
+        created_at: "2026-04-10T10:00:00.000Z"
+      },
+      {
+        id: "attendee-2",
+        sale_id: "sale-2",
+        seller_user_id: "seller-1",
+        guest_name: "Ana",
+        created_at: "2026-04-10T10:00:00.000Z"
+      }
+    ],
+    manualEntries: [
+      {
+        id: "manual-1",
+        guest_name: "Bruna",
+        created_at: "2026-04-10T10:00:00.000Z"
+      }
+    ],
+    salesRows: [
+      { id: "sale-1", ticket_type: "pista" },
+      { id: "sale-2", ticket_type: "vip" }
+    ]
+  });
+
+  assert.deepEqual(rows, [
+    { guestName: "Ana", ticketType: "VIP" },
+    { guestName: "Bruna", ticketType: "PISTA" },
+    { guestName: "Zeca", ticketType: "PISTA" }
+  ]);
 });

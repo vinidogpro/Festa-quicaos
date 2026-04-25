@@ -160,3 +160,32 @@ export function ExportGuestListButton({
     />
   );
 }
+
+export function ExportPortariaButton({
+  eventId,
+  disabled = false
+}: {
+  eventId: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:items-end">
+      <ExportCsvButton
+        href={`/festas/${eventId}/guest-list/export?mode=portaria&format=xlsx`}
+        label="Exportar lista da portaria"
+        pendingLabel="Gerando lista..."
+        successMessage="Lista da portaria exportada com sucesso."
+        fallbackFileName={`lista-portaria-${eventId}.xlsx`}
+        disabled={disabled}
+      />
+      <ExportCsvButton
+        href={`/festas/${eventId}/guest-list/export?mode=portaria&format=csv`}
+        label="CSV fallback"
+        pendingLabel="Gerando CSV..."
+        successMessage="CSV da portaria exportado com sucesso."
+        fallbackFileName={`lista-portaria-${eventId}.csv`}
+        disabled={disabled}
+      />
+    </div>
+  );
+}

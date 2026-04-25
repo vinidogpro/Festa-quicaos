@@ -227,6 +227,8 @@ function buildSummaryFromRows({
     eventDate: event.event_date,
     status: event.status,
     description: event.description ?? undefined,
+    hasVip: event.has_vip ?? true,
+    hasGroupSales: event.has_group_sales ?? true,
     totalRevenue,
     ticketRevenue: financeTotals.ticketRevenue,
     additionalRevenue: financeTotals.additionalRevenue,
@@ -504,14 +506,14 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     }
 
     const [
-      { data: memberships },
-      { data: eventBatches },
-      { data: sales },
-      { data: saleAttendees },
-      { data: expenses },
-      { data: additionalRevenues },
-      { data: tasks },
-      { data: announcements }
+      { data: memberships, error: membershipsError },
+      { data: eventBatches, error: eventBatchesError },
+      { data: sales, error: salesError },
+      { data: saleAttendees, error: saleAttendeesError },
+      { data: expenses, error: expensesError },
+      { data: additionalRevenues, error: additionalRevenuesError },
+      { data: tasks, error: tasksError },
+      { data: announcements, error: announcementsError }
     ] = await Promise.all([
       supabase
         .from("event_memberships")
@@ -520,8 +522,9 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
         .order("created_at", { ascending: true }),
       supabase
         .from("event_batches")
-        .select("id, event_id, name, created_at")
+        .select("id, event_id, name, pista_price, vip_price, is_active, sort_order, created_at")
         .eq("event_id", event.id)
+        .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true }),
       supabase
         .from("sales")
@@ -555,6 +558,22 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
         .order("created_at", { ascending: false })
     ]);
 
+    const sectionErrors = [
+      membershipsError,
+      eventBatchesError,
+      salesError,
+      saleAttendeesError,
+      expensesError,
+      additionalRevenuesError,
+      tasksError,
+      announcementsError
+    ].filter(Boolean);
+
+    if (sectionErrors.length > 0) {
+      const message = sectionErrors.map((item) => item?.message).filter(Boolean).join(" | ");
+      throw new Error(message || "Nao foi possivel carregar todos os dados da festa.");
+    }
+
     const membershipRows = (memberships ?? []) as EventMembershipRow[];
     const eventBatchRows = (eventBatches ?? []) as EventBatchRow[];
     const salesRows = (sales ?? []) as SaleRow[];
@@ -574,6 +593,10 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     const eventBatchItems = eventBatchRows.map((batch) => ({
       id: batch.id,
       name: batch.name,
+      pistaPrice: batch.pista_price,
+      vipPrice: batch.vip_price,
+      isActive: batch.is_active ?? true,
+      sortOrder: batch.sort_order ?? 0,
       createdAt: batch.created_at
     }));
 
@@ -883,6 +906,8 @@ export async function getEventById(id: string): Promise<PartyEventDetail | undef
     ...summary,
     viewer: context.viewer,
     viewerEventRole: eventRole,
+    hasVip: event.has_vip ?? true,
+    hasGroupSales: event.has_group_sales ?? true,
     permissions,
     health,
     attentionItems,
@@ -970,7 +995,11 @@ export async function getEventGuestListSectionById(id: string): Promise<
       return undefined;
     }
 
-    const [{ data: memberships }, { data: eventBatches }, { data: sales }] = await Promise.all([
+    const [
+      { data: memberships, error: membershipsError },
+      { data: eventBatches, error: eventBatchesError },
+      { data: sales, error: salesError }
+    ] = await Promise.all([
       supabase
         .from("event_memberships")
         .select("user_id, role")
@@ -981,14 +1010,21 @@ export async function getEventGuestListSectionById(id: string): Promise<
         .eq("event_id", event.id),
       supabase
         .from("sales")
-        .select("id, seller_user_id, batch_id, sale_type, unit_price, ticket_type, created_at")
+        .select("id, seller_user_id, batch_id, sale_type, quantity, unit_price, ticket_type, sold_at, notes, created_at")
         .eq("event_id", event.id)
     ]);
+
+    if (membershipsError || eventBatchesError || salesError) {
+      throw membershipsError ?? eventBatchesError ?? salesError;
+    }
 
     const membershipRows = (memberships ?? []) as Array<Pick<EventMembershipRow, "user_id" | "role">>;
     const eventBatchRows = (eventBatches ?? []) as Array<Pick<EventBatchRow, "id" | "name">>;
     const salesRows = (sales ?? []) as Array<
-      Pick<SaleRow, "id" | "seller_user_id" | "batch_id" | "sale_type" | "unit_price" | "ticket_type" | "created_at">
+      Pick<
+        SaleRow,
+        "id" | "seller_user_id" | "batch_id" | "sale_type" | "quantity" | "unit_price" | "ticket_type" | "sold_at" | "notes" | "created_at"
+      >
     >;
     const batchNameMap = new Map(eventBatchRows.map((batch) => [batch.id, batch.name]));
     const viewerMembership = membershipRows.find((membership) => membership.user_id === context.viewer.id);

@@ -53,6 +53,8 @@ export function EventHeader({ event }: { event: PartyEventDetail }) {
                 goalValue={event.goalValue}
                 description={event.description}
                 eventBatches={event.eventBatches}
+                hasVip={event.hasVip}
+                hasGroupSales={event.hasGroupSales}
               />
             </div>
           ) : null}

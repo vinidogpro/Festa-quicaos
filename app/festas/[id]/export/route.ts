@@ -12,7 +12,7 @@ import {
 import { buildGuestListEntries, buildSaleSequenceMap } from "@/lib/guest-list-utils";
 import { Database } from "@/lib/supabase/database.types";
 import { createSupabaseRouteClient } from "@/lib/supabase/server";
-import { formatCurrency, formatDate, formatSaleTypeLabel, formatTicketTypeLabel } from "@/lib/utils";
+import { formatBatchLabel, formatCurrency, formatDate, formatSaleTypeLabel, formatTicketTypeLabel } from "@/lib/utils";
 
 export const runtime = "nodejs";
 
@@ -240,7 +240,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 
   const [{ data: event, error: eventError }, { data: profile, error: profileError }] = await Promise.all([
-    supabase.from("events").select("id, name, slug, status, venue, event_date, goal_value").eq("slug", params.id).single(),
+    supabase
+      .from("events")
+      .select("id, name, slug, status, venue, event_date, goal_value, has_vip, has_group_sales")
+      .eq("slug", params.id)
+      .single(),
     supabase.from("profiles").select("id, role").eq("id", user.id).single()
   ]);
 
@@ -367,7 +371,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     sales: summarySales.map((sale) => ({
       quantity: sale.quantity,
       unitPrice: sale.unit_price,
-      batchLabel: batchNameMap.get(sale.batch_id) ?? "Sem lote",
+      batchLabel: formatBatchLabel(batchNameMap.get(sale.batch_id)),
       saleType: sale.sale_type,
       ticketType: sale.ticket_type
     })),
@@ -432,19 +436,23 @@ export async function GET(request: Request, { params }: { params: { id: string }
       ["Preco mais eficiente", formatCurrency(postEventReport.commercial.mostEfficientPrice)],
       ["Margem", `${postEventReport.financial.marginPercentage}%`],
       [""],
-      ["Tipo ingresso", "Ingressos", "Receita", "Ticket medio"],
-      [
-        "VIP",
-        ticketTypeMetrics.vip.ticketsSold,
-        formatCurrency(ticketTypeMetrics.vip.revenue),
-        formatCurrency(ticketTypeMetrics.vip.averageTicket)
-      ],
-      [
-        "PISTA",
-        ticketTypeMetrics.pista.ticketsSold,
-        formatCurrency(ticketTypeMetrics.pista.revenue),
-        formatCurrency(ticketTypeMetrics.pista.averageTicket)
-      ]
+      ...(event.has_vip
+        ? [
+            ["Tipo ingresso", "Ingressos", "Receita", "Ticket medio"] as Array<string | number>,
+            [
+              "VIP",
+              ticketTypeMetrics.vip.ticketsSold,
+              formatCurrency(ticketTypeMetrics.vip.revenue),
+              formatCurrency(ticketTypeMetrics.vip.averageTicket)
+            ] as Array<string | number>,
+            [
+              "PISTA",
+              ticketTypeMetrics.pista.ticketsSold,
+              formatCurrency(ticketTypeMetrics.pista.revenue),
+              formatCurrency(ticketTypeMetrics.pista.averageTicket)
+            ] as Array<string | number>
+          ]
+        : [])
     ];
 
     if (isManager) {
@@ -517,8 +525,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
       seller_user_id: sale.seller_user_id,
       batch_id: sale.batch_id,
       sale_type: sale.sale_type,
+      quantity: sale.quantity,
       unit_price: sale.unit_price,
       ticket_type: sale.ticket_type,
+      sold_at: sale.sold_at,
+      notes: sale.notes,
       created_at: sale.created_at
     })),
     manualGuestEntryRows: manualGuestRows.map((entry) => ({
@@ -592,23 +603,25 @@ export async function GET(request: Request, { params }: { params: { id: string }
     financeTotals.estimatedProfit > 0 ? "positive" : financeTotals.estimatedProfit < 0 ? "negative" : "default"
   );
 
-  summarySheet.addRow([]);
-  const ticketTypeLabelRow = summarySheet.addRow(["VIP vs PISTA", ""]);
-  styleSectionLabelRow(ticketTypeLabelRow);
-  const ticketTypeHeader = summarySheet.addRow(["Tipo", "Ingressos", "Receita", "Ticket medio"]);
-  styleHeaderRow(ticketTypeHeader);
+  if (event.has_vip) {
+    summarySheet.addRow([]);
+    const ticketTypeLabelRow = summarySheet.addRow(["VIP vs PISTA", ""]);
+    styleSectionLabelRow(ticketTypeLabelRow);
+    const ticketTypeHeader = summarySheet.addRow(["Tipo", "Ingressos", "Receita", "Ticket medio"]);
+    styleHeaderRow(ticketTypeHeader);
 
-  [
-    ["VIP", ticketTypeMetrics.vip.ticketsSold, ticketTypeMetrics.vip.revenue, ticketTypeMetrics.vip.averageTicket],
-    ["PISTA", ticketTypeMetrics.pista.ticketsSold, ticketTypeMetrics.pista.revenue, ticketTypeMetrics.pista.averageTicket]
-  ].forEach((item, index) => {
-    const row = summarySheet.addRow(item);
-    styleBodyRow(row, index + 1);
-    styleTicketTypeCell(row.getCell(1));
-    styleCenteredCell(row.getCell(2));
-    styleCurrencyCell(row.getCell(3), "default");
-    styleCurrencyCell(row.getCell(4), "default");
-  });
+    [
+      ["VIP", ticketTypeMetrics.vip.ticketsSold, ticketTypeMetrics.vip.revenue, ticketTypeMetrics.vip.averageTicket],
+      ["PISTA", ticketTypeMetrics.pista.ticketsSold, ticketTypeMetrics.pista.revenue, ticketTypeMetrics.pista.averageTicket]
+    ].forEach((item, index) => {
+      const row = summarySheet.addRow(item);
+      styleBodyRow(row, index + 1);
+      styleTicketTypeCell(row.getCell(1));
+      styleCenteredCell(row.getCell(2));
+      styleCurrencyCell(row.getCell(3), "default");
+      styleCurrencyCell(row.getCell(4), "default");
+    });
+  }
 
   summarySheet.addRow([]);
   const postEventLabelRow = summarySheet.addRow(["Relatorio pos-evento", ""]);
@@ -618,12 +631,21 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   [
     ["Lote campeao", postEventReport.commercial.bestBatchLabel],
-    ["Tipo dominante", postEventReport.commercial.dominantTicketType === "vip" ? "VIP" : "PISTA"],
     ["Preco mais eficiente", postEventReport.commercial.mostEfficientPrice],
-    ["Tipo de venda dominante", postEventReport.commercial.dominantSaleType === "grupo" ? "Grupo" : "Normal"],
     ["Margem da festa", `${postEventReport.financial.marginPercentage}%`],
     ["Despesas sobre receita", `${postEventReport.financial.expenseRatio}%`]
-  ].forEach(([label, value], index) => {
+  ]
+    .concat(
+      event.has_vip
+        ? [["Tipo dominante", postEventReport.commercial.dominantTicketType === "vip" ? "VIP" : "PISTA"]]
+        : []
+    )
+    .concat(
+      event.has_group_sales
+        ? [["Tipo de venda dominante", postEventReport.commercial.dominantSaleType === "grupo" ? "Grupo" : "Normal"]]
+        : []
+    )
+    .forEach(([label, value], index) => {
     const row = summarySheet.addRow([label, value]);
     styleBodyRow(row, index + 1);
     styleTextCell(row.getCell(1));
@@ -727,7 +749,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const row = salesSheet.addRow([
       saleSequenceMap.get(sale.id) ?? 0,
       profileMap.get(sale.seller_user_id)?.full_name ?? "Vendedor",
-      batchNameMap.get(sale.batch_id) ?? "Sem lote",
+      formatBatchLabel(batchNameMap.get(sale.batch_id)),
       formatSaleTypeLabel(sale.sale_type),
       formatTicketTypeLabel(sale.ticket_type),
       sale.quantity,
@@ -784,12 +806,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
     ["Resumo geral", "Ticket medio", postEventReport.overview.averageTicket, "currency"],
     ["Resumo geral", "Ingressos vendidos", postEventReport.overview.totalTicketsSold, "text"],
     ["Analise comercial", "Lote campeao", postEventReport.commercial.bestBatchLabel, "text"],
-    [
-      "Analise comercial",
-      "Tipo mais forte",
-      postEventReport.commercial.dominantTicketType === "vip" ? "VIP" : "PISTA",
-      "text"
-    ],
     ["Analise comercial", "Preco mais eficiente", postEventReport.commercial.mostEfficientPrice, "currency"],
     ["Analise financeira", "Margem", `${postEventReport.financial.marginPercentage}%`, "text"],
     [
@@ -805,6 +821,24 @@ export async function GET(request: Request, { params }: { params: { id: string }
       "currency"
     ]
   ];
+
+  if (event.has_vip) {
+    reportRows.splice(6, 0, [
+      "Analise comercial",
+      "Tipo mais forte",
+      postEventReport.commercial.dominantTicketType === "vip" ? "VIP" : "PISTA",
+      "text"
+    ]);
+  }
+
+  if (event.has_group_sales) {
+    reportRows.splice(event.has_vip ? 7 : 6, 0, [
+      "Analise comercial",
+      "Tipo de venda dominante",
+      postEventReport.commercial.dominantSaleType === "grupo" ? "Grupo" : "Normal",
+      "text"
+    ]);
+  }
 
   reportRows.forEach(([block, label, value, valueType], index) => {
     const row = reportSheet.addRow([block, label, value]);
@@ -865,7 +899,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       entry.guestName,
       entry.saleNumber ? `Venda #${entry.saleNumber}` : "",
       ticketTypeValue,
-      entry.batchLabel ?? "",
+      entry.batchLabel ? formatBatchLabel(entry.batchLabel) : "",
       entry.saleType ? formatSaleTypeLabel(entry.saleType) : "",
       entry.sellerName,
       entry.sourceType === "sale" ? entry.unitPrice ?? 0 : "",

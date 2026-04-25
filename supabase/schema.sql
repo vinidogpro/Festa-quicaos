@@ -17,6 +17,8 @@ create table if not exists public.events (
   description text,
   event_date timestamptz not null,
   goal_value numeric(12,2) not null default 0,
+  has_vip boolean not null default true,
+  has_group_sales boolean not null default true,
   status text not null check (status in ('current', 'upcoming', 'past')),
   created_by uuid not null references public.profiles (id) on delete restrict,
   created_at timestamptz not null default timezone('utc', now()),
@@ -38,6 +40,10 @@ create table if not exists public.event_batches (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events (id) on delete cascade,
   name text not null,
+  pista_price numeric(12,2),
+  vip_price numeric(12,2),
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   unique (event_id, name)
@@ -146,9 +152,15 @@ create table if not exists public.activity_logs (
 
 alter table public.profiles add column if not exists updated_at timestamptz not null default timezone('utc', now());
 alter table public.events add column if not exists updated_at timestamptz not null default timezone('utc', now());
+alter table public.events add column if not exists has_vip boolean not null default true;
+alter table public.events add column if not exists has_group_sales boolean not null default true;
 alter table public.event_memberships add column if not exists updated_at timestamptz not null default timezone('utc', now());
 alter table public.event_memberships drop column if exists ticket_quota;
 alter table public.event_batches add column if not exists updated_at timestamptz not null default timezone('utc', now());
+alter table public.event_batches add column if not exists pista_price numeric(12,2);
+alter table public.event_batches add column if not exists vip_price numeric(12,2);
+alter table public.event_batches add column if not exists is_active boolean not null default true;
+alter table public.event_batches add column if not exists sort_order integer not null default 0;
 alter table public.sales add column if not exists updated_at timestamptz not null default timezone('utc', now());
 alter table public.sales add column if not exists batch_id uuid references public.event_batches (id) on delete restrict;
 alter table public.sales add column if not exists sale_type text not null default 'normal';
@@ -293,6 +305,8 @@ where public.sales.event_id = event_batches.event_id
 
 alter table public.sales alter column batch_id set not null;
 alter table public.sales drop column if exists batch_label;
+update public.event_batches set is_active = true where is_active is null;
+update public.event_batches set sort_order = 0 where sort_order is null;
 update public.sales set payment_status = 'paid' where payment_status is distinct from 'paid';
 alter table public.sales alter column payment_status set default 'paid';
 alter table public.sales drop constraint if exists sales_payment_status_check;

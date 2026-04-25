@@ -710,8 +710,8 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
             />
           </div>
 
-          {!compact ? (
-          <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))] xl:[grid-template-columns:repeat(auto-fit,minmax(380px,1fr))]">
+          {!compact && event.hasVip ? (
+            <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))] xl:[grid-template-columns:repeat(auto-fit,minmax(380px,1fr))]">
               <TicketTypeMetricBlock
                 title="Ingressos por tipo"
                 items={[
@@ -775,7 +775,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
           {!compact ? (
             <div className="grid gap-6">
               <BatchAnalysisBlock rows={batchMetrics} />
-              <SaleTypeAnalysisBlock metrics={saleTypeMetrics} />
+              {event.hasGroupSales ? <SaleTypeAnalysisBlock metrics={saleTypeMetrics} /> : null}
             </div>
           ) : null}
 

@@ -39,6 +39,8 @@ export interface Database {
           description: string | null;
           event_date: string;
           goal_value: number;
+          has_vip: boolean;
+          has_group_sales: boolean;
           status: "current" | "upcoming" | "past";
           created_by: string;
           created_at: string;
@@ -52,6 +54,8 @@ export interface Database {
           description?: string | null;
           event_date: string;
           goal_value?: number;
+          has_vip?: boolean;
+          has_group_sales?: boolean;
           status?: "current" | "upcoming" | "past";
           created_by: string;
           created_at?: string;
@@ -65,6 +69,8 @@ export interface Database {
           description?: string | null;
           event_date?: string;
           goal_value?: number;
+          has_vip?: boolean;
+          has_group_sales?: boolean;
           status?: "current" | "upcoming" | "past";
           created_by?: string;
           created_at?: string;
@@ -77,6 +83,10 @@ export interface Database {
           id: string;
           event_id: string;
           name: string;
+          pista_price: number | null;
+          vip_price: number | null;
+          is_active: boolean;
+          sort_order: number;
           created_at: string;
           updated_at: string;
         };
@@ -84,6 +94,10 @@ export interface Database {
           id?: string;
           event_id: string;
           name: string;
+          pista_price?: number | null;
+          vip_price?: number | null;
+          is_active?: boolean;
+          sort_order?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -91,6 +105,10 @@ export interface Database {
           id?: string;
           event_id?: string;
           name?: string;
+          pista_price?: number | null;
+          vip_price?: number | null;
+          is_active?: boolean;
+          sort_order?: number;
           created_at?: string;
           updated_at?: string;
         };

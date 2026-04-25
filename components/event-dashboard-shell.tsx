@@ -302,6 +302,8 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                 permissions={event.permissions}
                 sellerOptions={event.sellerOptions}
                 eventBatches={event.eventBatches}
+                hasVip={event.hasVip}
+                hasGroupSales={event.hasGroupSales}
               />
             )}
             {activeTab === "team" && (
@@ -345,6 +347,10 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                   eventId={event.id}
                   entries={guestListSection?.guestListEntries ?? event.guestListEntries}
                   permissions={event.permissions}
+                  sellerOptions={event.sellerOptions}
+                  eventBatches={event.eventBatches}
+                  hasVip={event.hasVip}
+                  hasGroupSales={event.hasGroupSales}
                 />
               )
             )}
@@ -405,6 +411,8 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                   permissions={event.permissions}
                   sellerOptions={event.sellerOptions}
                   eventBatches={event.eventBatches}
+                  hasVip={event.hasVip}
+                  hasGroupSales={event.hasGroupSales}
                   compact
                 />
                 <div className={`grid gap-6 ${overviewTasksGridClass}`}>

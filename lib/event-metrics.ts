@@ -1,3 +1,5 @@
+import { formatBatchLabel, getNormalizedBatchKey } from "./utils";
+
 export interface MetricSale {
   sellerUserId: string;
   quantity: number;
@@ -511,22 +513,23 @@ export function calculateCashFlowByDate({
 export function calculateBatchMetrics(
   sales: Array<Pick<MetricSale, "quantity" | "unitPrice" | "batchLabel">>
 ) {
-  const ranking = new Map<string, { ticketsSold: number; revenue: number }>();
+  const ranking = new Map<string, { batchLabel: string; ticketsSold: number; revenue: number }>();
 
   for (const sale of sales) {
-    const batchLabel = sale.batchLabel?.trim() || "Sem lote";
-    const current = ranking.get(batchLabel) ?? { ticketsSold: 0, revenue: 0 };
+    const batchKey = getNormalizedBatchKey(sale.batchLabel);
+    const batchLabel = formatBatchLabel(sale.batchLabel);
+    const current = ranking.get(batchKey) ?? { batchLabel, ticketsSold: 0, revenue: 0 };
 
     current.ticketsSold += sale.quantity;
     current.revenue += getSaleAmount(sale);
-    ranking.set(batchLabel, current);
+    ranking.set(batchKey, current);
   }
 
   const totalTicketsSold = sales.reduce((sum, sale) => sum + sale.quantity, 0);
 
-  return Array.from(ranking.entries())
-    .map(([batchLabel, item]) => ({
-      batchLabel,
+  return Array.from(ranking.values())
+    .map((item) => ({
+      batchLabel: item.batchLabel,
       ticketsSold: item.ticketsSold,
       revenue: item.revenue,
       averageTicket: calculateAverageTicket(item.revenue, item.ticketsSold),

@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ListChecks, Pencil, Plus, Trash2 } from "lucide-react";
-import { ExportGuestListButton } from "@/components/export-summary-button";
+import { ExportGuestListButton, ExportPortariaButton } from "@/components/export-summary-button";
 import { SubmitButton } from "@/components/forms/submit-button";
+import { SaleEditForm } from "@/components/panels/sales-control-panel";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
 import { initialSalesActionState } from "@/lib/actions/action-state";
@@ -15,7 +16,7 @@ import {
   updateManualGuestEntryAction,
   updateSaleAttendeeNameAction
 } from "@/lib/actions/event-management";
-import { GuestListEntry, ViewerPermissions } from "@/lib/types";
+import { EventBatch, GuestListEntry, SellerOption, ViewerPermissions } from "@/lib/types";
 import { formatCurrency, formatSaleTypeLabel, formatTicketTypeLabel } from "@/lib/utils";
 
 type SortOption = "name" | "seller" | "sale-asc" | "recent";
@@ -180,7 +181,7 @@ function SaleGuestNameEditForm({
     <details ref={detailsRef} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
         <Pencil className="h-4 w-4" />
-        Editar nome
+        Editar pessoa
       </summary>
       <form action={action} className="mt-3 grid gap-3">
         <input type="hidden" name="eventId" value={eventId} />
@@ -318,12 +319,22 @@ function GuestListEntryActions({
   eventId,
   entry,
   canManageManualGuests,
-  canEditSaleGuests
+  canEditSaleGuests,
+  permissions,
+  sellerOptions,
+  eventBatches,
+  hasVip,
+  hasGroupSales
 }: {
   eventId: string;
   entry: GuestListEntry;
   canManageManualGuests: boolean;
   canEditSaleGuests: boolean;
+  permissions: ViewerPermissions;
+  sellerOptions: SellerOption[];
+  eventBatches: EventBatch[];
+  hasVip: boolean;
+  hasGroupSales: boolean;
 }) {
   if (entry.sourceType === "manual") {
     if (!canManageManualGuests) {
@@ -343,8 +354,47 @@ function GuestListEntryActions({
   }
 
   return (
-    <div className="w-full sm:w-[17rem]">
+    <div className="w-full space-y-2 sm:w-[23rem]">
       <SaleGuestNameEditForm eventId={eventId} entry={entry} />
+      <details className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+          <Pencil className="h-4 w-4" />
+          Editar venda completa
+        </summary>
+        <div className="mt-3 space-y-3">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
+            Esta opcao altera a venda inteira. Preco, VIP/PISTA, lote, tipo da venda, quantidade e nomes continuam no nivel da venda, nao de uma pessoa isolada.
+          </div>
+          <SaleEditForm
+            eventId={eventId}
+            row={{
+              id: entry.saleId ?? "",
+              saleNumber: entry.saleNumber ?? 0,
+              sellerUserId: entry.sellerUserId ?? "",
+              seller: entry.sellerName,
+              batchId: entry.batchId ?? "",
+              batchLabel: entry.batchLabel ?? "Sem lote",
+              saleType: entry.saleType ?? "normal",
+              ticketType: entry.ticketType ?? "pista",
+              sold: entry.sold ?? Math.max(entry.attendeeNames?.length ?? 0, 1),
+              unitPrice: entry.unitPrice ?? 0,
+              soldAt: entry.soldAt ?? entry.createdAt,
+              createdAt: entry.createdAt,
+              notes: entry.notes,
+              amount: entry.amount ?? ((entry.sold ?? 1) * (entry.unitPrice ?? 0)),
+              attendeeNames: entry.attendeeNames ?? [entry.guestName],
+              attendeeCount: entry.attendeeCount ?? (entry.attendeeNames?.length ?? 1),
+              missingAttendeeCount: entry.missingAttendeeCount ?? 0,
+              isOwnedByViewer: entry.isOwnedByViewer
+            }}
+            permissions={permissions}
+            sellerOptions={sellerOptions}
+            eventBatches={eventBatches}
+            hasVip={hasVip}
+            hasGroupSales={hasGroupSales}
+          />
+        </div>
+      </details>
     </div>
   );
 }
@@ -352,11 +402,19 @@ function GuestListEntryActions({
 export function GuestListPanel({
   eventId,
   entries,
-  permissions
+  permissions,
+  sellerOptions,
+  eventBatches,
+  hasVip,
+  hasGroupSales
 }: {
   eventId: string;
   entries: GuestListEntry[];
   permissions: ViewerPermissions;
+  sellerOptions: SellerOption[];
+  eventBatches: EventBatch[];
+  hasVip: boolean;
+  hasGroupSales: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("name");
@@ -391,7 +449,14 @@ export function GuestListPanel({
           ? "Veja os nomes vinculados as suas vendas, corrija o que precisar e deixe tudo pronto para a festa."
           : "Centralize os nomes vindos de vendas e tambem as entradas manuais, com busca rapida e exportacao pronta para o dia do evento."
       }
-      action={<ExportGuestListButton eventId={eventId} />}
+      action={
+        <div className="flex flex-col gap-2 sm:items-end">
+          <ExportGuestListButton eventId={eventId} />
+          {permissions.eventRole === "host" || permissions.eventRole === "organizer" ? (
+            <ExportPortariaButton eventId={eventId} />
+          ) : null}
+        </div>
+      }
     >
       <div className="grid gap-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4 xl:grid-cols-[1fr_240px_auto]">
         <input
@@ -520,6 +585,11 @@ export function GuestListPanel({
                     entry={entry}
                     canManageManualGuests={permissions.canManageManualGuests}
                     canEditSaleGuests={Boolean(canEditSaleGuest)}
+                    permissions={permissions}
+                    sellerOptions={sellerOptions}
+                    eventBatches={eventBatches}
+                    hasVip={hasVip}
+                    hasGroupSales={hasGroupSales}
                   />
                 </div>
               </article>

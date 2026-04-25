@@ -3,7 +3,27 @@ export type EventRole = "host" | "organizer" | "seller";
 export type EventStatus = "current" | "upcoming" | "past";
 export type TaskStatus = "pending" | "in-progress" | "done";
 export type TicketType = "vip" | "pista";
-export const DEFAULT_EVENT_BATCH_NAMES = ["1\u00ba lote", "2\u00ba lote"] as const;
+export interface EventBatchPreset {
+  name: string;
+  pistaPrice: number;
+  vipPrice?: number;
+  isActiveByDefault: boolean;
+}
+
+export const DEFAULT_EVENT_BATCH_PRESETS: readonly EventBatchPreset[] = [
+  { name: "Lote comissao", pistaPrice: 35, vipPrice: 65, isActiveByDefault: false },
+  { name: "Lote promocional", pistaPrice: 35, isActiveByDefault: false },
+  { name: "Lote 1", pistaPrice: 45, vipPrice: 65, isActiveByDefault: true },
+  { name: "Lote 2", pistaPrice: 50, vipPrice: 70, isActiveByDefault: true },
+  { name: "Lote 3", pistaPrice: 55, vipPrice: 75, isActiveByDefault: false },
+  { name: "Lote 4", pistaPrice: 60, vipPrice: 80, isActiveByDefault: false },
+  { name: "Lote 5", pistaPrice: 65, vipPrice: 85, isActiveByDefault: false },
+  { name: "Lote 6", pistaPrice: 70, vipPrice: 90, isActiveByDefault: false }
+] as const;
+
+export const DEFAULT_EVENT_BATCH_NAMES = DEFAULT_EVENT_BATCH_PRESETS.filter((batch) => batch.isActiveByDefault).map(
+  (batch) => batch.name
+) as string[];
 export type SaleBatchLabel = string;
 export const SALE_TYPE_OPTIONS = ["normal", "grupo"] as const;
 export type SaleType = (typeof SALE_TYPE_OPTIONS)[number];
@@ -11,6 +31,10 @@ export type SaleType = (typeof SALE_TYPE_OPTIONS)[number];
 export interface EventBatch {
   id: string;
   name: string;
+  pistaPrice?: number | null;
+  vipPrice?: number | null;
+  isActive: boolean;
+  sortOrder: number;
   createdAt: string;
 }
 
@@ -127,10 +151,17 @@ export interface GuestListEntry {
   sellerUserId?: string;
   sellerName: string;
   guestName: string;
+  batchId?: string;
   batchLabel?: SaleBatchLabel;
   saleType?: SaleType;
   ticketType?: TicketType;
+  sold?: number;
   unitPrice?: number;
+  soldAt?: string;
+  amount?: number;
+  attendeeNames?: string[];
+  attendeeCount?: number;
+  missingAttendeeCount?: number;
   checkedInAt?: string;
   createdAt: string;
   isOwnedByViewer: boolean;
@@ -192,6 +223,8 @@ export interface EventSummary {
   eventDate: string;
   status: EventStatus;
   description?: string;
+  hasVip: boolean;
+  hasGroupSales: boolean;
   totalRevenue: number;
   ticketRevenue: number;
   additionalRevenue: number;

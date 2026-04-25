@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { EventStatus, SaleType, TicketType } from "@/lib/types";
+import type { EventStatus, SaleType, TicketType } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -47,4 +47,95 @@ export function formatTicketTypeLabel(ticketType: TicketType) {
 
 export function formatSaleTypeLabel(saleType: SaleType) {
   return saleType === "grupo" ? "Grupo" : "Normal";
+}
+
+function normalizeLooseText(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[º°]/g, "o")
+    .replace(/\s+/g, " ");
+}
+
+function titleCaseLabel(value: string) {
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getNormalizedBatchNumber(normalized: string) {
+  const patterns = [
+    /(?:^|\s)0*(\d+)\s*(?:o)?\s*lote(?:\s|$)/,
+    /lote\s*0*(\d+)(?:\s*(?:o))?(?:\s|$)/
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+
+    if (match?.[1]) {
+      return Number(match[1]);
+    }
+  }
+
+  return null;
+}
+
+export function getNormalizedBatchKey(batchLabel?: string | null) {
+  const normalized = normalizeLooseText(batchLabel ?? "");
+
+  if (!normalized) {
+    return "sem-lote";
+  }
+
+  if (normalized.includes("comissao")) {
+    return "comissao";
+  }
+
+  if (normalized.includes("promocional")) {
+    return "lote-promocional";
+  }
+
+  if (normalized.includes("santo lote") || normalized.includes("lote santo")) {
+    return "santo-lote";
+  }
+
+  const batchNumber = getNormalizedBatchNumber(normalized);
+
+  if (batchNumber !== null) {
+    return `lote-${batchNumber}`;
+  }
+
+  return normalized.replace(/\s+/g, "-");
+}
+
+export function formatBatchLabel(batchLabel?: string | null) {
+  const normalized = normalizeLooseText(batchLabel ?? "");
+  const key = getNormalizedBatchKey(batchLabel);
+
+  if (key === "sem-lote") {
+    return "Sem lote";
+  }
+
+  if (key === "comissao") {
+    return "Comissão";
+  }
+
+  if (key === "lote-promocional") {
+    return "Lote promocional";
+  }
+
+  if (key === "santo-lote") {
+    return "Santo lote";
+  }
+
+  if (key.startsWith("lote-")) {
+    const batchNumber = key.replace("lote-", "");
+    return `${batchNumber}º lote`;
+  }
+
+  return titleCaseLabel(normalized);
 }

@@ -11,7 +11,7 @@ import {
 } from "@/lib/actions/action-state";
 import { Database } from "@/lib/supabase/database.types";
 import { createSupabaseActionClient } from "@/lib/supabase/server";
-import { DEFAULT_EVENT_BATCH_NAMES } from "@/lib/types";
+import { DEFAULT_EVENT_BATCH_NAMES, DEFAULT_EVENT_BATCH_PRESETS } from "@/lib/types";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 type EventMembershipRow = Database["public"]["Tables"]["event_memberships"]["Row"];
@@ -287,27 +287,102 @@ function parseTicketType(value: FormDataEntryValue | null | undefined): TicketTy
   return normalizedValue === "vip" || normalizedValue === "pista" ? normalizedValue : null;
 }
 
-function parseBatchNames(formData: FormData) {
-  const batchNames = formData
-    .getAll("batchNames")
-    .map((value) => String(value ?? "").trim())
-    .filter(Boolean);
-
-  return batchNames.length > 0 ? batchNames : [...DEFAULT_EVENT_BATCH_NAMES];
+interface SubmittedBatchConfig {
+  id?: string;
+  name: string;
+  pistaPrice: number | null;
+  vipPrice: number | null;
+  isActive: boolean;
+  sortOrder: number;
 }
 
-function normalizeBatchNames(batchNames: string[]) {
-  const uniqueNames = new Set<string>();
+function parseBooleanField(value: FormDataEntryValue | null | undefined, fallback = false) {
+  const normalizedValue = String(value ?? "").trim().toLowerCase();
 
-  for (const batchName of batchNames) {
-    const normalizedBatchName = batchName.trim();
+  if (!normalizedValue) {
+    return fallback;
+  }
 
-    if (normalizedBatchName) {
-      uniqueNames.add(normalizedBatchName);
+  return normalizedValue === "true" || normalizedValue === "1" || normalizedValue === "on" || normalizedValue === "yes";
+}
+
+function parseNumberOrNull(value: FormDataEntryValue | null | undefined) {
+  const normalizedValue = String(value ?? "").trim().replace(",", ".");
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const parsedValue = Number(normalizedValue);
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+}
+
+function buildDefaultBatchConfigs(hasVip: boolean): SubmittedBatchConfig[] {
+  return DEFAULT_EVENT_BATCH_PRESETS.map((preset, index) => ({
+    name: preset.name,
+    pistaPrice: preset.pistaPrice,
+    vipPrice: hasVip ? preset.vipPrice ?? null : null,
+    isActive: preset.isActiveByDefault,
+    sortOrder: index
+  }));
+}
+
+function parseBatchConfigs(formData: FormData, hasVip: boolean) {
+  const batchIds = formData.getAll("batchIds").map((value) => String(value ?? "").trim());
+  const batchNames = formData.getAll("batchNames").map((value) => String(value ?? "").trim());
+  const batchPistaPrices = formData.getAll("batchPistaPrices");
+  const batchVipPrices = formData.getAll("batchVipPrices");
+  const batchActiveStates = formData.getAll("batchActiveStates");
+  const batchSortOrders = formData.getAll("batchSortOrders");
+
+  if (batchNames.length === 0) {
+    return buildDefaultBatchConfigs(hasVip);
+  }
+
+  return batchNames.map((name, index) => ({
+    id: batchIds[index] || undefined,
+    name,
+    pistaPrice: parseNumberOrNull(batchPistaPrices[index]),
+    vipPrice: hasVip ? parseNumberOrNull(batchVipPrices[index]) : null,
+    isActive: parseBooleanField(batchActiveStates[index], false),
+    sortOrder: Number(batchSortOrders[index] ?? index)
+  }));
+}
+
+function validateCommercialConfig({
+  hasVip,
+  batches
+}: {
+  hasVip: boolean;
+  batches: SubmittedBatchConfig[];
+}) {
+  const activeBatches = batches.filter((batch) => batch.isActive);
+
+  if (activeBatches.length === 0) {
+    return "Ative pelo menos um lote para a festa.";
+  }
+
+  for (const batch of activeBatches) {
+    if (!batch.name.trim()) {
+      return "Os lotes ativos precisam ter nome.";
+    }
+
+    if (!Number.isFinite(batch.pistaPrice) || (batch.pistaPrice ?? 0) <= 0) {
+      return `Defina um preco PISTA valido para o lote "${batch.name}".`;
+    }
+
+    if (hasVip && (!Number.isFinite(batch.vipPrice) || (batch.vipPrice ?? 0) <= 0)) {
+      return `Defina um preco VIP valido para o lote "${batch.name}".`;
     }
   }
 
-  return Array.from(uniqueNames);
+  const uniqueNames = new Set(activeBatches.map((batch) => batch.name.trim().toLowerCase()));
+
+  if (uniqueNames.size !== activeBatches.length) {
+    return "Os lotes ativos precisam ter nomes unicos.";
+  }
+
+  return null;
 }
 
 function parseSaleBatchLabel(value: FormDataEntryValue | null | undefined): string | null {
@@ -331,8 +406,9 @@ function parseSaleType(value: FormDataEntryValue | null | undefined): SaleType |
 async function getEventBatches(supabase: any, eventId: string) {
   const { data, error } = await supabase
     .from("event_batches")
-    .select("id, event_id, name, created_at, updated_at")
+    .select("id, event_id, name, pista_price, vip_price, is_active, sort_order, created_at, updated_at")
     .eq("event_id", eventId)
+    .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -345,7 +421,7 @@ async function getEventBatches(supabase: any, eventId: string) {
 async function ensureEventBatchBelongsToEvent(supabase: any, eventId: string, batchId: string) {
   const { data, error } = await supabase
     .from("event_batches")
-    .select("id, event_id, name")
+    .select("id, event_id, name, is_active, pista_price, vip_price")
     .eq("id", batchId)
     .eq("event_id", eventId)
     .maybeSingle();
@@ -358,60 +434,66 @@ async function ensureEventBatchBelongsToEvent(supabase: any, eventId: string, ba
     throw new Error("Selecione um lote valido para esta festa.");
   }
 
-  return data as Pick<EventBatchRow, "id" | "event_id" | "name">;
+  return data as Pick<EventBatchRow, "id" | "event_id" | "name" | "is_active" | "pista_price" | "vip_price">;
 }
 
 async function syncEventBatches({
   supabase,
   eventId,
-  submittedIds,
-  submittedNames
+  submittedRows
 }: {
   supabase: any;
   eventId: string;
-  submittedIds: string[];
-  submittedNames: string[];
+  submittedRows: SubmittedBatchConfig[];
 }) {
-  const normalizedRows = submittedNames
-    .map((name, index) => ({
-      id: submittedIds[index]?.trim() ?? "",
-      name: name.trim()
-    }))
-    .filter((row) => row.name);
-
-  if (normalizedRows.length === 0) {
-    throw new Error("Adicione pelo menos um lote para a festa.");
-  }
-
-  const uniqueNames = new Set(normalizedRows.map((row) => row.name));
-
-  if (uniqueNames.size !== normalizedRows.length) {
-    throw new Error("Os lotes da festa precisam ter nomes unicos.");
-  }
-
   const existingBatches = await getEventBatches(supabase, eventId);
   const existingById = new Map(existingBatches.map((batch) => [batch.id, batch]));
   const seenIds = new Set<string>();
-  const rowsToUpdate: Array<{ id: string; name: string }> = [];
-  const rowsToInsert: string[] = [];
+  const rowsToUpdate: SubmittedBatchConfig[] = [];
+  const rowsToInsert: SubmittedBatchConfig[] = [];
 
-  normalizedRows.forEach((row) => {
-    const maybeId = row.id;
+  submittedRows.forEach((row, index) => {
+    const normalizedRow = {
+      ...row,
+      id: row.id?.trim() ?? "",
+      name: row.name.trim(),
+      sortOrder: Number.isFinite(row.sortOrder) ? row.sortOrder : index
+    };
 
-    if (maybeId && existingById.has(maybeId)) {
-      seenIds.add(maybeId);
-      rowsToUpdate.push({ id: maybeId, name: row.name });
+    if (normalizedRow.id && existingById.has(normalizedRow.id)) {
+      seenIds.add(normalizedRow.id);
+      rowsToUpdate.push(normalizedRow);
       return;
     }
 
-    rowsToInsert.push(row.name);
+    rowsToInsert.push(normalizedRow);
   });
 
   for (const row of rowsToUpdate) {
+    if (!row.id) {
+      continue;
+    }
+
     const current = existingById.get(row.id);
 
-    if (current && current.name !== row.name) {
-      const { error } = await supabase.from("event_batches").update({ name: row.name }).eq("id", row.id);
+    if (
+      current &&
+      (current.name !== row.name ||
+        current.pista_price !== row.pistaPrice ||
+        current.vip_price !== row.vipPrice ||
+        current.is_active !== row.isActive ||
+        current.sort_order !== row.sortOrder)
+    ) {
+      const { error } = await supabase
+        .from("event_batches")
+        .update({
+          name: row.name,
+          pista_price: row.pistaPrice,
+          vip_price: row.vipPrice,
+          is_active: row.isActive,
+          sort_order: row.sortOrder
+        })
+        .eq("id", row.id);
 
       if (error) {
         throw new Error(error.message);
@@ -421,9 +503,13 @@ async function syncEventBatches({
 
   if (rowsToInsert.length > 0) {
     const { error } = await supabase.from("event_batches").insert(
-      rowsToInsert.map((name) => ({
+      rowsToInsert.map((row) => ({
         event_id: eventId,
-        name
+        name: row.name,
+        pista_price: row.pistaPrice,
+        vip_price: row.vipPrice,
+        is_active: row.isActive,
+        sort_order: row.sortOrder
       }))
     );
 
@@ -445,7 +531,16 @@ async function syncEventBatches({
     }
 
     if ((count ?? 0) > 0) {
-      throw new Error("Nao e possivel remover lotes que ja foram usados em vendas.");
+      const { error: deactivateError } = await supabase
+        .from("event_batches")
+        .update({ is_active: false })
+        .in("id", removedIds);
+
+      if (deactivateError) {
+        throw new Error(deactivateError.message);
+      }
+
+      return;
     }
 
     const { error: deleteError } = await supabase.from("event_batches").delete().in("id", removedIds);
@@ -491,13 +586,15 @@ async function replaceSaleAttendees({
   eventId,
   saleId,
   sellerUserId,
-  guestNames
+  guestNames,
+  expectedQuantity
 }: {
   supabase: any;
   eventId: string;
   saleId: string;
   sellerUserId: string;
   guestNames: string[];
+  expectedQuantity: number;
 }) {
   const { error: deleteError } = await supabase.from("sale_attendees").delete().eq("sale_id", saleId);
 
@@ -505,21 +602,73 @@ async function replaceSaleAttendees({
     throw new Error(deleteError.message);
   }
 
-  if (guestNames.length === 0) {
-    return;
+  if (guestNames.length !== expectedQuantity) {
+    throw new Error("Quantidade e nomes precisam bater antes de salvar a venda.");
   }
 
-  const { error: insertError } = await supabase.from("sale_attendees").insert(
-    guestNames.map((guestName) => ({
-      event_id: eventId,
-      sale_id: saleId,
-      seller_user_id: sellerUserId,
-      guest_name: guestName
-    }))
-  );
+  if (guestNames.length === 0) {
+    return [];
+  }
+
+  const { data: insertedAttendees, error: insertError } = await supabase
+    .from("sale_attendees")
+    .insert(
+      guestNames.map((guestName) => ({
+        event_id: eventId,
+        sale_id: saleId,
+        seller_user_id: sellerUserId,
+        guest_name: guestName
+      }))
+    )
+    .select("id");
 
   if (insertError) {
     throw new Error(insertError.message);
+  }
+
+  if ((insertedAttendees?.length ?? 0) !== expectedQuantity) {
+    throw new Error("A venda foi recusada porque nem todos os nomes foram vinculados a lista.");
+  }
+
+  return insertedAttendees ?? [];
+}
+
+async function restoreSaleAttendees({
+  supabase,
+  eventId,
+  saleId,
+  attendees
+}: {
+  supabase: any;
+  eventId: string;
+  saleId: string;
+  attendees: Array<{
+    seller_user_id: string;
+    guest_name: string;
+    checked_in_at?: string | null;
+  }>;
+}) {
+  await supabase.from("sale_attendees").delete().eq("sale_id", saleId);
+
+  if (attendees.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.from("sale_attendees").insert(
+    attendees.map((attendee) => ({
+      event_id: eventId,
+      sale_id: saleId,
+      seller_user_id: attendee.seller_user_id,
+      guest_name: attendee.guest_name,
+      checked_in_at: attendee.checked_in_at ?? null
+    }))
+  );
+
+  if (error) {
+    console.error("[sales] Falha ao restaurar nomes da venda apos erro de edicao", {
+      saleId,
+      error: error.message
+    });
   }
 }
 
@@ -579,13 +728,24 @@ export async function createEventAction(
     const goalValue = Number(formData.get("goalValue") ?? 0);
     const description = String(formData.get("description") ?? "").trim();
     const status = String(formData.get("status") ?? "upcoming") as Database["public"]["Tables"]["events"]["Row"]["status"];
-    const batchNames = normalizeBatchNames(parseBatchNames(formData));
+    const hasVip = parseBooleanField(formData.get("hasVip"), true);
+    const hasGroupSales = parseBooleanField(formData.get("hasGroupSales"), true);
+    const batchConfigs = parseBatchConfigs(formData, hasVip);
 
     const validationError = validateEventFields({ name, venue, eventDate, goalValue });
     if (validationError) {
       return {
         status: "error",
         message: validationError
+      };
+    }
+
+    const commercialValidationError = validateCommercialConfig({ hasVip, batches: batchConfigs });
+
+    if (commercialValidationError) {
+      return {
+        status: "error",
+        message: commercialValidationError
       };
     }
 
@@ -600,6 +760,8 @@ export async function createEventAction(
         description: description || null,
         event_date: eventDate,
         goal_value: goalValue,
+        has_vip: hasVip,
+        has_group_sales: hasGroupSales,
         status,
         created_by: profile.id
       })
@@ -621,9 +783,13 @@ export async function createEventAction(
     }
 
     const { error: batchInsertError } = await supabase.from("event_batches").insert(
-      batchNames.map((batchName) => ({
+      batchConfigs.map((batch, index) => ({
         event_id: event.id,
-        name: batchName
+        name: batch.name,
+        pista_price: batch.pistaPrice,
+        vip_price: batch.vipPrice,
+        is_active: batch.isActive,
+        sort_order: Number.isFinite(batch.sortOrder) ? batch.sortOrder : index
       }))
     );
 
@@ -642,7 +808,9 @@ export async function createEventAction(
         eventName: name,
         eventSlug: event.slug,
         status,
-        batchCount: batchNames.length
+        batchCount: batchConfigs.filter((batch) => batch.isActive).length,
+        hasVip,
+        hasGroupSales
       }
     });
 
@@ -693,11 +861,13 @@ export async function createSaleAction(
     const quantity = Number(formData.get("quantity") ?? 0);
     const unitPrice = Number(formData.get("unitPrice") ?? 0);
     const batchId = String(formData.get("batchId") ?? "").trim();
-    const saleType = parseSaleType(formData.get("saleType"));
-    const ticketType = parseTicketType(formData.get("ticketType"));
+    const selectedSaleType = parseSaleType(formData.get("saleType"));
+    const selectedTicketType = parseTicketType(formData.get("ticketType"));
     const soldAt = String(formData.get("soldAt") ?? new Date().toISOString().slice(0, 10));
     const notes = String(formData.get("notes") ?? "").trim();
     const guestNames = parseGuestNames(formData);
+    const saleType = event.has_group_sales ? selectedSaleType : "normal";
+    const ticketType = event.has_vip ? selectedTicketType : "pista";
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
       return {
@@ -744,6 +914,13 @@ export async function createSaleAction(
     await getSellerMembershipOrThrow(supabase, event.id, sellerUserId);
     const eventBatch = await ensureEventBatchBelongsToEvent(supabase, event.id, batchId);
 
+    if (!eventBatch.is_active) {
+      return {
+        status: "error",
+        message: "Selecione um lote ativo para registrar a venda."
+      };
+    }
+
     const { data: createdSale, error } = await supabase
       .from("sales")
       .insert({
@@ -766,13 +943,34 @@ export async function createSaleAction(
       throw new Error(error?.message ?? "Nao foi possivel registrar a venda.");
     }
 
-    await replaceSaleAttendees({
-      supabase,
-      eventId: event.id,
-      saleId: createdSale.id,
-      sellerUserId,
-      guestNames
-    });
+    try {
+      const insertedAttendees = await replaceSaleAttendees({
+        supabase,
+        eventId: event.id,
+        saleId: createdSale.id,
+        sellerUserId,
+        guestNames,
+        expectedQuantity: quantity
+      });
+
+      console.info("[sales] Venda criada com nomes vinculados", {
+        eventId: event.id,
+        saleId: createdSale.id,
+        quantity,
+        attendeeCount: insertedAttendees.length
+      });
+    } catch (attendeeError) {
+      console.error("[sales] Falha ao vincular nomes; revertendo venda criada", {
+        eventId: event.id,
+        saleId: createdSale.id,
+        quantity,
+        attendeeCount: guestNames.length,
+        error: attendeeError instanceof Error ? attendeeError.message : String(attendeeError)
+      });
+
+      await supabase.from("sales").delete().eq("id", createdSale.id);
+      throw attendeeError;
+    }
 
     await logActivity(supabase, {
       actorUserId: profile.id,
@@ -843,8 +1041,8 @@ export async function updateSaleAction(
     const quantity = Number(formData.get("quantity") ?? sale.quantity);
     const unitPrice = Number(formData.get("unitPrice") ?? sale.unit_price);
     const batchId = String(formData.get("batchId") ?? sale.batch_id ?? "").trim();
-    const saleType = parseSaleType(formData.get("saleType") ?? sale.sale_type);
-    const ticketType = parseTicketType(formData.get("ticketType") ?? sale.ticket_type);
+    const selectedSaleType = parseSaleType(formData.get("saleType") ?? sale.sale_type);
+    const selectedTicketType = parseTicketType(formData.get("ticketType") ?? sale.ticket_type);
     const soldAt = String(formData.get("soldAt") ?? sale.sold_at);
     const notes = String(formData.get("notes") ?? sale.notes ?? "").trim();
     const requestedSellerUserId = String(formData.get("sellerId") ?? sale.seller_user_id).trim();
@@ -879,17 +1077,28 @@ export async function updateSaleAction(
       };
     }
 
-    if (!saleType) {
+    if (!selectedSaleType && (sale.sale_type ?? "normal")) {
       return {
         status: "error",
         message: "Selecione um tipo de venda valido."
       };
     }
 
-    if (!ticketType) {
+    if (!selectedTicketType && (sale.ticket_type ?? "pista")) {
       return {
         status: "error",
         message: "Selecione um tipo de ingresso valido para a venda."
+      };
+    }
+
+    const eventRow = await getEventRowBySlug(eventSlug || "");
+    const saleType = eventRow.has_group_sales ? selectedSaleType : "normal";
+    const ticketType = eventRow.has_vip ? selectedTicketType : "pista";
+
+    if (!saleType) {
+      return {
+        status: "error",
+        message: "Selecione um tipo de venda valido."
       };
     }
 
@@ -902,6 +1111,22 @@ export async function updateSaleAction(
 
     await getSellerMembershipOrThrow(supabase, sale.event_id, sellerUserId);
     const eventBatch = await ensureEventBatchBelongsToEvent(supabase, sale.event_id, batchId);
+
+    if (!eventBatch.is_active && eventBatch.id !== sale.batch_id) {
+      return {
+        status: "error",
+        message: "Selecione um lote ativo para a venda."
+      };
+    }
+
+    const { data: previousAttendees, error: previousAttendeesError } = await supabase
+      .from("sale_attendees")
+      .select("seller_user_id, guest_name, checked_in_at")
+      .eq("sale_id", saleId);
+
+    if (previousAttendeesError) {
+      throw new Error(previousAttendeesError.message);
+    }
 
     const { error } = await supabase
       .from("sales")
@@ -922,13 +1147,53 @@ export async function updateSaleAction(
       throw new Error(error.message);
     }
 
-    await replaceSaleAttendees({
-      supabase,
-      eventId: sale.event_id,
-      saleId,
-      sellerUserId,
-      guestNames
-    });
+    try {
+      const insertedAttendees = await replaceSaleAttendees({
+        supabase,
+        eventId: sale.event_id,
+        saleId,
+        sellerUserId,
+        guestNames,
+        expectedQuantity: quantity
+      });
+
+      console.info("[sales] Venda atualizada com nomes consistentes", {
+        eventId: sale.event_id,
+        saleId,
+        quantity,
+        attendeeCount: insertedAttendees.length
+      });
+    } catch (attendeeError) {
+      console.error("[sales] Falha ao recriar nomes; restaurando nomes anteriores", {
+        eventId: sale.event_id,
+        saleId,
+        quantity,
+        attendeeCount: guestNames.length,
+        error: attendeeError instanceof Error ? attendeeError.message : String(attendeeError)
+      });
+
+      await supabase
+        .from("sales")
+        .update({
+          seller_user_id: sale.seller_user_id,
+          batch_id: sale.batch_id,
+          sale_type: sale.sale_type,
+          ticket_type: sale.ticket_type,
+          quantity: sale.quantity,
+          unit_price: sale.unit_price,
+          payment_status: sale.payment_status,
+          sold_at: sale.sold_at,
+          notes: sale.notes
+        })
+        .eq("id", saleId);
+      await restoreSaleAttendees({
+        supabase,
+        eventId: sale.event_id,
+        saleId,
+        attendees: previousAttendees ?? []
+      });
+      throw attendeeError;
+    }
 
     await logActivity(supabase, {
       actorUserId: profile.id,
@@ -1763,14 +2028,24 @@ export async function updateEventAction(
     const eventDate = String(formData.get("eventDate") ?? "").trim();
     const goalValue = Number(formData.get("goalValue") ?? 0);
     const description = String(formData.get("description") ?? "").trim();
-    const submittedBatchIds = formData.getAll("batchIds").map((value) => String(value ?? "").trim());
-    const submittedBatchNames = parseBatchNames(formData);
+    const hasVip = parseBooleanField(formData.get("hasVip"), event.has_vip ?? true);
+    const hasGroupSales = parseBooleanField(formData.get("hasGroupSales"), event.has_group_sales ?? true);
+    const submittedBatchRows = parseBatchConfigs(formData, hasVip);
     const validationError = validateEventFields({ name, venue, eventDate, goalValue });
 
     if (validationError) {
       return {
         status: "error",
         message: validationError
+      };
+    }
+
+    const commercialValidationError = validateCommercialConfig({ hasVip, batches: submittedBatchRows });
+
+    if (commercialValidationError) {
+      return {
+        status: "error",
+        message: commercialValidationError
       };
     }
 
@@ -1784,6 +2059,8 @@ export async function updateEventAction(
         description: description || null,
         event_date: eventDate,
         goal_value: goalValue,
+        has_vip: hasVip,
+        has_group_sales: hasGroupSales,
         slug: nextSlug
       })
       .eq("id", event.id);
@@ -1795,8 +2072,7 @@ export async function updateEventAction(
     await syncEventBatches({
       supabase,
       eventId: event.id,
-      submittedIds: submittedBatchIds,
-      submittedNames: submittedBatchNames
+      submittedRows: submittedBatchRows
     });
 
     await logActivity(supabase, {
@@ -1810,7 +2086,9 @@ export async function updateEventAction(
         previousSlug: currentSlug,
         nextSlug,
         goalValue,
-        batchCount: normalizeBatchNames(submittedBatchNames).length
+        batchCount: submittedBatchRows.filter((batch) => batch.isActive).length,
+        hasVip,
+        hasGroupSales
       }
     });
 

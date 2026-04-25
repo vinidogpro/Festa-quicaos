@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ChevronDown, CircleAlert, Pencil, Plus, Sparkles, Ticket, Trash2 } from "lucide-react";
@@ -11,6 +11,7 @@ import { SectionCard } from "@/components/ui/section-card";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { EventBatch, SALE_TYPE_OPTIONS, SalesRecord, SellerOption, TicketType, ViewerPermissions } from "@/lib/types";
 import { formatCurrency, formatSaleTypeLabel, formatTicketTypeLabel } from "@/lib/utils";
+import { buildSalesChecklistSummary, getReferenceSalePrice, validateSaleDraft } from "@/lib/sales-validation";
 
 interface SalesControlPanelProps {
   eventId: string;
@@ -18,6 +19,8 @@ interface SalesControlPanelProps {
   permissions: ViewerPermissions;
   sellerOptions: SellerOption[];
   eventBatches: EventBatch[];
+  hasVip: boolean;
+  hasGroupSales: boolean;
   compact?: boolean;
 }
 
@@ -46,11 +49,15 @@ function SaleTypeBadge({ saleType }: { saleType: SalesRecord["saleType"] }) {
 function TicketTypeSelector({
   name,
   defaultValue = "pista",
-  required = false
+  required = false,
+  value,
+  onChange
 }: {
   name: string;
   defaultValue?: TicketType;
   required?: boolean;
+  value?: TicketType;
+  onChange?: (value: TicketType) => void;
 }) {
   return (
     <fieldset className="grid gap-2">
@@ -61,9 +68,11 @@ function TicketTypeSelector({
             type="radio"
             name={name}
             value="vip"
-            defaultChecked={defaultValue === "vip"}
+            checked={value ? value === "vip" : undefined}
+            defaultChecked={value ? undefined : defaultValue === "vip"}
             required={required}
             className="sr-only"
+            onChange={() => onChange?.("vip")}
           />
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -79,9 +88,11 @@ function TicketTypeSelector({
             type="radio"
             name={name}
             value="pista"
-            defaultChecked={defaultValue === "pista"}
+            checked={value ? value === "pista" : undefined}
+            defaultChecked={value ? undefined : defaultValue === "pista"}
             required={required}
             className="sr-only"
+            onChange={() => onChange?.("pista")}
           />
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -98,10 +109,12 @@ function TicketTypeSelector({
 
 function GuestNameFields({
   quantity,
-  values = []
+  values = [],
+  onChange
 }: {
   quantity: number;
   values?: string[];
+  onChange?: (index: number, value: string) => void;
 }) {
   if (quantity <= 0) {
     return null;
@@ -123,10 +136,120 @@ function GuestNameFields({
           <input
             key={index}
             name="guestNames"
-            defaultValue={values[index] ?? ""}
+            value={values[index] ?? ""}
             placeholder={`Nome ${index + 1}`}
             className="ds-input"
+            onChange={(event) => onChange?.(index, event.target.value)}
           />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FormAlert({
+  tone,
+  children,
+  actions
+}: {
+  tone: "warning" | "error";
+  children: ReactNode;
+  actions?: ReactNode;
+}) {
+  const palette =
+    tone === "error"
+      ? "border-rose-200 bg-rose-50 text-rose-800"
+      : "border-amber-200 bg-amber-50 text-amber-800";
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 text-sm ${palette}`}>
+      <div className="space-y-3">
+        <div>{children}</div>
+        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function SalesChecklistCard({
+  sales,
+  eventBatches,
+  hasGroupSales
+}: {
+  sales: SalesRecord[];
+  eventBatches: EventBatch[];
+  hasGroupSales: boolean;
+}) {
+  const summary = useMemo(() => buildSalesChecklistSummary(sales, eventBatches), [eventBatches, sales]);
+  const items = [
+    {
+      label: "Nomes duplicados",
+      value: summary.duplicateNamesCount,
+      tone: summary.duplicateNamesCount > 0 ? "warning" : "neutral",
+      helper: summary.duplicateNamesCount > 0 ? "Revisar nomes possivelmente repetidos" : "Nenhum duplicado detectado"
+    },
+    {
+      label: "Nomes invalidos",
+      value: summary.suspiciousNamesCount,
+      tone: summary.suspiciousNamesCount > 0 ? "warning" : "neutral",
+      helper: summary.suspiciousNamesCount > 0 ? "Existem nomes suspeitos para conferir" : "Nomes parecem consistentes"
+    },
+    {
+      label: "Preco fora do padrao",
+      value: summary.outOfStandardPriceCount,
+      tone: summary.outOfStandardPriceCount > 0 ? "warning" : "neutral",
+      helper: summary.outOfStandardPriceCount > 0 ? "Algumas vendas fogem do valor esperado" : "Precos alinhados com os lotes"
+    },
+    {
+      label: "Possivel grupo",
+      value: summary.possibleGroupCount,
+      tone: summary.possibleGroupCount > 0 ? "warning" : "neutral",
+      helper: summary.possibleGroupCount > 0 ? "Vendas abaixo do padrao ainda marcadas como normal" : "Nenhuma venda suspeita de grupo"
+    },
+    {
+      label: "Inconsistencias",
+      value: summary.inconsistentSalesCount,
+      tone: summary.inconsistentSalesCount > 0 ? "error" : "neutral",
+      helper: summary.inconsistentSalesCount > 0 ? "Quantidade e nomes precisam bater antes da festa" : "Quantidade e nomes estao alinhados"
+    },
+    {
+      label: "Entradas manuais",
+      value: "-",
+      tone: "neutral",
+      helper: "Revise na aba Lista para conferir nomes fora das vendas"
+    }
+  ] as const;
+
+  return (
+    <div className="mb-5 rounded-[28px] border border-slate-200 bg-white/85 p-4 shadow-soft sm:p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Checklist pre-festa</p>
+          <h3 className="mt-1 font-[var(--font-heading)] text-xl font-bold text-slate-950">
+            Validacoes inteligentes da operacao
+          </h3>
+          <p className="mt-2 text-sm text-slate-500">
+            Use este bloco para revisar nomes, preco, grupo e consistencia antes de fechar a lista.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {items.filter((item) => hasGroupSales || item.label !== "Possivel grupo").map((item) => (
+          <div
+            key={item.label}
+            className={`rounded-2xl border px-4 py-4 ${
+              item.tone === "error"
+                ? "border-rose-200 bg-rose-50/70"
+                : item.tone === "warning"
+                  ? "border-amber-200 bg-amber-50/70"
+                  : "border-slate-200 bg-slate-50/80"
+            }`}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{item.label}</p>
+            <p className="mt-2 text-3xl font-bold text-slate-950">{item.value}</p>
+            <p className="mt-2 text-sm text-slate-500">{item.helper}</p>
+          </div>
         ))}
       </div>
     </div>
@@ -157,17 +280,117 @@ function ActionFeedback({
   );
 }
 
+function getSuggestedBatchPrice({
+  eventBatches,
+  batchId,
+  fallbackBatchLabel,
+  ticketType,
+  hasVip
+}: {
+  eventBatches: EventBatch[];
+  batchId: string;
+  fallbackBatchLabel?: string;
+  ticketType: TicketType;
+  hasVip: boolean;
+}) {
+  const selectedBatch = eventBatches.find((batch) => batch.id === batchId);
+
+  if (!selectedBatch) {
+    return getReferenceSalePrice(eventBatches, fallbackBatchLabel ?? "", hasVip ? ticketType : "pista");
+  }
+
+  if (!hasVip) {
+    return selectedBatch.pistaPrice ?? getReferenceSalePrice(eventBatches, selectedBatch.name, "pista");
+  }
+
+  return ticketType === "vip"
+    ? selectedBatch.vipPrice ?? getReferenceSalePrice(eventBatches, selectedBatch.name, "vip")
+    : selectedBatch.pistaPrice ?? getReferenceSalePrice(eventBatches, selectedBatch.name, "pista");
+}
+
+function InlineAdvisory({
+  children,
+  actions,
+  tone = "warning"
+}: {
+  children: ReactNode;
+  actions?: ReactNode;
+  tone?: "warning" | "error";
+}) {
+  const palette =
+    tone === "error"
+      ? "border-rose-200/80 bg-rose-50/70 text-rose-800"
+      : "border-amber-200/80 bg-amber-50/70 text-amber-800";
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 text-sm ${palette}`}>
+      <div className="flex items-start gap-2">
+        <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+        <div className="min-w-0 space-y-2">
+          <div className="leading-6">{children}</div>
+          {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SaleQuickForm({
   eventId,
   permissions,
   sellerOptions,
-  eventBatches
-}: Pick<SalesControlPanelProps, "eventId" | "permissions" | "sellerOptions" | "eventBatches">) {
+  eventBatches,
+  sales,
+  hasVip,
+  hasGroupSales
+}: Pick<
+  SalesControlPanelProps,
+  "eventId" | "permissions" | "sellerOptions" | "eventBatches" | "sales" | "hasVip" | "hasGroupSales"
+>) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
+  const submitNonceRef = useRef(0);
+  const handledSuccessNonceRef = useRef(0);
   const [state, action] = useFormState(createSaleAction, initialSalesActionState);
+  const activeEventBatches = useMemo(
+    () => eventBatches.filter((batch) => batch.isActive),
+    [eventBatches]
+  );
+  const defaultBatchId = activeEventBatches[0]?.id ?? eventBatches[0]?.id ?? "";
   const [quantity, setQuantity] = useState("1");
-  const [unitPrice, setUnitPrice] = useState("");
+  const [batchId, setBatchId] = useState(defaultBatchId);
+  const [saleType, setSaleType] = useState<SalesRecord["saleType"]>("normal");
+  const [ticketType, setTicketType] = useState<TicketType>("pista");
+  const [unitPrice, setUnitPrice] = useState(() => {
+    const initialSuggestedPrice = getSuggestedBatchPrice({
+      eventBatches,
+      batchId: defaultBatchId,
+      ticketType: "pista",
+      hasVip
+    });
+
+    return initialSuggestedPrice !== null ? String(initialSuggestedPrice) : "";
+  });
+  const [guestNames, setGuestNames] = useState<string[]>([""]);
+  const [confirmedNormalDiscount, setConfirmedNormalDiscount] = useState(false);
+  const [localError, setLocalError] = useState("");
+
+  const batchLabelMap = useMemo(
+    () => new Map(eventBatches.map((batch) => [batch.id, batch.name])),
+    [eventBatches]
+  );
+  const batchLabel = batchLabelMap.get(batchId) ?? "";
+  const suggestedPrice = useMemo(
+    () =>
+      getSuggestedBatchPrice({
+        eventBatches,
+        batchId,
+        fallbackBatchLabel: batchLabel,
+        ticketType,
+        hasVip
+      }),
+    [batchId, batchLabel, eventBatches, hasVip, ticketType]
+  );
 
   const totalPreview = useMemo(() => {
     const parsedQuantity = Number(quantity);
@@ -179,15 +402,140 @@ function SaleQuickForm({
 
     return Math.max(parsedQuantity, 0) * Math.max(parsedUnitPrice, 0);
   }, [quantity, unitPrice]);
+  const parsedQuantity = Math.max(Number(quantity) || 0, 0);
+  const parsedUnitPrice = Number(unitPrice.replace(",", "."));
+  const hasTypedUnitPrice = unitPrice.trim() !== "";
+  const existingGuestNames = useMemo(
+    () => sales.flatMap((sale) => sale.attendeeNames),
+    [sales]
+  );
+  const validation = useMemo(
+    () =>
+      validateSaleDraft({
+        quantity: parsedQuantity,
+        unitPrice: Number.isFinite(parsedUnitPrice) ? parsedUnitPrice : 0,
+        batchLabel,
+        ticketType: hasVip ? ticketType : "pista",
+        saleType,
+        guestNames,
+        existingGuestNames,
+        eventBatches
+      }),
+    [parsedQuantity, parsedUnitPrice, batchLabel, ticketType, saleType, guestNames, existingGuestNames, eventBatches, hasVip]
+  );
+  const standardPriceLabel = validation.standardPrice !== null ? formatCurrency(validation.standardPrice) : null;
 
   useEffect(() => {
-    if (state.status === "success") {
+    setGuestNames((currentValues) => {
+      const nextLength = Math.max(parsedQuantity, 0);
+
+      if (nextLength === currentValues.length) {
+        return currentValues;
+      }
+
+      if (nextLength < currentValues.length) {
+        return currentValues.slice(0, nextLength);
+      }
+
+      return [...currentValues, ...Array.from({ length: nextLength - currentValues.length }, () => "")];
+    });
+  }, [parsedQuantity]);
+
+  useEffect(() => {
+    setConfirmedNormalDiscount(false);
+  }, [batchId, ticketType, unitPrice]);
+
+  useEffect(() => {
+    if (!hasVip) {
+      setTicketType("pista");
+    }
+  }, [hasVip]);
+
+  useEffect(() => {
+    if (!hasGroupSales) {
+      setSaleType("normal");
+    }
+  }, [hasGroupSales]);
+
+  useEffect(() => {
+    const nextDefaultBatchId = activeEventBatches[0]?.id ?? eventBatches[0]?.id ?? "";
+
+    if (!batchId || !eventBatches.some((batch) => batch.id === batchId)) {
+      setBatchId(nextDefaultBatchId);
+    }
+  }, [activeEventBatches, batchId, eventBatches]);
+
+  useEffect(() => {
+    if (state.status === "success" && handledSuccessNonceRef.current < submitNonceRef.current) {
+      handledSuccessNonceRef.current = submitNonceRef.current;
       formRef.current?.reset();
       setQuantity("1");
-      setUnitPrice("");
+      setBatchId(defaultBatchId);
+      setSaleType("normal");
+      setTicketType("pista");
+      const resetSuggestedPrice = getSuggestedBatchPrice({
+        eventBatches,
+        batchId: defaultBatchId,
+        ticketType: "pista",
+        hasVip
+      });
+      setUnitPrice(resetSuggestedPrice !== null ? String(resetSuggestedPrice) : "");
+      setGuestNames([""]);
+      setConfirmedNormalDiscount(false);
+      setLocalError("");
       router.refresh();
     }
-  }, [router, state.status]);
+  }, [defaultBatchId, eventBatches, hasVip, router, state]);
+
+  function updateGuestName(index: number, value: string) {
+    setGuestNames((currentValues) => currentValues.map((name, currentIndex) => (currentIndex === index ? value : name)));
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    const filledNames = guestNames.map((name) => name.trim()).filter(Boolean);
+
+    setLocalError("");
+
+    if (filledNames.length !== parsedQuantity) {
+      event.preventDefault();
+      setLocalError("Quantidade de ingressos e nomes preenchidos precisam ser exatamente iguais.");
+      return;
+    }
+
+    if (hasTypedUnitPrice && hasGroupSales && validation.isBelowStandardPrice && saleType !== "grupo" && !confirmedNormalDiscount) {
+      const shouldKeepNormal = window.confirm(
+        `Valor abaixo do padrão do ${batchLabel || "lote"}${standardPriceLabel ? ` (${standardPriceLabel})` : ""}. Deseja manter esta venda como normal?`
+      );
+
+      if (!shouldKeepNormal) {
+        event.preventDefault();
+        return;
+      }
+    }
+
+    const confirmations: string[] = [];
+
+    if (hasTypedUnitPrice && validation.isPriceOutOfStandard && standardPriceLabel) {
+      confirmations.push(`Este valor esta diferente do preco padrao deste lote (${standardPriceLabel}). Deseja continuar?`);
+    }
+
+    if (hasTypedUnitPrice && hasVip && validation.matchesOppositeTicketTypePrice) {
+      confirmations.push("O valor informado parece corresponder ao outro tipo de ingresso. Deseja revisar antes de continuar?");
+    }
+
+    if (validation.isLargeSale) {
+      confirmations.push(`Voce esta cadastrando ${parsedQuantity} ingressos. Deseja confirmar esta venda grande?`);
+    }
+
+    for (const message of confirmations) {
+      if (!window.confirm(message)) {
+        event.preventDefault();
+        return;
+      }
+    }
+
+    submitNonceRef.current += 1;
+  }
 
   return (
     <div className="mb-5 overflow-hidden rounded-[28px] border border-brand-200 bg-gradient-to-br from-brand-50 via-white to-slate-50">
@@ -211,14 +559,14 @@ function SaleQuickForm({
             Preencha so o essencial. Ao salvar, a venda entra automaticamente como paga e atualiza a lista e o ranking do evento.
           </p>
 
-          <div className="mt-5 grid gap-3 rounded-[24px] border border-brand-100 bg-white/80 p-3 sm:grid-cols-3 sm:p-4">
+            <div className="mt-5 grid gap-3 rounded-[24px] border border-brand-100 bg-white/80 p-3 sm:grid-cols-3 sm:p-4">
             <div className="rounded-2xl bg-brand-50 px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700">1. Base da venda</p>
               <p className="mt-1 text-sm text-slate-600">Escolha vendedor, quantidade e valor unitario.</p>
             </div>
             <div className="rounded-2xl bg-brand-50 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700">2. Classifique</p>
-              <p className="mt-1 text-sm text-slate-600">Defina lote, tipo da venda e se o ingresso e VIP ou PISTA.</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700">2. Classifique</p>
+              <p className="mt-1 text-sm text-slate-600">Defina lote e use apenas os tipos comerciais ativos desta festa.</p>
             </div>
             <div className="rounded-2xl bg-brand-50 px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700">3. Feche rapido</p>
@@ -226,7 +574,7 @@ function SaleQuickForm({
             </div>
           </div>
 
-          <form ref={formRef} action={action} className="mt-5 grid gap-5">
+          <form ref={formRef} action={action} onSubmit={handleSubmit} className="mt-5 grid gap-5">
             <input type="hidden" name="eventId" value={eventId} />
 
             {permissions.sellerUserId ? (
@@ -288,37 +636,134 @@ function SaleQuickForm({
                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Lote</span>
                 <select
                   name="batchId"
-                  defaultValue={eventBatches[0]?.id ?? ""}
+                  value={batchId}
                   required
+                  onChange={(event) => {
+                    setBatchId(event.target.value);
+                  }}
                   className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-base font-semibold text-slate-950 outline-none transition focus:border-brand-500"
                 >
-                  {eventBatches.map((batch) => (
+                  {activeEventBatches.map((batch) => (
                     <option key={batch.id} value={batch.id}>
                       {batch.name}
                     </option>
                   ))}
                 </select>
               </label>
-              <label className="grid gap-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Tipo da venda</span>
-                <select
-                  name="saleType"
-                  defaultValue="normal"
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-base font-semibold text-slate-950 outline-none transition focus:border-brand-500"
-                >
-                  {SALE_TYPE_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {formatSaleTypeLabel(option)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {hasGroupSales ? (
+                <label className="grid gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Tipo da venda</span>
+                  <select
+                    name="saleType"
+                    value={saleType}
+                    onChange={(event) => setSaleType(event.target.value as SalesRecord["saleType"])}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-base font-semibold text-slate-950 outline-none transition focus:border-brand-500"
+                  >
+                    {SALE_TYPE_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {formatSaleTypeLabel(option)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <input type="hidden" name="saleType" value="normal" />
+              )}
             </div>
 
-            <TicketTypeSelector name="ticketType" defaultValue="pista" required />
+            {hasVip ? (
+              <TicketTypeSelector
+                name="ticketType"
+                defaultValue="pista"
+                value={ticketType}
+                onChange={setTicketType}
+                required
+              />
+            ) : (
+              <input type="hidden" name="ticketType" value="pista" />
+            )}
+
+            {hasTypedUnitPrice && hasGroupSales && validation.isBelowStandardPrice && saleType !== "grupo" && standardPriceLabel ? (
+              <InlineAdvisory
+                actions={
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSaleType("grupo");
+                        setConfirmedNormalDiscount(false);
+                      }}
+                      className="rounded-full border border-slate-900 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800"
+                    >
+                      Marcar como grupo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmedNormalDiscount(true)}
+                      className="rounded-full border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-50"
+                    >
+                      Manter como normal
+                    </button>
+                  </>
+                }
+              >
+                Valor abaixo do padrão do {batchLabel || "lote"} ({standardPriceLabel}). Verifique se é uma venda em grupo.
+              </InlineAdvisory>
+            ) : hasTypedUnitPrice && validation.isPriceOutOfStandard && standardPriceLabel ? (
+              <InlineAdvisory>
+                Valor diferente do padrão do {batchLabel || "lote"} ({standardPriceLabel})
+                {hasVip && validation.matchesOppositeTicketTypePrice
+                  ? ". Ele também corresponde ao outro tipo de ingresso selecionado."
+                  : "."}
+                {suggestedPrice !== null ? (
+                  <>
+                    {" "}
+                    <button
+                      type="button"
+                      onClick={() => setUnitPrice(String(suggestedPrice))}
+                      className="ml-1 inline-flex font-semibold text-amber-900 underline decoration-amber-300 underline-offset-2"
+                    >
+                      Usar preço padrão
+                    </button>
+                  </>
+                ) : null}
+              </InlineAdvisory>
+            ) : hasTypedUnitPrice && hasVip && validation.matchesOppositeTicketTypePrice ? (
+              <InlineAdvisory>
+                O valor informado corresponde ao outro tipo de ingresso selecionado. Revise VIP/PISTA antes de salvar.
+              </InlineAdvisory>
+            ) : null}
 
             <div className="grid gap-5 2xl:grid-cols-[1.2fr_0.8fr] 2xl:items-start">
-              <GuestNameFields quantity={Math.max(Number(quantity) || 0, 0)} />
+              <div className="grid gap-3">
+                <GuestNameFields quantity={parsedQuantity} values={guestNames} onChange={updateGuestName} />
+                {localError ? <FormAlert tone="error">{localError}</FormAlert> : null}
+                {validation.hasQuantityMismatch ? (
+                  <FormAlert tone="error">
+                    Quantidade de ingressos e nomes preenchidos precisam bater exatamente para salvar a venda.
+                  </FormAlert>
+                ) : null}
+                {validation.duplicateNamesInSale.length > 0 ? (
+                  <InlineAdvisory>
+                    Existem nomes repetidos nesta venda. Deseja revisar? {validation.duplicateNamesInSale.join(", ")}.
+                  </InlineAdvisory>
+                ) : null}
+                {validation.duplicateNamesInEvent.length > 0 ? (
+                  <InlineAdvisory>
+                    Este nome ja esta na lista. Confirme antes de continuar: {validation.duplicateNamesInEvent.join(", ")}.
+                  </InlineAdvisory>
+                ) : null}
+                {validation.suspiciousNames.length > 0 ? (
+                  <InlineAdvisory>
+                    Alguns nomes parecem invalidos ou genericos: {validation.suspiciousNames.join(", ")}.
+                  </InlineAdvisory>
+                ) : null}
+                {validation.isLargeSale ? (
+                  <InlineAdvisory>
+                    Voce esta cadastrando {parsedQuantity} ingressos. Confirme com atencao antes de salvar.
+                  </InlineAdvisory>
+                ) : null}
+              </div>
 
               <details className="rounded-2xl border border-slate-200 bg-white/80 p-4">
                 <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
@@ -405,22 +850,80 @@ function SaleDeleteForm({ eventId, saleId }: { eventId: string; saleId: string }
   );
 }
 
-function SaleEditForm({
+export function SaleEditForm({
   eventId,
   row,
   permissions,
   sellerOptions,
-  eventBatches
+  eventBatches,
+  existingSales = [],
+  hasVip,
+  hasGroupSales
 }: {
   eventId: string;
   row: SalesRecord;
   permissions: ViewerPermissions;
   sellerOptions: SellerOption[];
   eventBatches: EventBatch[];
+  existingSales?: SalesRecord[];
+  hasVip: boolean;
+  hasGroupSales: boolean;
 }) {
   const router = useRouter();
   const [state, action] = useFormState(updateSaleAction, initialSalesActionState);
   const [quantity, setQuantity] = useState(String(row.sold));
+  const [unitPrice, setUnitPrice] = useState(String(row.unitPrice));
+  const [batchId, setBatchId] = useState(row.batchId);
+  const [saleType, setSaleType] = useState<SalesRecord["saleType"]>(row.saleType);
+  const [ticketType, setTicketType] = useState<TicketType>(row.ticketType);
+  const [guestNames, setGuestNames] = useState<string[]>(row.attendeeNames);
+  const [confirmedNormalDiscount, setConfirmedNormalDiscount] = useState(false);
+  const [localError, setLocalError] = useState("");
+  const batchLabelMap = useMemo(
+    () => new Map(eventBatches.map((batch) => [batch.id, batch.name])),
+    [eventBatches]
+  );
+  const selectableBatches = useMemo(
+    () => eventBatches.filter((batch) => batch.isActive || batch.id === row.batchId),
+    [eventBatches, row.batchId]
+  );
+  const batchLabel = batchLabelMap.get(batchId) ?? row.batchLabel;
+  const suggestedPrice = useMemo(
+    () =>
+      getSuggestedBatchPrice({
+        eventBatches,
+        batchId,
+        fallbackBatchLabel: batchLabel,
+        ticketType,
+        hasVip
+      }),
+    [batchId, batchLabel, eventBatches, hasVip, ticketType]
+  );
+  const parsedQuantity = Math.max(Number(quantity) || 0, 0);
+  const parsedUnitPrice = Number(unitPrice.replace(",", "."));
+  const hasTypedUnitPrice = unitPrice.trim() !== "";
+  const existingGuestNames = useMemo(
+    () =>
+      existingSales
+        .filter((sale) => sale.id !== row.id)
+        .flatMap((sale) => sale.attendeeNames),
+    [existingSales, row.id]
+  );
+  const validation = useMemo(
+    () =>
+      validateSaleDraft({
+        quantity: parsedQuantity,
+        unitPrice: Number.isFinite(parsedUnitPrice) ? parsedUnitPrice : 0,
+        batchLabel,
+        ticketType: hasVip ? ticketType : "pista",
+        saleType,
+        guestNames,
+        existingGuestNames,
+        eventBatches
+      }),
+    [parsedQuantity, parsedUnitPrice, batchLabel, ticketType, saleType, guestNames, existingGuestNames, eventBatches, hasVip]
+  );
+  const standardPriceLabel = validation.standardPrice !== null ? formatCurrency(validation.standardPrice) : null;
 
   useEffect(() => {
     if (state.status === "success") {
@@ -428,13 +931,107 @@ function SaleEditForm({
     }
   }, [router, state.status]);
 
+  useEffect(() => {
+    setGuestNames((currentValues) => {
+      const nextLength = Math.max(parsedQuantity, 0);
+
+      if (nextLength === currentValues.length) {
+        return currentValues;
+      }
+
+      if (nextLength < currentValues.length) {
+        return currentValues.slice(0, nextLength);
+      }
+
+      return [...currentValues, ...Array.from({ length: nextLength - currentValues.length }, () => "")];
+    });
+  }, [parsedQuantity]);
+
+  useEffect(() => {
+    setConfirmedNormalDiscount(false);
+  }, [batchId, ticketType, unitPrice]);
+
+  useEffect(() => {
+    if (!hasVip) {
+      setTicketType("pista");
+    }
+  }, [hasVip]);
+
+  useEffect(() => {
+    if (!hasGroupSales) {
+      setSaleType("normal");
+    }
+  }, [hasGroupSales]);
+
+  function updateGuestName(index: number, value: string) {
+    setGuestNames((currentValues) => currentValues.map((name, currentIndex) => (currentIndex === index ? value : name)));
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    const filledNames = guestNames.map((name) => name.trim()).filter(Boolean);
+
+    setLocalError("");
+
+    if (filledNames.length !== parsedQuantity) {
+      event.preventDefault();
+      setLocalError("Quantidade e nomes precisam permanecer alinhados para salvar a venda.");
+      return;
+    }
+
+    if (hasTypedUnitPrice && validation.isBelowStandardPrice && saleType !== "grupo" && !confirmedNormalDiscount) {
+      const shouldKeepNormal = window.confirm(
+        `Valor abaixo do padrão do ${batchLabel || "lote"}${standardPriceLabel ? ` (${standardPriceLabel})` : ""}. Deseja manter esta venda como normal?`
+      );
+
+      if (!shouldKeepNormal) {
+        event.preventDefault();
+        return;
+      }
+    }
+
+    const criticalChanges =
+      unitPrice !== String(row.unitPrice) || batchId !== row.batchId || ticketType !== row.ticketType;
+
+    if (criticalChanges) {
+      const confirmed = window.confirm(
+        "Essa alteracao impactara o financeiro, ranking e relatorios. Deseja continuar?"
+      );
+
+      if (!confirmed) {
+        event.preventDefault();
+        return;
+      }
+    }
+
+    if (hasTypedUnitPrice && !validation.isBelowStandardPrice && validation.isPriceOutOfStandard && standardPriceLabel) {
+      const confirmed = window.confirm(
+        `Este valor esta diferente do preco padrao deste lote (${standardPriceLabel}). Deseja continuar?`
+      );
+
+      if (!confirmed) {
+        event.preventDefault();
+        return;
+      }
+    }
+
+    if (hasTypedUnitPrice && validation.matchesOppositeTicketTypePrice) {
+      const confirmed = window.confirm(
+        "O valor informado parece corresponder ao outro tipo de ingresso. Deseja continuar mesmo assim?"
+      );
+
+      if (!confirmed) {
+        event.preventDefault();
+      }
+    }
+  }
+
   return (
     <details data-sale-edit className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3">
       <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
         <Pencil className="h-4 w-4" />
         Editar venda
       </summary>
-      <form action={action} className="mt-3 grid gap-4">
+      <form action={action} onSubmit={handleSubmit} className="mt-3 grid gap-4">
         <input type="hidden" name="eventId" value={eventId} />
         <input type="hidden" name="saleId" value={row.id} />
         {permissions.canManageOwnSalesOnly ? (
@@ -463,7 +1060,7 @@ function SaleEditForm({
               name="quantity"
               type="number"
               min="1"
-              defaultValue={row.sold}
+              value={quantity}
               onChange={(event) => setQuantity(event.target.value)}
               className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
             />
@@ -475,7 +1072,8 @@ function SaleEditForm({
               type="number"
               min="0.01"
               step="0.01"
-              defaultValue={row.unitPrice}
+              value={unitPrice}
+              onChange={(event) => setUnitPrice(event.target.value)}
               className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
             />
           </label>
@@ -483,34 +1081,103 @@ function SaleEditForm({
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Lote</span>
             <select
               name="batchId"
-              defaultValue={row.batchId}
+              value={batchId}
               required
+              onChange={(event) => {
+                setBatchId(event.target.value);
+              }}
               className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-brand-500"
             >
-              {eventBatches.map((batch) => (
+              {selectableBatches.map((batch) => (
                 <option key={batch.id} value={batch.id}>
                   {batch.name}
                 </option>
               ))}
             </select>
           </label>
-          <label className="grid gap-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Tipo da venda</span>
-            <select
-              name="saleType"
-              defaultValue={row.saleType}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-brand-500"
-            >
-              {SALE_TYPE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {formatSaleTypeLabel(option)}
-                </option>
-              ))}
-            </select>
-          </label>
+          {hasGroupSales ? (
+            <label className="grid gap-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Tipo da venda</span>
+              <select
+                name="saleType"
+                value={saleType}
+                onChange={(event) => setSaleType(event.target.value as SalesRecord["saleType"])}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-brand-500"
+              >
+                {SALE_TYPE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {formatSaleTypeLabel(option)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <input type="hidden" name="saleType" value="normal" />
+          )}
         </div>
 
-        <TicketTypeSelector name="ticketType" defaultValue={row.ticketType} required />
+        {hasVip ? (
+          <TicketTypeSelector
+            name="ticketType"
+            defaultValue={row.ticketType}
+            value={ticketType}
+            onChange={setTicketType}
+            required
+          />
+        ) : (
+          <input type="hidden" name="ticketType" value="pista" />
+        )}
+
+        {hasTypedUnitPrice && hasGroupSales && validation.isBelowStandardPrice && saleType !== "grupo" && standardPriceLabel ? (
+          <InlineAdvisory
+            actions={
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSaleType("grupo");
+                    setConfirmedNormalDiscount(false);
+                  }}
+                  className="rounded-full border border-slate-900 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Marcar como grupo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmedNormalDiscount(true)}
+                  className="rounded-full border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-50"
+                >
+                  Manter como normal
+                </button>
+              </>
+            }
+          >
+            Valor abaixo do padrão do {batchLabel || "lote"} ({standardPriceLabel}). Verifique se é uma venda em grupo.
+          </InlineAdvisory>
+        ) : hasTypedUnitPrice && !validation.isBelowStandardPrice && validation.isPriceOutOfStandard && standardPriceLabel ? (
+          <InlineAdvisory>
+            Valor diferente do padrão do {batchLabel || "lote"} ({standardPriceLabel})
+            {hasVip && validation.matchesOppositeTicketTypePrice
+              ? ". Ele também corresponde ao outro tipo de ingresso selecionado."
+              : "."}
+            {suggestedPrice !== null ? (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  onClick={() => setUnitPrice(String(suggestedPrice))}
+                  className="ml-1 inline-flex font-semibold text-amber-900 underline decoration-amber-300 underline-offset-2"
+                >
+                  Usar preço padrão
+                </button>
+              </>
+            ) : null}
+          </InlineAdvisory>
+        ) : hasTypedUnitPrice && hasVip && validation.matchesOppositeTicketTypePrice ? (
+          <InlineAdvisory>
+            O valor informado corresponde ao outro tipo de ingresso selecionado. Revise VIP/PISTA antes de salvar.
+          </InlineAdvisory>
+        ) : null}
 
         <div className="grid gap-3 lg:grid-cols-[200px_1fr]">
           <label className="grid gap-2">
@@ -533,7 +1200,28 @@ function SaleEditForm({
           </label>
         </div>
 
-        <GuestNameFields quantity={Math.max(Number(quantity) || 0, 0)} values={row.attendeeNames} />
+        <GuestNameFields quantity={parsedQuantity} values={guestNames} onChange={updateGuestName} />
+        {localError ? <FormAlert tone="error">{localError}</FormAlert> : null}
+        {validation.hasQuantityMismatch ? (
+          <FormAlert tone="error">
+            Quantidade de ingressos e nomes preenchidos precisam bater exatamente.
+          </FormAlert>
+        ) : null}
+        {validation.duplicateNamesInSale.length > 0 ? (
+          <InlineAdvisory>
+            Existem nomes repetidos nesta venda. Deseja revisar? {validation.duplicateNamesInSale.join(", ")}.
+          </InlineAdvisory>
+        ) : null}
+        {validation.duplicateNamesInEvent.length > 0 ? (
+          <InlineAdvisory>
+            Este nome ja esta na lista. Confirme antes de continuar: {validation.duplicateNamesInEvent.join(", ")}.
+          </InlineAdvisory>
+        ) : null}
+        {validation.suspiciousNames.length > 0 ? (
+          <InlineAdvisory>
+            Alguns nomes parecem invalidos ou genericos: {validation.suspiciousNames.join(", ")}.
+          </InlineAdvisory>
+        ) : null}
         <SubmitButton
           pendingLabel="Salvando..."
           className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
@@ -552,6 +1240,8 @@ export function SalesControlPanel({
   permissions,
   sellerOptions,
   eventBatches,
+  hasVip,
+  hasGroupSales,
   compact = false
 }: SalesControlPanelProps) {
   const visibleSales = sales.slice(0, compact ? 4 : sales.length);
@@ -561,12 +1251,17 @@ export function SalesControlPanel({
       title="Controle de vendas"
       description="Registre vendas com rapidez e mantenha o comercial atualizado em tempo real."
     >
+      {!compact ? <SalesChecklistCard sales={sales} eventBatches={eventBatches} hasGroupSales={hasGroupSales} /> : null}
+
       {permissions.canManageSales && !compact ? (
         <SaleQuickForm
           eventId={eventId}
           permissions={permissions}
           sellerOptions={sellerOptions}
           eventBatches={eventBatches}
+          hasVip={hasVip}
+          hasGroupSales={hasGroupSales}
+          sales={sales}
         />
       ) : null}
 
@@ -698,6 +1393,9 @@ export function SalesControlPanel({
                         permissions={permissions}
                         sellerOptions={sellerOptions}
                         eventBatches={eventBatches}
+                        existingSales={sales}
+                        hasVip={hasVip}
+                        hasGroupSales={hasGroupSales}
                       />
                     </div>
                   ) : null}

@@ -1,10 +1,11 @@
-import { CreateEventForm } from "@/components/forms/create-event-form";
 import { ComparisonSection } from "@/components/comparison-section";
 import { EventCard } from "@/components/event-card";
 import { PlatformHeader } from "@/components/platform-header";
 import { StrategicIntelligenceSection } from "@/components/strategic-intelligence-section";
 import { SectionCard } from "@/components/ui/section-card";
 import { EventComparisonSnapshot, EventSummary, StrategicOverviewSnapshot, ViewerProfile } from "@/lib/types";
+import Link from "next/link";
+import { ArrowRight, Plus } from "lucide-react";
 
 interface EventsOverviewPageProps {
   viewer: ViewerProfile;
@@ -33,7 +34,32 @@ export function EventsOverviewPage({
           description="Crie novas festas, acompanhe o calendario e mantenha o time trabalhando na mesma plataforma."
         >
           {viewer.role === "host" ? (
-            <CreateEventForm viewer={viewer} />
+            <div className="rounded-[24px] border border-brand-100 bg-gradient-to-br from-white via-brand-50/35 to-slate-50 p-5 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="max-w-2xl">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-brand-700">
+                    <Plus className="h-3.5 w-3.5" />
+                    Nova festa
+                  </div>
+                  <h3 className="mt-3 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
+                    Abra uma tela dedicada para criar a festa com mais foco
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    O fluxo completo de criacao agora fica em uma pagina propria, com dados basicos, configuracao comercial e revisao final em um espaco mais confortavel.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    href="/festas/nova"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-200/70 transition hover:bg-slate-800"
+                  >
+                    Criar festa
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+            </div>
           ) : (
             <p className="text-sm leading-6 text-slate-500">
               Sua conta esta pronta para colaborar nos eventos liberados para o seu papel atual.

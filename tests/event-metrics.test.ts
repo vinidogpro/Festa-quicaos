@@ -20,6 +20,7 @@ import {
   calculateSellerMetrics,
   calculateTicketTypeMetrics
 } from "../lib/event-metrics.ts";
+import { formatBatchLabel, getNormalizedBatchKey } from "../lib/utils.ts";
 
 test("calculateFinanceTotals inclui ingressos, extras, despesas e pagamentos", () => {
   const totals = calculateFinanceTotals({
@@ -296,8 +297,8 @@ test("calculateBatchMetrics consolida quantidade, receita, ticket medio e percen
     calculateBatchMetrics([
       { quantity: 5, unitPrice: 40, batchLabel: "Lote promocional" },
       { quantity: 3, unitPrice: 45, batchLabel: "1º lote" },
-      { quantity: 2, unitPrice: 50, batchLabel: "1º lote" },
-      { quantity: 4, unitPrice: 55, batchLabel: "2º lote" }
+      { quantity: 2, unitPrice: 50, batchLabel: "1 lote" },
+      { quantity: 4, unitPrice: 55, batchLabel: "Lote 02" }
     ]),
     [
       { batchLabel: "1º lote", ticketsSold: 5, revenue: 235, averageTicket: 47, percentage: 36 },
@@ -313,6 +314,28 @@ test("calculateBatchMetrics lida com lote unico e sem vendas", () => {
   ]);
 
   assert.deepEqual(calculateBatchMetrics([]), []);
+});
+
+test("normaliza variacoes do mesmo lote para a mesma chave e exibicao", () => {
+  const batchLabels = ["Lote 1", "1 lote", "1º lote", "1o lote", "1° lote", "Lote 01", "01 lote"];
+
+  assert.deepEqual(
+    batchLabels.map((label) => getNormalizedBatchKey(label)),
+    Array(batchLabels.length).fill("lote-1")
+  );
+  assert.deepEqual(
+    batchLabels.map((label) => formatBatchLabel(label)),
+    Array(batchLabels.length).fill("1º lote")
+  );
+});
+
+test("normaliza lote 2 e preserva lote promocional e comissao separados", () => {
+  assert.deepEqual(
+    ["Lote 2", "2 lote", "2º lote", "Lote 02"].map((label) => getNormalizedBatchKey(label)),
+    Array(4).fill("lote-2")
+  );
+  assert.equal(formatBatchLabel("Lote promocional"), "Lote promocional");
+  assert.equal(formatBatchLabel("Comissão"), "Comissão");
 });
 
 test("calculateSaleTypeMetrics compara normal e grupo sem quebrar divisao por zero", () => {
@@ -394,7 +417,7 @@ test("calculatePostEventReport consolida leitura executiva da festa", () => {
     eventDate: "2026-05-10",
     status: "past",
     sales: [
-      { quantity: 5, unitPrice: 40, batchLabel: "1º lote", saleType: "normal", ticketType: "pista" },
+      { quantity: 5, unitPrice: 40, batchLabel: "1 lote", saleType: "normal", ticketType: "pista" },
       { quantity: 2, unitPrice: 80, batchLabel: "VIP antecipado", saleType: "grupo", ticketType: "vip" }
     ],
     expenses: [
