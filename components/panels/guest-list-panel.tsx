@@ -188,8 +188,8 @@ function SaleGuestNameEditForm({
   }, [router, state.status]);
 
   return (
-    <details ref={detailsRef} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+    <details ref={detailsRef} className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm open:bg-slate-50">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-brand-200 hover:bg-brand-50/40">
         <Pencil className="h-4 w-4" />
         Editar pessoa
       </summary>
@@ -243,8 +243,8 @@ function ManualGuestEntryEditForm({
   }, [router, state.status]);
 
   return (
-    <details ref={detailsRef} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+    <details ref={detailsRef} className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm open:bg-slate-50">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-brand-200 hover:bg-brand-50/40">
         <Pencil className="h-4 w-4" />
         Editar nome
       </summary>
@@ -366,8 +366,8 @@ function GuestListEntryActions({
   return (
     <div className="w-full space-y-2 sm:w-[23rem]">
       <SaleGuestNameEditForm eventId={eventId} entry={entry} />
-      <details className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+      <details className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm open:bg-slate-50">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-brand-200 hover:bg-brand-50/40">
           <Pencil className="h-4 w-4" />
           Editar venda completa
         </summary>

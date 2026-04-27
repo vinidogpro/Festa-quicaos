@@ -136,18 +136,18 @@ export function CommercialConfigSection({
             <h3 className="mt-1 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
               Defina o modelo de venda antes da operacao comecar
             </h3>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-brand-100 bg-brand-50/80 px-4 py-3">
+            <div className="mt-4 flex flex-wrap gap-2 [&>div>p:nth-child(2)]:hidden">
+              <div className="rounded-full border border-brand-100 bg-brand-50/80 px-3 py-1.5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700">1. Tipos ativos</p>
-                <p className="mt-1 text-sm text-slate-600">Decida se a festa trabalha com VIP e se existe venda em grupo.</p>
+                <p className="hidden">Decida se a festa trabalha com VIP e se existe venda em grupo.</p>
               </div>
-              <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3">
+              <div className="rounded-full border border-amber-100 bg-amber-50/70 px-3 py-1.5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-800">2. Lotes</p>
                 <p className="mt-1 text-sm text-slate-600">Ative so os lotes que farão sentido para essa estrategia comercial.</p>
               </div>
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
+              <div className="rounded-full border border-emerald-100 bg-emerald-50/70 px-3 py-1.5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-800">3. Precos guia</p>
-                <p className="mt-1 text-sm text-slate-600">Use os precos como referencia para sugestao e validacao nas vendas.</p>
+                <p className="hidden">Use os precos como referencia para sugestao e validacao nas vendas.</p>
               </div>
             </div>
           </div>
@@ -178,13 +178,13 @@ export function CommercialConfigSection({
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
-        <div className="grid gap-4">
-          <fieldset className="rounded-[24px] border border-brand-100 bg-gradient-to-br from-brand-50/90 via-white to-brand-50/40 p-4 shadow-sm">
+        <div className="grid gap-3">
+          <fieldset className="rounded-[24px] border border-brand-100 bg-gradient-to-br from-brand-50/90 via-white to-brand-50/40 p-3 shadow-sm">
             <legend className="px-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
               Tipo de ingresso
             </legend>
-            <div className="mt-2 grid gap-3 sm:grid-cols-2">
-              <label className="cursor-pointer rounded-2xl border border-white/80 bg-white/90 px-4 py-4 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 has-[:checked]:border-brand-500 has-[:checked]:bg-gradient-to-br has-[:checked]:from-brand-100 has-[:checked]:via-white has-[:checked]:to-brand-50 has-[:checked]:text-brand-900 has-[:checked]:shadow-[0_20px_45px_-28px_rgba(20,184,166,0.7)]">
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <label className="cursor-pointer rounded-2xl border border-white/80 bg-white/90 px-3 py-3 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 has-[:checked]:border-brand-500 has-[:checked]:bg-gradient-to-br has-[:checked]:from-brand-100 has-[:checked]:via-white has-[:checked]:to-brand-50 has-[:checked]:text-brand-900 has-[:checked]:shadow-[0_20px_45px_-28px_rgba(20,184,166,0.7)]">
                 <input
                   type="radio"
                   name="hasVip"
@@ -194,11 +194,11 @@ export function CommercialConfigSection({
                   className="sr-only"
                 />
                 <span className="block font-semibold">VIP e PISTA</span>
-                <span className="mt-1 block text-sm text-slate-500">
+                <span className="mt-1 block text-xs leading-5 text-slate-500">
                   Mostra os dois tipos no cadastro de venda e permite preco por tipo em cada lote.
                 </span>
               </label>
-              <label className="cursor-pointer rounded-2xl border border-white/80 bg-white/90 px-4 py-4 text-sm text-slate-600 shadow-sm transition hover:border-slate-300 has-[:checked]:border-slate-900 has-[:checked]:bg-gradient-to-br has-[:checked]:from-slate-100 has-[:checked]:via-white has-[:checked]:to-slate-50 has-[:checked]:text-slate-900">
+              <label className="cursor-pointer rounded-2xl border border-white/80 bg-white/90 px-3 py-3 text-sm text-slate-600 shadow-sm transition hover:border-slate-300 has-[:checked]:border-slate-900 has-[:checked]:bg-gradient-to-br has-[:checked]:from-slate-100 has-[:checked]:via-white has-[:checked]:to-slate-50 has-[:checked]:text-slate-900">
                 <input
                   type="radio"
                   name="hasVip"
@@ -208,19 +208,19 @@ export function CommercialConfigSection({
                   className="sr-only"
                 />
                 <span className="block font-semibold">Somente PISTA</span>
-                <span className="mt-1 block text-sm text-slate-500">
+                <span className="mt-1 block text-xs leading-5 text-slate-500">
                   Esconde VIP no fluxo de vendas e usa PISTA como padrao desta festa.
                 </span>
               </label>
             </div>
           </fieldset>
 
-          <fieldset className="rounded-[24px] border border-amber-100 bg-gradient-to-br from-amber-50/80 via-white to-amber-50/35 p-4 shadow-sm">
+          <fieldset className="rounded-[24px] border border-amber-100 bg-gradient-to-br from-amber-50/80 via-white to-amber-50/35 p-3 shadow-sm">
             <legend className="px-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
               Venda em grupo
             </legend>
-            <div className="mt-2 grid gap-3 sm:grid-cols-2">
-              <label className="cursor-pointer rounded-2xl border border-white/80 bg-white/90 px-4 py-4 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 has-[:checked]:border-brand-500 has-[:checked]:bg-gradient-to-br has-[:checked]:from-brand-100 has-[:checked]:via-white has-[:checked]:to-brand-50 has-[:checked]:text-brand-900 has-[:checked]:shadow-[0_20px_45px_-28px_rgba(20,184,166,0.55)]">
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <label className="cursor-pointer rounded-2xl border border-white/80 bg-white/90 px-3 py-3 text-sm text-slate-600 shadow-sm transition hover:border-brand-300 has-[:checked]:border-brand-500 has-[:checked]:bg-gradient-to-br has-[:checked]:from-brand-100 has-[:checked]:via-white has-[:checked]:to-brand-50 has-[:checked]:text-brand-900 has-[:checked]:shadow-[0_20px_45px_-28px_rgba(20,184,166,0.55)]">
                 <input
                   type="radio"
                   name="hasGroupSales"
@@ -230,11 +230,11 @@ export function CommercialConfigSection({
                   className="sr-only"
                 />
                 <span className="block font-semibold">Permitir grupo</span>
-                <span className="mt-1 block text-sm text-slate-500">
+                <span className="mt-1 block text-xs leading-5 text-slate-500">
                   Mantem tipo de venda normal/grupo e os alertas de preco abaixo do padrao.
                 </span>
               </label>
-              <label className="cursor-pointer rounded-2xl border border-white/80 bg-white/90 px-4 py-4 text-sm text-slate-600 shadow-sm transition hover:border-slate-300 has-[:checked]:border-slate-900 has-[:checked]:bg-gradient-to-br has-[:checked]:from-slate-100 has-[:checked]:via-white has-[:checked]:to-slate-50 has-[:checked]:text-slate-900">
+              <label className="cursor-pointer rounded-2xl border border-white/80 bg-white/90 px-3 py-3 text-sm text-slate-600 shadow-sm transition hover:border-slate-300 has-[:checked]:border-slate-900 has-[:checked]:bg-gradient-to-br has-[:checked]:from-slate-100 has-[:checked]:via-white has-[:checked]:to-slate-50 has-[:checked]:text-slate-900">
                 <input
                   type="radio"
                   name="hasGroupSales"
@@ -244,7 +244,7 @@ export function CommercialConfigSection({
                   className="sr-only"
                 />
                 <span className="block font-semibold">Somente venda normal</span>
-                <span className="mt-1 block text-sm text-slate-500">
+                <span className="mt-1 block text-xs leading-5 text-slate-500">
                   Esconde grupo no cadastro e considera todas as vendas como normais.
                 </span>
               </label>

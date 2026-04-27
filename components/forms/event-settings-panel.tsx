@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, Pencil, SlidersHorizontal, Trash2 } from "lucide-react";
 import { initialEventActionState } from "@/lib/actions/action-state";
 import { deleteEventAction, updateEventAction, updateEventClosureAction } from "@/lib/actions/event-management";
 import { EventBatch } from "@/lib/types";
@@ -31,6 +31,43 @@ function ActionFeedback({
     >
       {message}
     </div>
+  );
+}
+
+function CollapsibleSettingsBlock({
+  title,
+  icon,
+  children,
+  defaultOpen = false,
+  tone = "neutral"
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  tone?: "neutral" | "warning" | "danger";
+}) {
+  const toneClass =
+    tone === "danger"
+      ? "border-rose-200 bg-rose-50"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50"
+        : "border-slate-200 bg-white";
+  const titleClass = tone === "danger" ? "text-rose-900" : tone === "warning" ? "text-amber-950" : "text-slate-800";
+
+  return (
+    <details open={defaultOpen} className={`group rounded-[22px] border shadow-sm ${toneClass}`}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+        <span className={`inline-flex items-center gap-2 text-sm font-semibold ${titleClass}`}>
+          {icon}
+          {title}
+        </span>
+        <ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" />
+      </summary>
+      <div className={`border-t p-4 ${tone === "danger" ? "border-rose-200" : tone === "warning" ? "border-amber-200" : "border-slate-100"}`}>
+        {children}
+      </div>
+    </details>
   );
 }
 
@@ -91,70 +128,76 @@ export function EventSettingsPanel({
         Editar evento
       </summary>
 
-      <div className="space-y-4 border-t border-slate-100 p-4">
-        <form action={updateAction} className="grid gap-4">
-          <input type="hidden" name="eventId" value={eventId} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              name="name"
-              defaultValue={name}
-              placeholder="Nome da festa"
+      <div className="space-y-3 border-t border-slate-100 bg-slate-50/70 p-3">
+        <CollapsibleSettingsBlock
+          title="Dados e configuracao comercial"
+          icon={<SlidersHorizontal className="h-4 w-4 text-brand-700" />}
+          defaultOpen
+        >
+          <form action={updateAction} className="grid gap-4">
+            <input type="hidden" name="eventId" value={eventId} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                name="name"
+                defaultValue={name}
+                placeholder="Nome da festa"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+                required
+              />
+              <input
+                name="venue"
+                defaultValue={venue}
+                placeholder="Local"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+                required
+              />
+            </div>
+            <textarea
+              name="description"
+              rows={3}
+              defaultValue={description ?? ""}
+              placeholder="Descricao da festa"
               className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
-              required
             />
-            <input
-              name="venue"
-              defaultValue={venue}
-              placeholder="Local"
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
-              required
-            />
-          </div>
-          <textarea
-            name="description"
-            rows={3}
-            defaultValue={description ?? ""}
-            placeholder="Descricao da festa"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
-          />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              name="eventDate"
-              type="datetime-local"
-              defaultValue={eventDate.slice(0, 16)}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
-              required
-            />
-            <input
-              name="goalValue"
-              type="number"
-              min="0"
-              step="0.01"
-              defaultValue={goalValue}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
-              required
-            />
-          </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                name="eventDate"
+                type="datetime-local"
+                defaultValue={eventDate.slice(0, 16)}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+                required
+              />
+              <input
+                name="goalValue"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={goalValue}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500"
+                required
+              />
+            </div>
 
-          <CommercialConfigSection
-            mode="edit"
-            initialHasVip={hasVip}
-            initialHasGroupSales={hasGroupSales}
-            initialBatches={eventBatches}
-          />
+            <CommercialConfigSection
+              mode="edit"
+              initialHasVip={hasVip}
+              initialHasGroupSales={hasGroupSales}
+              initialBatches={eventBatches}
+            />
 
-          <div className="flex justify-end">
-            <SubmitButton
-              pendingLabel="Salvando evento..."
-              className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Salvar alteracoes
-            </SubmitButton>
-          </div>
-          <ActionFeedback status={updateState.status} message={updateState.message} />
-        </form>
+            <div className="flex justify-end">
+              <SubmitButton
+                pendingLabel="Salvando evento..."
+                className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Salvar alteracoes
+              </SubmitButton>
+            </div>
+            <ActionFeedback status={updateState.status} message={updateState.message} />
+          </form>
+        </CollapsibleSettingsBlock>
 
-        <div className={`rounded-[24px] border p-4 ${isClosed ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-slate-50"}`}>
+        <CollapsibleSettingsBlock title={isClosed ? "Festa fechada" : "Fechamento da festa"} tone={isClosed ? "warning" : "neutral"}>
           <div className="flex items-start gap-3">
             <div className={`mt-1 rounded-xl p-2 ${isClosed ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"}`}>
               <Pencil className="h-4 w-4" />
@@ -202,9 +245,9 @@ export function EventSettingsPanel({
             </div>
             <ActionFeedback status={closureState.status} message={closureState.message} />
           </form>
-        </div>
+        </CollapsibleSettingsBlock>
 
-        <div className="rounded-[24px] border border-rose-200 bg-rose-50 p-4">
+        <CollapsibleSettingsBlock title="Zona de risco" icon={<Trash2 className="h-4 w-4" />} tone="danger">
           <div className="flex items-start gap-3">
             <div className="mt-1 rounded-xl bg-rose-100 p-2 text-rose-700">
               <Trash2 className="h-4 w-4" />
@@ -244,7 +287,7 @@ export function EventSettingsPanel({
             </div>
             <ActionFeedback status={deleteState.status} message={deleteState.message} />
           </form>
-        </div>
+        </CollapsibleSettingsBlock>
       </div>
     </details>
   );

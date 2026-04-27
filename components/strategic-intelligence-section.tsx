@@ -55,10 +55,11 @@ export function AdvancedStrategicAnalysisSection({ strategic }: { strategic: Str
 
   return (
     <div className="space-y-6">
-      <SectionCard
-        title="Visao geral entre festas"
-        description="Compare resultados entre eventos para entender rapidamente quais festas entregaram mais retorno."
-      >
+      <div id="visao-geral">
+        <SectionCard
+          title="Visao geral entre festas"
+          description="Compare resultados entre eventos para entender rapidamente quais festas entregaram mais retorno."
+        >
         <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
           <ExecutiveHighlight
             label="Festa mais lucrativa"
@@ -144,7 +145,8 @@ export function AdvancedStrategicAnalysisSection({ strategic }: { strategic: Str
             ))}
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      </div>
 
       <SectionCard
         title="Aprendizado entre eventos"
@@ -176,7 +178,7 @@ export function AdvancedStrategicAnalysisSection({ strategic }: { strategic: Str
 
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">
-            <div className="rounded-[24px] border border-[color:color-mix(in_srgb,var(--ds-border)_78%,var(--ds-primary-border)_22%)] bg-[linear-gradient(180deg,rgba(240,246,250,0.94),rgba(255,255,255,0.9)_42%,rgba(244,248,251,0.98))] p-4 shadow-[0_18px_45px_rgba(15,23,42,0.05)] sm:p-5">
+            <div id="lotes" className="rounded-[24px] border border-[color:color-mix(in_srgb,var(--ds-border)_78%,var(--ds-primary-border)_22%)] bg-[linear-gradient(180deg,rgba(240,246,250,0.94),rgba(255,255,255,0.9)_42%,rgba(244,248,251,0.98))] p-4 shadow-[0_18px_45px_rgba(15,23,42,0.05)] sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-slate-950">Lotes que mais performam</p>
@@ -206,7 +208,7 @@ export function AdvancedStrategicAnalysisSection({ strategic }: { strategic: Str
               </div>
             </div>
 
-            <div className="rounded-[24px] border border-[color:color-mix(in_srgb,var(--ds-border)_75%,var(--ds-danger-border)_25%)] bg-[linear-gradient(180deg,rgba(252,246,248,0.96),rgba(255,255,255,0.9)_40%,rgba(251,245,247,0.98))] p-4 shadow-[0_18px_45px_rgba(15,23,42,0.05)] sm:p-5">
+            <div id="financeiro" className="rounded-[24px] border border-[color:color-mix(in_srgb,var(--ds-border)_75%,var(--ds-danger-border)_25%)] bg-[linear-gradient(180deg,rgba(252,246,248,0.96),rgba(255,255,255,0.9)_40%,rgba(251,245,247,0.98))] p-4 shadow-[0_18px_45px_rgba(15,23,42,0.05)] sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-slate-950">Despesas que mais pesam</p>
@@ -239,6 +241,7 @@ export function AdvancedStrategicAnalysisSection({ strategic }: { strategic: Str
           </div>
 
           <div className="space-y-6">
+            <div id="tipos-ingresso">
             <TwoWayComparisonCard
               title="VIP vs PISTA"
               description="Qual tipo gera mais receita, maior ticket medio e mais volume ao longo das festas."
@@ -257,7 +260,9 @@ export function AdvancedStrategicAnalysisSection({ strategic }: { strategic: Str
                 { label: "Ticket medio", value: formatCurrency(strategic.ticketTypeLearning.pista.averageTicket) }
               ]}
             />
+            </div>
 
+            <div id="tipos-venda">
             <TwoWayComparisonCard
               title="Normal vs Grupo"
               description="Entenda como o desconto coletivo influencia volume e ticket medio da operacao."
@@ -276,6 +281,7 @@ export function AdvancedStrategicAnalysisSection({ strategic }: { strategic: Str
                 { label: "Ticket medio", value: formatCurrency(strategic.saleTypeLearning.grupo.averageTicket) }
               ]}
             />
+            </div>
           </div>
         </div>
         </div>

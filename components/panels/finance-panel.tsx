@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
-import { CircleDollarSign, Pencil, Plus, ReceiptText, Ticket, Trash2, Wallet } from "lucide-react";
+import { ChevronDown, CircleDollarSign, Pencil, Plus, ReceiptText, Ticket, Trash2, Wallet } from "lucide-react";
 import { initialFinanceActionState } from "@/lib/actions/action-state";
 import {
   createAdditionalRevenueAction,
@@ -252,18 +252,19 @@ function CashFlowPanel({
   rows: Array<{ date: string; inflow: number; outflow: number; balance: number; cumulativeBalance: number }>;
 }) {
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <details className="group rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+      <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="font-semibold text-slate-900">Fluxo de caixa por data</h3>
           <p className="mt-1 text-sm text-slate-500">
             Entradas e saidas consolidadas por dia para acompanhar o saldo operacional da festa.
           </p>
         </div>
-        <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
-          {rows.length} dias com movimentacao
+        <span className="inline-flex items-center gap-2 rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
+          {rows.length} dias
+          <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
         </span>
-      </div>
+      </summary>
 
       {rows.length === 0 ? (
         <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
@@ -335,7 +336,7 @@ function CashFlowPanel({
         </div>
         </>
       )}
-    </div>
+    </details>
   );
 }
 
@@ -419,8 +420,8 @@ function ResultSimulator({
     Number.isNaN(parsedAdditionalExpense);
 
   return (
-    <div className="rounded-[28px] border border-brand-100 bg-gradient-to-br from-white via-brand-50/40 to-emerald-50/50 p-4 shadow-sm sm:p-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <details className="group rounded-[28px] border border-brand-100 bg-gradient-to-br from-white via-brand-50/40 to-emerald-50/50 p-4 shadow-sm sm:p-5">
+      <summary className="flex cursor-pointer list-none flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-700">Simulador de resultado</p>
           <h3 className="mt-1 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
@@ -432,8 +433,9 @@ function ResultSimulator({
         </div>
         <div className="rounded-2xl border border-white bg-white/80 px-4 py-3 text-sm text-slate-600 shadow-sm">
           Lucro atual: <span className="font-semibold text-slate-950">{formatCurrency(estimatedProfit)}</span>
+          <ChevronDown className="ml-2 inline h-4 w-4 align-text-bottom text-slate-400 transition group-open:rotate-180" />
         </div>
-      </div>
+      </summary>
 
       <div className="mt-5 grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="grid gap-3 rounded-[24px] border border-white bg-white/80 p-4 shadow-sm">
@@ -582,7 +584,7 @@ function ResultSimulator({
           </div>
         </div>
       </div>
-    </div>
+    </details>
   );
 }
 
@@ -804,8 +806,8 @@ function ExpenseEditForm({
           Despesa atualizada com sucesso.
         </div>
       ) : null}
-      <details ref={detailsRef} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+      <details ref={detailsRef} className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm open:bg-slate-50">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-rose-200 hover:bg-rose-50/50">
           <Pencil className="h-4 w-4" />
           Editar
         </summary>
@@ -926,8 +928,8 @@ function AdditionalRevenueEditForm({
   }, [router, state.status]);
 
   return (
-      <details className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+      <details className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm open:bg-slate-50">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50/50">
         <Pencil className="h-4 w-4" />
         Editar
       </summary>

@@ -44,16 +44,18 @@ export function AdvancedAnalyticsPage({
             </div>
 
             <div className="mt-5 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
-              <NavigationPill icon={Layers} label="Visao geral" />
-              <NavigationPill icon={Tags} label="Lotes" />
-              <NavigationPill icon={Ticket} label="VIP vs PISTA" />
-              <NavigationPill icon={Users} label="Normal vs Grupo" />
-              <NavigationPill icon={ReceiptText} label="Financeiro" />
+              <NavigationPill href="#visao-geral" icon={Layers} label="Visao geral" />
+              <NavigationPill href="#lotes" icon={Tags} label="Lotes" />
+              <NavigationPill href="#tipos-ingresso" icon={Ticket} label="VIP vs PISTA" />
+              <NavigationPill href="#tipos-venda" icon={Users} label="Normal vs Grupo" />
+              <NavigationPill href="#financeiro" icon={ReceiptText} label="Financeiro" />
             </div>
           </div>
         </SectionCard>
 
-        <ComparisonSection comparison={comparison} />
+        <div id="comparativo">
+          <ComparisonSection comparison={comparison} />
+        </div>
         <AdvancedStrategicAnalysisSection strategic={strategic} />
       </div>
     </main>
@@ -61,16 +63,18 @@ export function AdvancedAnalyticsPage({
 }
 
 function NavigationPill({
+  href,
   icon: Icon,
   label
 }: {
+  href: string;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
 }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-2xl border border-white bg-white/80 px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
+    <a href={href} className="inline-flex items-center gap-2 rounded-2xl border border-white bg-white/80 px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-brand-200 hover:bg-brand-50/70">
       <Icon className="h-4 w-4 text-brand-700" />
       {label}
-    </div>
+    </a>
   );
 }

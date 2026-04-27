@@ -206,8 +206,8 @@ function TaskEditForm({
   }, [deleteState.status, router, updateState.status]);
 
   return (
-    <details className="rounded-2xl border border-slate-200 bg-white">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+    <details className="rounded-2xl border border-slate-200 bg-white shadow-sm open:bg-slate-50">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-brand-50/40">
         <Pencil className="h-4 w-4" />
         Editar
       </summary>

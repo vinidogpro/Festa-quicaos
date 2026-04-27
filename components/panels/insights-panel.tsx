@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   BarChart3,
   BadgePercent,
+  ChevronDown,
   CheckCircle2,
   CircleDollarSign,
   Medal,
@@ -204,18 +205,19 @@ function BatchAnalysisBlock({
   ];
 
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3">
+    <details className="group rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
         <div>
           <p className="font-semibold text-slate-900">Lotes</p>
           <p className="ds-helper mt-1">
             Leitura comercial por lote para entender volume, arrecadacao e ticket medio.
           </p>
         </div>
-        <div className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm">
+        <div className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm">
           {rows.length} lote(s)
+          <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
         </div>
-      </div>
+      </summary>
 
       {rows.length === 0 ? (
         <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
@@ -278,7 +280,7 @@ function BatchAnalysisBlock({
           ))}
         </div>
       )}
-    </div>
+    </details>
   );
 }
 
@@ -309,15 +311,16 @@ function SaleTypeAnalysisBlock({
   ];
 
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3">
+    <details className="group rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
         <div>
           <p className="font-semibold text-slate-900">Tipo de venda</p>
           <p className="ds-helper mt-1">
             Compare vendas normais e em grupo para entender impacto em volume e ticket medio.
           </p>
         </div>
-      </div>
+        <ChevronDown className="mt-1 h-4 w-4 text-slate-400 transition group-open:rotate-180" />
+      </summary>
 
       <div className="mt-5 grid gap-4">
         {items.map((item) => (
@@ -342,7 +345,7 @@ function SaleTypeAnalysisBlock({
           </div>
         ))}
       </div>
-    </div>
+    </details>
   );
 }
 
@@ -980,15 +983,19 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
           </div>
 
           {!compact ? (
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
-              <div className="flex items-start justify-between gap-3">
+            <details className="group rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+              <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-slate-900">Linha do tempo operacional</p>
                   <p className="ds-helper mt-1">
                     Leitura historica da operacao para enxergar quando as vendas ganharam tracao, quando a receita subiu e quando os custos apertaram.
                   </p>
                 </div>
-              </div>
+                <span className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm">
+                  {operationalTimeline.length} marco(s)
+                  <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
+                </span>
+              </summary>
 
               {operationalTimeline.length === 0 ? (
                 <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
@@ -1089,7 +1096,7 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                   })}
                 </div>
               )}
-            </div>
+            </details>
           ) : null}
 
           {!compact ? (

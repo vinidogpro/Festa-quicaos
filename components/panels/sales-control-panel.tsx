@@ -795,8 +795,8 @@ function SaleQuickForm({
                 ) : null}
               </div>
 
-              <details className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-                <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
+              <details className="group rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm open:bg-slate-50">
+                <summary className="cursor-pointer list-none rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white">
                   Opcoes avancadas
                 </summary>
                 <div className="mt-3 grid gap-3">
@@ -1078,8 +1078,8 @@ export function SaleEditForm({
   }
 
   return (
-    <details data-sale-edit className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3">
-      <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+    <details data-sale-edit className="w-full rounded-2xl border border-slate-200 bg-white p-2 shadow-sm open:bg-slate-50">
+      <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-brand-200 hover:bg-brand-50/40">
         <Pencil className="h-4 w-4" />
         Editar venda
       </summary>
