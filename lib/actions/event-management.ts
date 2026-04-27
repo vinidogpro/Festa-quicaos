@@ -652,6 +652,10 @@ async function logActivity(
   }
 }
 
+function joinedNamesForLog(names: string[]) {
+  return names.map((name) => name.trim()).filter(Boolean).join(" | ");
+}
+
 export async function createEventAction(
   _prevState: EventActionState,
   formData: FormData
@@ -998,6 +1002,16 @@ export async function updateSaleAction(
 
     await getSellerMembershipOrThrow(supabase, sale.event_id, sellerUserId);
     const eventBatch = await ensureEventBatchBelongsToEvent(supabase, sale.event_id, batchId);
+    const previousBatch = await ensureEventBatchBelongsToEvent(supabase, sale.event_id, sale.batch_id);
+    const { data: previousAttendees, error: previousAttendeesError } = await supabase
+      .from("sale_attendees")
+      .select("guest_name")
+      .eq("sale_id", saleId)
+      .order("created_at", { ascending: true });
+
+    if (previousAttendeesError) {
+      throw new Error(previousAttendeesError.message);
+    }
 
     if (!eventBatch.is_active && eventBatch.id !== sale.batch_id) {
       return {
@@ -1032,13 +1046,26 @@ export async function updateSaleAction(
       entityId: saleId,
       message: `${profile.full_name} atualizou uma venda de ${quantity} ingresso(s).`,
       metadata: {
-        sellerUserId,
-        batchId: eventBatch.id,
-        batchLabel: eventBatch.name,
-        saleType,
-        ticketType,
-        quantity,
-        unitPrice,
+        previousSellerUserId: sale.seller_user_id,
+        nextSellerUserId: sellerUserId,
+        previousBatchId: previousBatch.id,
+        nextBatchId: eventBatch.id,
+        previousBatchLabel: previousBatch.name,
+        nextBatchLabel: eventBatch.name,
+        previousSaleType: sale.sale_type,
+        nextSaleType: saleType,
+        previousTicketType: sale.ticket_type,
+        nextTicketType: ticketType,
+        previousQuantity: sale.quantity,
+        nextQuantity: quantity,
+        previousUnitPrice: sale.unit_price,
+        nextUnitPrice: unitPrice,
+        previousSoldAt: sale.sold_at,
+        nextSoldAt: soldAt,
+        previousGuestNames: joinedNamesForLog(
+          ((previousAttendees ?? []) as Array<{ guest_name: string }>).map((attendee) => attendee.guest_name)
+        ),
+        nextGuestNames: joinedNamesForLog(guestNames),
         attendeeCount: guestNames.length
       }
     });
@@ -1317,7 +1344,9 @@ export async function updateManualGuestEntryAction(
       message: `${profile.full_name} atualizou um nome manual da lista de entrada.`,
       metadata: {
         previousGuestName: entry.guest_name,
-        nextGuestName: guestName
+        nextGuestName: guestName,
+        previousNotes: entry.notes,
+        nextNotes: notes || null
       }
     });
 
@@ -1534,11 +1563,16 @@ export async function updateExpenseAction(
       entityId: expenseId,
       message: `${profile.full_name} atualizou a despesa "${title}".`,
       metadata: {
-        title,
-        category,
-        amount,
-        incurredAt,
-        notes: notes || null
+        previousTitle: expense.title,
+        nextTitle: title,
+        previousCategory: expense.category,
+        nextCategory: category,
+        previousAmount: expense.amount,
+        nextAmount: amount,
+        previousIncurredAt: expense.incurred_at,
+        nextIncurredAt: incurredAt,
+        previousNotes: expense.notes,
+        nextNotes: notes || null
       }
     });
 
@@ -1718,10 +1752,14 @@ export async function updateAdditionalRevenueAction(
       entityId: revenueId,
       message: `${profile.full_name} atualizou arrecadacao adicional "${title}".`,
       metadata: {
-        title,
-        amount,
-        category: category || null,
-        date
+        previousTitle: revenue.title,
+        nextTitle: title,
+        previousAmount: revenue.amount,
+        nextAmount: amount,
+        previousCategory: revenue.category,
+        nextCategory: category || null,
+        previousDate: revenue.date,
+        nextDate: date
       }
     });
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, MapPin } from "lucide-react";
-import { ExportSummaryButton } from "@/components/export-summary-button";
+import { ExportBackupButton, ExportSummaryButton } from "@/components/export-summary-button";
 import { EventSettingsPanel } from "@/components/forms/event-settings-panel";
 import { EventStatusBadge } from "@/components/event-status-badge";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -72,6 +72,7 @@ export function EventHeader({ event }: { event: PartyEventDetail }) {
             Navegar eventos
           </Link>
           <ExportSummaryButton eventId={event.id} />
+          {event.permissions.canManageEvent ? <ExportBackupButton eventId={event.id} /> : null}
           <SignOutButton />
         </div>
       </div>

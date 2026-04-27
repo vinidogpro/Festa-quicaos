@@ -369,9 +369,13 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                   totalRevenue={event.totalRevenue}
                   totalExpenses={event.totalExpenses}
                   estimatedProfit={event.estimatedProfit}
+                  goalValue={event.goalValue}
                   sales={event.salesControl}
                   expenses={event.expenses}
                   additionalRevenues={event.additionalRevenues}
+                  eventBatches={event.eventBatches}
+                  hasVip={event.hasVip}
+                  hasGroupSales={event.hasGroupSales}
                 />
             )}
             {activeTab === "tasks" && (
@@ -430,9 +434,13 @@ export function EventDashboardShell({ event }: { event: PartyEventDetail }) {
                   totalRevenue={event.totalRevenue}
                   totalExpenses={event.totalExpenses}
                   estimatedProfit={event.estimatedProfit}
+                  goalValue={event.goalValue}
                   sales={event.salesControl}
                   expenses={event.expenses}
                   additionalRevenues={event.additionalRevenues}
+                  eventBatches={event.eventBatches}
+                  hasVip={event.hasVip}
+                  hasGroupSales={event.hasGroupSales}
                   compact
                   />
                   <TasksPanel

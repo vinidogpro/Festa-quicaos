@@ -1,18 +1,16 @@
-import { ComparisonSection } from "@/components/comparison-section";
 import { EventCard } from "@/components/event-card";
 import { PlatformHeader } from "@/components/platform-header";
-import { StrategicIntelligenceSection } from "@/components/strategic-intelligence-section";
+import { PostEventReportsSection } from "@/components/strategic-intelligence-section";
 import { SectionCard } from "@/components/ui/section-card";
-import { EventComparisonSnapshot, EventSummary, StrategicOverviewSnapshot, ViewerProfile } from "@/lib/types";
+import { EventSummary, StrategicOverviewSnapshot, ViewerProfile } from "@/lib/types";
 import Link from "next/link";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight, BarChart3, Plus } from "lucide-react";
 
 interface EventsOverviewPageProps {
   viewer: ViewerProfile;
   currentEvents: EventSummary[];
   upcomingEvents: EventSummary[];
   pastEvents: EventSummary[];
-  comparison: EventComparisonSnapshot;
   strategic: StrategicOverviewSnapshot;
 }
 
@@ -21,7 +19,6 @@ export function EventsOverviewPage({
   currentEvents,
   upcomingEvents,
   pastEvents,
-  comparison,
   strategic
 }: EventsOverviewPageProps) {
   return (
@@ -89,9 +86,37 @@ export function EventsOverviewPage({
           </div>
         </SectionCard>
 
-        <ComparisonSection comparison={comparison} />
+        <SectionCard
+          title="Analise gerencial"
+          description="A tela principal fica focada no essencial. Os comparativos detalhados ficam em uma area propria."
+        >
+          <div className="rounded-[24px] border border-brand-100 bg-gradient-to-br from-white via-brand-50/40 to-slate-50 p-5 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-brand-700">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Inteligencia entre eventos
+                </div>
+                <h3 className="mt-3 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
+                  Veja comparativos e aprendizados em uma tela dedicada
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Comparativo entre festas, lotes, VIP vs PISTA, normal vs grupo e despesas agora ficam organizados sem poluir a pagina principal.
+                </p>
+              </div>
 
-        <StrategicIntelligenceSection strategic={strategic} />
+              <Link
+                href="/analises"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-200/70 transition hover:bg-slate-800 sm:w-auto"
+              >
+                Analises avancadas
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </SectionCard>
+
+        <PostEventReportsSection strategic={strategic} />
 
         <SectionCard
           title="Festas passadas"

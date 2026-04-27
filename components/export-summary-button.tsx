@@ -132,3 +132,22 @@ export function ExportPortariaButton({
     />
   );
 }
+
+export function ExportBackupButton({
+  eventId,
+  disabled = false
+}: {
+  eventId: string;
+  disabled?: boolean;
+}) {
+  return (
+    <ExportFileButton
+      href={`/festas/${eventId}/backup/export`}
+      label="Exportar backup (.json)"
+      pendingLabel="Gerando backup..."
+      successMessage="Backup completo exportado com sucesso."
+      fallbackFileName={`backup-${eventId}.json`}
+      disabled={disabled}
+    />
+  );
+}

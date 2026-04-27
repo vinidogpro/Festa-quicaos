@@ -11,6 +11,15 @@ import { formatCurrency, formatDate, formatSaleTypeLabel, formatTicketTypeLabel 
 type EventSortOption = "profit" | "revenue" | "ticket" | "date";
 
 export function StrategicIntelligenceSection({ strategic }: { strategic: StrategicOverviewSnapshot }) {
+  return (
+    <div className="space-y-6">
+      <AdvancedStrategicAnalysisSection strategic={strategic} />
+      <PostEventReportsSection strategic={strategic} />
+    </div>
+  );
+}
+
+export function AdvancedStrategicAnalysisSection({ strategic }: { strategic: StrategicOverviewSnapshot }) {
   const [sortBy, setSortBy] = useState<EventSortOption>("profit");
 
   const eventRows = useMemo(() => {
@@ -272,84 +281,89 @@ export function StrategicIntelligenceSection({ strategic }: { strategic: Strateg
         </div>
       </SectionCard>
 
-      <SectionCard
-        title="Relatorios pos-evento"
-        description="Leitura final pronta para decisao, comparando resultado, comercial e impacto financeiro de cada festa."
-      >
-        <div className="space-y-4">
-          {strategic.postEventReports.map((report) => (
-            <article key={report.eventId} className="rounded-[24px] border border-[color:var(--ds-border)] bg-[linear-gradient(180deg,rgba(243,247,251,0.95),rgba(255,255,255,0.9)_34%,rgba(245,248,251,0.98))] p-4 shadow-[0_18px_45px_rgba(15,23,42,0.05)] sm:p-5">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <EventStatusBadge status={report.status} />
-                    <span className="ds-badge ds-badge-neutral">{formatDate(report.eventDate)}</span>
-                  </div>
-                  <h3 className="mt-3 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
-                    {report.eventName}
-                  </h3>
-                </div>
-                <Link href={`/festas/${report.eventId}`} className="ds-button-secondary w-full sm:w-auto">
-                  Abrir festa
-                  <ArrowUpRight className="h-4 w-4" />
-                </Link>
-              </div>
-
-              <div className="mt-4 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]">
-                <SnapshotMetric label="Total arrecadado" value={formatCurrency(report.overview.totalRevenue)} tone="positive" />
-                <SnapshotMetric label="Despesas" value={formatCurrency(report.overview.totalExpenses)} tone="danger" />
-                <SnapshotMetric label="Lucro final" value={formatCurrency(report.overview.estimatedProfit)} tone={report.overview.estimatedProfit >= 0 ? "positive" : "danger"} />
-                <SnapshotMetric label="Ticket medio" value={formatCurrency(report.overview.averageTicket)} />
-                <SnapshotMetric label="Ingressos" value={`${report.overview.totalTicketsSold}`} />
-              </div>
-
-              <div className="mt-4 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-                <div className="rounded-2xl border border-[color:color-mix(in_srgb,var(--ds-border)_78%,var(--ds-primary-border)_22%)] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(243,248,252,0.96))] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
-                  <p className="ds-label">Analise comercial</p>
-                  <div className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
-                    <p><span className="font-semibold text-slate-950">Lote campeao:</span> {report.commercial.bestBatchLabel}</p>
-                    <p><span className="font-semibold text-slate-950">Tipo dominante:</span> {formatTicketTypeLabel(report.commercial.dominantTicketType)}</p>
-                    <p><span className="font-semibold text-slate-950">Preco mais eficiente:</span> {formatCurrency(report.commercial.mostEfficientPrice)}</p>
-                    <p><span className="font-semibold text-slate-950">Tipo da venda dominante:</span> {formatSaleTypeLabel(report.commercial.dominantSaleType)}</p>
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-[color:color-mix(in_srgb,var(--ds-border)_76%,var(--ds-danger-border)_24%)] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(251,245,247,0.96))] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
-                  <p className="ds-label">Analise financeira</p>
-                  <div className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
-                    <p><span className="font-semibold text-slate-950">Margem:</span> {report.financial.marginPercentage}%</p>
-                    <p><span className="font-semibold text-slate-950">Despesas sobre receita:</span> {report.financial.expenseRatio}%</p>
-                    <p>
-                      <span className="font-semibold text-slate-950">Categoria que mais pesou:</span>{" "}
-                      {report.financial.heaviestExpenseCategory?.category ?? "Sem categoria dominante"}
-                    </p>
-                    <p>
-                      <span className="font-semibold text-slate-950">Principal impacto:</span>{" "}
-                      {report.financial.heaviestExpenseCategory
-                        ? formatCurrency(report.financial.heaviestExpenseCategory.total)
-                        : "Sem despesas registradas"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-[color:var(--ds-primary-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(241,247,252,0.95))] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 ds-stat-primary" />
-                  <p className="font-semibold text-slate-950">Insights automaticos</p>
-                </div>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  {report.insights.map((insight) => (
-                    <div key={insight} className="rounded-2xl border border-[color:var(--ds-primary-border)]/60 bg-[color:var(--ds-primary-bg)]/90 px-4 py-3 text-sm leading-6 text-[color:var(--ds-text-secondary)]">
-                      {insight}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </SectionCard>
     </div>
+  );
+}
+
+export function PostEventReportsSection({ strategic }: { strategic: StrategicOverviewSnapshot }) {
+  return (
+    <SectionCard
+      title="Relatorios pos-evento"
+      description="Leitura final pronta para decisao, comparando resultado, comercial e impacto financeiro de cada festa."
+    >
+      <div className="space-y-4">
+        {strategic.postEventReports.map((report) => (
+          <article key={report.eventId} className="rounded-[24px] border border-[color:var(--ds-border)] bg-[linear-gradient(180deg,rgba(243,247,251,0.95),rgba(255,255,255,0.9)_34%,rgba(245,248,251,0.98))] p-4 shadow-[0_18px_45px_rgba(15,23,42,0.05)] sm:p-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <EventStatusBadge status={report.status} />
+                  <span className="ds-badge ds-badge-neutral">{formatDate(report.eventDate)}</span>
+                </div>
+                <h3 className="mt-3 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
+                  {report.eventName}
+                </h3>
+              </div>
+              <Link href={`/festas/${report.eventId}`} className="ds-button-secondary w-full sm:w-auto">
+                Abrir festa
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="mt-4 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]">
+              <SnapshotMetric label="Total arrecadado" value={formatCurrency(report.overview.totalRevenue)} tone="positive" />
+              <SnapshotMetric label="Despesas" value={formatCurrency(report.overview.totalExpenses)} tone="danger" />
+              <SnapshotMetric label="Lucro final" value={formatCurrency(report.overview.estimatedProfit)} tone={report.overview.estimatedProfit >= 0 ? "positive" : "danger"} />
+              <SnapshotMetric label="Ticket medio" value={formatCurrency(report.overview.averageTicket)} />
+              <SnapshotMetric label="Ingressos" value={`${report.overview.totalTicketsSold}`} />
+            </div>
+
+            <div className="mt-4 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+              <div className="rounded-2xl border border-[color:color-mix(in_srgb,var(--ds-border)_78%,var(--ds-primary-border)_22%)] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(243,248,252,0.96))] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+                <p className="ds-label">Analise comercial</p>
+                <div className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                  <p><span className="font-semibold text-slate-950">Lote campeao:</span> {report.commercial.bestBatchLabel}</p>
+                  <p><span className="font-semibold text-slate-950">Tipo dominante:</span> {formatTicketTypeLabel(report.commercial.dominantTicketType)}</p>
+                  <p><span className="font-semibold text-slate-950">Preco mais eficiente:</span> {formatCurrency(report.commercial.mostEfficientPrice)}</p>
+                  <p><span className="font-semibold text-slate-950">Tipo da venda dominante:</span> {formatSaleTypeLabel(report.commercial.dominantSaleType)}</p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-[color:color-mix(in_srgb,var(--ds-border)_76%,var(--ds-danger-border)_24%)] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(251,245,247,0.96))] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+                <p className="ds-label">Analise financeira</p>
+                <div className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                  <p><span className="font-semibold text-slate-950">Margem:</span> {report.financial.marginPercentage}%</p>
+                  <p><span className="font-semibold text-slate-950">Despesas sobre receita:</span> {report.financial.expenseRatio}%</p>
+                  <p>
+                    <span className="font-semibold text-slate-950">Categoria que mais pesou:</span>{" "}
+                    {report.financial.heaviestExpenseCategory?.category ?? "Sem categoria dominante"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-950">Principal impacto:</span>{" "}
+                    {report.financial.heaviestExpenseCategory
+                      ? formatCurrency(report.financial.heaviestExpenseCategory.total)
+                      : "Sem despesas registradas"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-[color:var(--ds-primary-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(241,247,252,0.95))] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 ds-stat-primary" />
+                <p className="font-semibold text-slate-950">Insights automaticos</p>
+              </div>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {report.insights.map((insight) => (
+                  <div key={insight} className="rounded-2xl border border-[color:var(--ds-primary-border)]/60 bg-[color:var(--ds-primary-bg)]/90 px-4 py-3 text-sm leading-6 text-[color:var(--ds-text-secondary)]">
+                    {insight}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </SectionCard>
   );
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
 import { CircleDollarSign, Pencil, Plus, ReceiptText, Ticket, Trash2, Wallet } from "lucide-react";
@@ -22,8 +22,8 @@ import {
   calculateFinanceTotals,
   calculateTicketTypeMetrics
 } from "@/lib/event-metrics";
-import { AdditionalRevenue, Expense, SalesRecord, ViewerPermissions } from "@/lib/types";
-import { formatCurrency, formatCurrencyParts } from "@/lib/utils";
+import { AdditionalRevenue, EventBatch, Expense, SaleType, SalesRecord, TicketType, ViewerPermissions } from "@/lib/types";
+import { formatCurrency, formatCurrencyParts, formatSaleTypeLabel, formatTicketTypeLabel } from "@/lib/utils";
 
 interface FinancePanelProps {
   eventId: string;
@@ -33,9 +33,13 @@ interface FinancePanelProps {
   totalRevenue: number;
   totalExpenses: number;
   estimatedProfit: number;
+  goalValue: number;
   sales: SalesRecord[];
   expenses: Expense[];
   additionalRevenues: AdditionalRevenue[];
+  eventBatches: EventBatch[];
+  hasVip: boolean;
+  hasGroupSales: boolean;
   compact?: boolean;
 }
 
@@ -331,6 +335,253 @@ function CashFlowPanel({
         </div>
         </>
       )}
+    </div>
+  );
+}
+
+function ResultSimulator({
+  ticketRevenue,
+  totalRevenue,
+  estimatedProfit,
+  goalValue,
+  currentTicketsSold,
+  eventBatches,
+  hasVip,
+  hasGroupSales
+}: {
+  ticketRevenue: number;
+  totalRevenue: number;
+  estimatedProfit: number;
+  goalValue: number;
+  currentTicketsSold: number;
+  eventBatches: EventBatch[];
+  hasVip: boolean;
+  hasGroupSales: boolean;
+}) {
+  const activeBatches = useMemo(
+    () => eventBatches.filter((batch) => batch.isActive).sort((a, b) => a.sortOrder - b.sortOrder),
+    [eventBatches]
+  );
+  const [quantity, setQuantity] = useState("50");
+  const [unitPrice, setUnitPrice] = useState("");
+  const [ticketType, setTicketType] = useState<TicketType>("pista");
+  const [saleType, setSaleType] = useState<SaleType>("normal");
+  const [batchId, setBatchId] = useState(activeBatches[0]?.id ?? "");
+  const [additionalExpense, setAdditionalExpense] = useState("0");
+
+  const selectedBatch = activeBatches.find((batch) => batch.id === batchId) ?? activeBatches[0];
+  const suggestedPrice =
+    selectedBatch && ticketType === "vip" ? selectedBatch.vipPrice ?? selectedBatch.pistaPrice ?? 0 : selectedBatch?.pistaPrice ?? 0;
+
+  useEffect(() => {
+    if (!batchId && activeBatches[0]) {
+      setBatchId(activeBatches[0].id);
+    }
+  }, [activeBatches, batchId]);
+
+  useEffect(() => {
+    if (suggestedPrice > 0) {
+      setUnitPrice(String(suggestedPrice));
+    }
+  }, [selectedBatch?.id, suggestedPrice, ticketType]);
+
+  useEffect(() => {
+    if (!hasVip && ticketType !== "pista") {
+      setTicketType("pista");
+    }
+  }, [hasVip, ticketType]);
+
+  useEffect(() => {
+    if (!hasGroupSales && saleType !== "normal") {
+      setSaleType("normal");
+    }
+  }, [hasGroupSales, saleType]);
+
+  const parsedQuantity = Number(quantity);
+  const parsedUnitPrice = Number(unitPrice);
+  const parsedAdditionalExpense = Number(additionalExpense);
+  const validQuantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 0;
+  const validUnitPrice = Number.isFinite(parsedUnitPrice) && parsedUnitPrice >= 0 ? parsedUnitPrice : 0;
+  const validAdditionalExpense = Number.isFinite(parsedAdditionalExpense) && parsedAdditionalExpense >= 0 ? parsedAdditionalExpense : 0;
+  const simulatedRevenue = validQuantity * validUnitPrice;
+  const profitDelta = simulatedRevenue - validAdditionalExpense;
+  const projectedTotalRevenue = totalRevenue + simulatedRevenue;
+  const projectedProfit = estimatedProfit + profitDelta;
+  const projectedAverageTicket =
+    currentTicketsSold + validQuantity > 0 ? (ticketRevenue + simulatedRevenue) / (currentTicketsSold + validQuantity) : 0;
+  const projectedGoalProgress = goalValue > 0 ? Math.round((projectedTotalRevenue / goalValue) * 100) : 0;
+  const hasValidationWarning =
+    parsedQuantity <= 0 ||
+    Number.isNaN(parsedQuantity) ||
+    parsedUnitPrice < 0 ||
+    Number.isNaN(parsedUnitPrice) ||
+    parsedAdditionalExpense < 0 ||
+    Number.isNaN(parsedAdditionalExpense);
+
+  return (
+    <div className="rounded-[28px] border border-brand-100 bg-gradient-to-br from-white via-brand-50/40 to-emerald-50/50 p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-700">Simulador de resultado</p>
+          <h3 className="mt-1 font-[var(--font-heading)] text-2xl font-bold tracking-tight text-slate-950">
+            Simule novas vendas antes de lancar no sistema
+          </h3>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+            Calculo temporario: nada aqui cria venda, altera financeiro ou muda as metricas reais da festa.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-white bg-white/80 px-4 py-3 text-sm text-slate-600 shadow-sm">
+          Lucro atual: <span className="font-semibold text-slate-950">{formatCurrency(estimatedProfit)}</span>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+        <div className="grid gap-3 rounded-[24px] border border-white bg-white/80 p-4 shadow-sm">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">
+              Quantidade adicional
+              <input
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value)}
+                className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-brand-400"
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">
+              Preco unitario
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={unitPrice}
+                onChange={(event) => setUnitPrice(event.target.value)}
+                className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-brand-400"
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">
+              Lote
+              <select
+                value={batchId}
+                onChange={(event) => setBatchId(event.target.value)}
+                className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-brand-400"
+              >
+                {activeBatches.length === 0 ? <option value="">Sem lotes ativos</option> : null}
+                {activeBatches.map((batch) => (
+                  <option key={batch.id} value={batch.id}>
+                    {batch.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">
+              Despesa adicional estimada
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={additionalExpense}
+                onChange={(event) => setAdditionalExpense(event.target.value)}
+                className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-brand-400"
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {hasVip ? (
+              <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                Tipo de ingresso
+                <select
+                  value={ticketType}
+                  onChange={(event) => setTicketType(event.target.value as TicketType)}
+                  className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-brand-400"
+                >
+                  <option value="pista">PISTA</option>
+                  <option value="vip">VIP</option>
+                </select>
+              </label>
+            ) : (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                <span className="ds-label text-slate-400">Tipo de ingresso</span>
+                <p className="mt-1 font-semibold text-slate-900">{formatTicketTypeLabel("pista")}</p>
+              </div>
+            )}
+
+            {hasGroupSales ? (
+              <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                Tipo de venda
+                <select
+                  value={saleType}
+                  onChange={(event) => setSaleType(event.target.value as SaleType)}
+                  className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-brand-400"
+                >
+                  <option value="normal">Normal</option>
+                  <option value="grupo">Grupo</option>
+                </select>
+              </label>
+            ) : (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                <span className="ds-label text-slate-400">Tipo de venda</span>
+                <p className="mt-1 font-semibold text-slate-900">{formatSaleTypeLabel("normal")}</p>
+              </div>
+            )}
+          </div>
+
+          {suggestedPrice > 0 ? (
+            <p className="rounded-2xl bg-brand-50 px-4 py-3 text-sm text-brand-800">
+              Preco sugerido para {selectedBatch?.name ?? "o lote"}: <span className="font-semibold">{formatCurrency(suggestedPrice)}</span>.
+            </p>
+          ) : null}
+
+          {hasValidationWarning ? (
+            <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Informe quantidade maior que zero e valores sem sinal negativo para calcular a simulacao.
+            </p>
+          ) : null}
+        </div>
+
+        <div className="grid gap-3">
+          <div className="rounded-[24px] border border-white bg-slate-950 p-5 text-white shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">Resultado projetado</p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-sm text-white/60">Receita adicional</p>
+                <p className="mt-1 font-[var(--font-heading)] text-3xl font-bold">{formatCurrency(simulatedRevenue)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-white/60">Lucro projetado</p>
+                <p className={`mt-1 font-[var(--font-heading)] text-3xl font-bold ${projectedProfit >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
+                  {formatCurrency(projectedProfit)}
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 rounded-2xl bg-white/10 px-4 py-3">
+              <p className="text-sm text-white/60">Diferenca no lucro</p>
+              <p className={`mt-1 text-xl font-semibold ${profitDelta >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
+                {profitDelta >= 0 ? "+" : "-"} {formatCurrency(Math.abs(profitDelta))}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+              <p className="ds-label text-slate-400">Total arrecadado</p>
+              <p className="mt-2 text-lg font-bold text-slate-950">{formatCurrency(projectedTotalRevenue)}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+              <p className="ds-label text-slate-400">Ticket medio</p>
+              <p className="mt-2 text-lg font-bold text-slate-950">{formatCurrency(projectedAverageTicket)}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+              <p className="ds-label text-slate-400">Meta projetada</p>
+              <p className="mt-2 text-lg font-bold text-brand-800">{goalValue > 0 ? `${projectedGoalProgress}%` : "Sem meta"}</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -734,9 +985,13 @@ export function FinancePanel({
   totalRevenue,
   totalExpenses,
   estimatedProfit,
+  goalValue,
   sales,
   expenses,
   additionalRevenues,
+  eventBatches,
+  hasVip,
+  hasGroupSales,
   compact = false
 }: FinancePanelProps) {
   const financeTotals = calculateFinanceTotals({
@@ -796,6 +1051,21 @@ export function FinancePanel({
           <ExpenseForm eventId={eventId} />
           <AdditionalRevenueForm eventId={eventId} />
         </>
+      ) : null}
+
+      {!compact ? (
+        <div className="mb-5 sm:mb-6">
+          <ResultSimulator
+            ticketRevenue={ticketRevenue}
+            totalRevenue={totalRevenue}
+            estimatedProfit={estimatedProfit}
+            goalValue={goalValue}
+            currentTicketsSold={sales.reduce((total, sale) => total + sale.sold, 0)}
+            eventBatches={eventBatches}
+            hasVip={hasVip}
+            hasGroupSales={hasGroupSales}
+          />
+        </div>
       ) : null}
 
       {expenses.length === 0 &&
