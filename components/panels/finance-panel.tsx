@@ -260,8 +260,11 @@ function CashFlowPanel({
             Entradas e saidas consolidadas por dia para acompanhar o saldo operacional da festa.
           </p>
         </div>
-        <span className="inline-flex items-center gap-2 rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
+        <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 shadow-sm transition group-hover:border-brand-200 group-hover:text-brand-700">
           {rows.length} dias
+          <span className="h-1 w-1 rounded-full bg-slate-300" />
+          <span className="group-open:hidden">Abrir</span>
+          <span className="hidden group-open:inline">Fechar</span>
           <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
         </span>
       </summary>
@@ -431,9 +434,13 @@ function ResultSimulator({
             Calculo temporario: nada aqui cria venda, altera financeiro ou muda as metricas reais da festa.
           </p>
         </div>
-        <div className="rounded-2xl border border-white bg-white/80 px-4 py-3 text-sm text-slate-600 shadow-sm">
+        <div className="inline-flex flex-wrap items-center gap-2 rounded-2xl border border-white bg-white/80 px-4 py-3 text-sm text-slate-600 shadow-sm transition group-hover:border-brand-200">
           Lucro atual: <span className="font-semibold text-slate-950">{formatCurrency(estimatedProfit)}</span>
-          <ChevronDown className="ml-2 inline h-4 w-4 align-text-bottom text-slate-400 transition group-open:rotate-180" />
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            <span className="group-open:hidden">Abrir</span>
+            <span className="hidden group-open:inline">Fechar</span>
+          </span>
+          <ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" />
         </div>
       </summary>
 

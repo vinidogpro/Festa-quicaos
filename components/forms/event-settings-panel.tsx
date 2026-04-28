@@ -62,7 +62,11 @@ function CollapsibleSettingsBlock({
           {icon}
           {title}
         </span>
-        <ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" />
+        <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 shadow-sm transition group-hover:border-brand-200 group-hover:text-brand-700">
+          <span className="group-open:hidden">Abrir</span>
+          <span className="hidden group-open:inline">Fechar</span>
+          <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
+        </span>
       </summary>
       <div className={`border-t p-4 ${tone === "danger" ? "border-rose-200" : tone === "warning" ? "border-amber-200" : "border-slate-100"}`}>
         {children}

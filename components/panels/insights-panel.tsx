@@ -213,8 +213,11 @@ function BatchAnalysisBlock({
             Leitura comercial por lote para entender volume, arrecadacao e ticket medio.
           </p>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm">
+        <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm transition group-hover:border-brand-200 group-hover:text-brand-700">
           {rows.length} lote(s)
+          <span className="h-1 w-1 rounded-full bg-slate-300" />
+          <span className="group-open:hidden">Abrir</span>
+          <span className="hidden group-open:inline">Fechar</span>
           <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
         </div>
       </summary>
@@ -319,7 +322,11 @@ function SaleTypeAnalysisBlock({
             Compare vendas normais e em grupo para entender impacto em volume e ticket medio.
           </p>
         </div>
-        <ChevronDown className="mt-1 h-4 w-4 text-slate-400 transition group-open:rotate-180" />
+        <span className="mt-1 inline-flex shrink-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm transition group-hover:border-brand-200 group-hover:text-brand-700">
+          <span className="group-open:hidden">Abrir</span>
+          <span className="hidden group-open:inline">Fechar</span>
+          <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
+        </span>
       </summary>
 
       <div className="mt-5 grid gap-4">
@@ -991,8 +998,11 @@ export function InsightsPanel({ event, compact = false }: InsightsPanelProps) {
                     Leitura historica da operacao para enxergar quando as vendas ganharam tracao, quando a receita subiu e quando os custos apertaram.
                   </p>
                 </div>
-                <span className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm">
+                <span className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm transition group-hover:border-brand-200 group-hover:text-brand-700">
                   {operationalTimeline.length} marco(s)
+                  <span className="h-1 w-1 rounded-full bg-slate-300" />
+                  <span className="group-open:hidden">Abrir</span>
+                  <span className="hidden group-open:inline">Fechar</span>
                   <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
                 </span>
               </summary>
